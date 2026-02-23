@@ -1,7 +1,7 @@
 module "schedule_shutdown" {
   count = var.env == "staging" ? 1 : 0
 
-  source = "github.com/cds-snc/terraform-modules//schedule_shutdown?ref=v10.10.2"
+  source = "github.com/cds-snc/terraform-modules//schedule_shutdown?ref=v10.11.0"
 
   ecs_service_arns = [
     module.idp_ecs.service_id,

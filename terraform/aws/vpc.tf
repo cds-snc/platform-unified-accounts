@@ -1,5 +1,5 @@
 module "idp_vpc" {
-  source = "github.com/cds-snc/terraform-modules//vpc?ref=v10.10.2"
+  source = "github.com/cds-snc/terraform-modules//vpc?ref=v10.11.0"
   name   = "idp-${var.env}"
 
   availability_zones               = local.vpc_az_count
