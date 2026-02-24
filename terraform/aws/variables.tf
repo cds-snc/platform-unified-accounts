@@ -111,7 +111,7 @@ variable "idp_loginclient_pat" {
   description = "The personal access token for the IdP login client."
   type        = string
   sensitive   = true
-} 
+}
 
 variable "idp_login_task_cpu" {
   description = "The CPU units for the idp login ECS task."

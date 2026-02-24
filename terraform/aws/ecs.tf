@@ -82,7 +82,7 @@ locals {
       "name"      = "ZITADEL_SERVICE_USER_TOKEN",
       "valueFrom" = aws_ssm_parameter.idp_loginclient_pat.arn
     }
-  ] 
+  ]
 }
 
 module "idp_ecs" {
