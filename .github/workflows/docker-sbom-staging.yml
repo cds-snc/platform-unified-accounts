@@ -49,7 +49,7 @@ jobs:
           ./docker/${{ matrix.service }}
 
     - name: Generate Docker image SBOM
-      uses: cds-snc/security-tools/.github/actions/generate-sbom@12a0cdea1c5a515dfcbe353693db804a1793c0ed # v4.0.1
+      uses: cds-snc/security-tools/.github/actions/generate-sbom@50aceef70baacb8b382e97e1ca7eaadc99ea94b6
       env:
         TRIVY_DB_REPOSITORY: ${{ vars.TRIVY_DB_REPOSITORY }}
       with:
