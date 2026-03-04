@@ -32,3 +32,4 @@ jobs:
           trivyignores: terraform/aws/.trivyignore
           exit-code: 1
           ignore-unfixed: false
+          version: v0.69.3
