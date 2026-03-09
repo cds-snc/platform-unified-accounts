@@ -50,7 +50,7 @@ jobs:
       uses: aws-actions/amazon-ecr-login@062b18b96a7aff071d4dc91bc00c4c1a7945b076 # v2.0.1 
 
     - name: Generate Docker image SBOM
-      uses: cds-snc/security-tools/.github/actions/generate-sbom@50aceef70baacb8b382e97e1ca7eaadc99ea94b6
+      uses: cds-snc/security-tools/.github/actions/generate-sbom@a55d3380441944245ba12aa93900ad062441df97
       env:
         TRIVY_DB_REPOSITORY: ${{ vars.TRIVY_DB_REPOSITORY }}
       with:
