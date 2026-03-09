@@ -1,4 +1,4 @@
-.PHONY: cert docker-idp docker-idp-login
+.PHONY: cert docker-idp docker-idp-login run
 
 cert:
 	openssl \
@@ -20,3 +20,6 @@ docker-idp-login:
 	docker build \
 		-t idp-login:latest \
 		-f ./docker/idp-login/Dockerfile ./docker/idp-login
+
+run: cert
+	docker-compose -f ./docker/docker-compose.yml up
