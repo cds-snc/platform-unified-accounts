@@ -76,6 +76,10 @@ locals {
       "name"  = "CUSTOM_REQUEST_HEADERS",
       "value" = "Host:${var.domain}"
     },
+    {
+      "name" = "EMAIL_VERFICATION",
+      "value" = "true"
+    }
   ]
   login_container_secrets = [
     {
