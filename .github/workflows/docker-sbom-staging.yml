@@ -19,11 +19,6 @@ jobs:
   docker-sbom:
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        service:
-          - idp
-          - idp-login
     
     steps:
     - name: Audit DNS requests
@@ -54,8 +49,8 @@ jobs:
       env:
         TRIVY_DB_REPOSITORY: ${{ vars.TRIVY_DB_REPOSITORY }}
       with:
-        docker_image: "${{ env.REGISTRY_PREFIX }}/${{ matrix.service }}:latest"
-        dockerfile_path: "./docker/${{ matrix.service }}/Dockerfile"
-        sbom_name: "${{ matrix.service }}"
+        docker_image: "${{ env.REGISTRY_PREFIX }}/idp:latest"
+        dockerfile_path: "./docker/idp/Dockerfile"
+        sbom_name: "idp"
         token: "${{ secrets.GITHUB_TOKEN }}"
         platform: "linux/arm64"

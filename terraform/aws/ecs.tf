@@ -77,7 +77,7 @@ locals {
       "value" = "Host:${var.domain}"
     },
     {
-      "name"  = "EMAIL_VERFICATION",
+      "name"  = "EMAIL_VERIFICATION",
       "value" = "true"
     }
   ]
@@ -348,7 +348,6 @@ resource "aws_ssm_parameter" "idp_notify_api_key" {
   type  = "SecureString"
   value = var.idp_notify_api_key
   tags  = local.common_tags
-
 }
 
 resource "aws_ssm_parameter" "idp_notify_template_id" {

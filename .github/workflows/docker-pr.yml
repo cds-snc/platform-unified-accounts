@@ -16,11 +16,6 @@ permissions:
 jobs:
   docker-hadolint:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        service:
-          - idp
-          - idp-login
     steps:
       - name: Audit DNS requests
         uses: cds-snc/dns-proxy-action@f0796e7f3d6bec5d40aecb0321ed8012f5602f84
@@ -37,15 +32,10 @@ jobs:
       - name: Hadolint
         uses: hadolint/hadolint-action@2332a7b74a6de0dda2e2221d575162eba76ba5e5 # v3.3.0
         with:
-          dockerfile: ./docker/${{ matrix.service }}/Dockerfile
+          dockerfile: ./docker/idp/Dockerfile
 
   docker-build:
     runs-on: ubuntu-24.04-arm
-    strategy:
-      matrix:
-        service:
-          - idp
-          - idp-login
     steps: 
       - name: Audit DNS requests
         uses: cds-snc/dns-proxy-action@f0796e7f3d6bec5d40aecb0321ed8012f5602f84
@@ -67,7 +57,7 @@ jobs:
           make cert
           docker buildx build \
             --platform linux/arm64 \
-            -t "$REGISTRY_PREFIX/${{ matrix.service }}:latest" \
-            -f ./docker/${{ matrix.service }}/Dockerfile \
-            ./docker/${{ matrix.service }}
+            -t "$REGISTRY_PREFIX/idp:latest" \
+            -f ./docker/idp/Dockerfile \
+            ./docker/idp
 
