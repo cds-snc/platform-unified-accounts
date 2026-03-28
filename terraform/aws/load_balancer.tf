@@ -26,7 +26,7 @@ resource "random_string" "alb_idp_tg_suffix" {
   upper   = false
   keepers = {
     port     = 8080
-    protocol = "HTTPS"
+    protocol = "HTTP"
     path     = "/debug/healthz"
   }
 }
@@ -47,7 +47,7 @@ resource "aws_lb_target_group" "idp" {
 
   name                 = "idp-tg-${each.value}-${random_string.alb_idp_tg_suffix.result}"
   port                 = 8080
-  protocol             = "HTTPS"
+  protocol             = "HTTP"
   protocol_version     = each.value
   target_type          = "ip"
   deregistration_delay = 30
@@ -55,7 +55,7 @@ resource "aws_lb_target_group" "idp" {
 
   health_check {
     enabled  = true
-    protocol = "HTTPS"
+    protocol = "HTTP"
     path     = "/debug/healthz"
     matcher  = "200-399"
   }

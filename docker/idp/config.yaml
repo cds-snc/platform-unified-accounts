@@ -5,12 +5,10 @@ Log:
   Level: 'INFO'
 
 Port: 8080
-ExternalPort: 443
+ExternalPort: 8080
 ExternalSecure: true
 TLS:
-  Enabled: true
-  KeyPath: '/app/private.key'
-  CertPath: '/app/certificate.crt'
+  Enabled: false
 
 Database:
   postgres:
