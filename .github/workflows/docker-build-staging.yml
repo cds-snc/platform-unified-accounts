@@ -51,7 +51,6 @@ jobs:
   
     - name: Build and push image
       run: |
-        make cert
         docker buildx build \
           --push \
           --platform linux/arm64 \

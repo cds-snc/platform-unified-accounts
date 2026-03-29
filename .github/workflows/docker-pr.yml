@@ -54,7 +54,6 @@ jobs:
 
       - name: Build image
         run: |
-          make cert
           docker buildx build \
             --platform linux/arm64 \
             -t "$REGISTRY_PREFIX/idp:latest" \
