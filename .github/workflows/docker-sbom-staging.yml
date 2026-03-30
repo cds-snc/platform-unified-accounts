@@ -6,23 +6,17 @@ on:
     types:
     - completed
 
-
-env:
-  AWS_REGION: ca-central-1
-  REGISTRY_PREFIX: ${{ vars.STAGING_AWS_ACCOUNT_ID }}.dkr.ecr.ca-central-1.amazonaws.com
-
 permissions:
-  id-token: write
   contents: write
   
 jobs:
   docker-sbom:
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm
     
     steps:
     - name: Audit DNS requests
-      uses: cds-snc/dns-proxy-action@f0796e7f3d6bec5d40aecb0321ed8012f5602f84
+      uses: cds-snc/dns-proxy-action@f0796e7f3d6bec5d40aecb0321ed8012f5602f84 # v1.0.2
       env:
         DNS_PROXY_FORWARDTOSENTINEL: "true"
         DNS_PROXY_LOGANALYTICSWORKSPACEID: ${{ secrets.LOG_ANALYTICS_WORKSPACE_ID }}
@@ -33,24 +27,20 @@ jobs:
       with:
         persist-credentials: false
 
-    - name: Configure AWS credentials using OIDC
-      uses: aws-actions/configure-aws-credentials@8df5847569e6427dd6c4fb1cf565c83acfa8afa7 # v6.0.0
-      with:
-        role-to-assume: arn:aws:iam::${{ vars.STAGING_AWS_ACCOUNT_ID }}:role/unified-accounts-plan 
-        role-session-name: PullImage
-        aws-region: ${{ env.AWS_REGION }}
-
-    - name: Login to Amazon ECR
-      id: login-ecr
-      uses: aws-actions/amazon-ecr-login@261fc3d4806db1fa66a15cc11113c456db8870a7 # v2.1.0 
+    - name: Build image
+      run: |
+        docker build \
+          --platform linux/arm64 \
+          --tag idp:latest \
+          --file ./docker/idp/Dockerfile \
+          ./docker/idp
 
     - name: Generate Docker image SBOM
-      uses: cds-snc/security-tools/.github/actions/generate-sbom@837a88b6337d4842543184c8eac97a8adac8f302
+      uses: cds-snc/security-tools/.github/actions/generate-sbom@837a88b6337d4842543184c8eac97a8adac8f302 # v4.0.3
       env:
         TRIVY_DB_REPOSITORY: ${{ vars.TRIVY_DB_REPOSITORY }}
       with:
-        docker_image: "${{ env.REGISTRY_PREFIX }}/idp:latest"
+        docker_image: "idp"
         dockerfile_path: "./docker/idp/Dockerfile"
-        sbom_name: "idp"
         token: "${{ secrets.GITHUB_TOKEN }}"
         platform: "linux/arm64"

@@ -22,6 +22,13 @@ jobs:
       WORKFLOW_NAME: '${{ github.event.workflow_run.name }}'
       WORKFLOW_URL: '${{ github.event.workflow_run.html_url }}'
     steps:
+      - name: Audit DNS requests
+        uses: cds-snc/dns-proxy-action@f0796e7f3d6bec5d40aecb0321ed8012f5602f84 # v1.0.2
+        env:
+          DNS_PROXY_FORWARDTOSENTINEL: "true"
+          DNS_PROXY_LOGANALYTICSWORKSPACEID: ${{ secrets.LOG_ANALYTICS_WORKSPACE_ID }}
+          DNS_PROXY_LOGANALYTICSSHAREDKEY: ${{ secrets.LOG_ANALYTICS_WORKSPACE_KEY }}
+
       - name: Determine target ops channel
         id: webhook
         run: |
