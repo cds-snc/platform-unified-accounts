@@ -83,10 +83,11 @@ type cloudWatchLogsEvent struct {
 }
 
 type cloudWatchLogsPayload struct {
-	MessageType string                `json:"messageType"`
-	LogGroup    string                `json:"logGroup"`
-	LogStream   string                `json:"logStream"`
-	LogEvents   []cloudWatchLogRecord `json:"logEvents"`
+	MessageType         string                `json:"messageType"`
+	LogGroup            string                `json:"logGroup"`
+	LogStream           string                `json:"logStream"`
+	LogEvents           []cloudWatchLogRecord `json:"logEvents"`
+	SubscriptionFilters []string              `json:"subscriptionFilters"`
 }
 
 type cloudWatchLogRecord struct {
@@ -169,7 +170,7 @@ func decodeCloudWatchLogsData(encodedData string) (*cloudWatchLogsPayload, error
 }
 
 func postToSlack(ctx context.Context, webhookURL string, payload cloudWatchLogsPayload) error {
-	messageBody, err := json.Marshal(formatSlackMessage(payload.LogGroup, payload.LogStream, payload.LogEvents))
+	messageBody, err := json.Marshal(formatSlackMessage(payload.SubscriptionFilters, payload.LogGroup, payload.LogEvents))
 	if err != nil {
 		return fmt.Errorf("marshal Slack payload: %w", err)
 	}
@@ -194,10 +195,16 @@ func postToSlack(ctx context.Context, webhookURL string, payload cloudWatchLogsP
 	return nil
 }
 
-func formatSlackMessage(logGroup string, logStream string, logEvents []cloudWatchLogRecord) slackMessage {
-	header := ":fire: CloudWatch Error"
-	if logGroup != "" {
-		header = fmt.Sprintf(":fire: *%s*", logGroup)
+func formatSlackMessage(subscriptionFilters []string, logGroup string, logEvents []cloudWatchLogRecord) slackMessage {
+
+	header := fmt.Sprintf(":fire: *Error %s*", logGroup)
+	colour := "#eb1607"
+	for _, filter := range subscriptionFilters {
+		if filter == "audit-event-logged" {
+			header = fmt.Sprintf(":warning: *Audit %s*", logGroup)
+			colour = "#e3b505"
+			break
+		}
 	}
 
 	var msgBuilder strings.Builder
@@ -211,7 +218,7 @@ func formatSlackMessage(logGroup string, logStream string, logEvents []cloudWatc
 	return slackMessage{
 		Attachments: []slackAttachment{
 			{
-				Color: "#eb1607",
+				Color: colour,
 				Blocks: []slackBlock{
 					{
 						Type: "section",

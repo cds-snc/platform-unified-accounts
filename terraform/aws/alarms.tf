@@ -225,6 +225,16 @@ resource "aws_cloudwatch_log_subscription_filter" "error_logged" {
   destination_arn = module.alarms_slack.function_arn
 }
 
+#
+# Audit event logged
+#
+resource "aws_cloudwatch_log_subscription_filter" "audit_event_logged" {
+  name            = "audit-event-logged"
+  log_group_name  = module.event_exporter_lambda.lambda_function_cloudwatch_log_group_name
+  filter_pattern  = "Audit event:"
+  destination_arn = module.alarms_slack.function_arn
+}
+
 resource "aws_cloudwatch_metric_alarm" "lambda_errors" {
   for_each = local.lambda_functions
 

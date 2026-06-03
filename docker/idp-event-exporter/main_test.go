@@ -1,12 +1,51 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
+	"log"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 )
+
+func TestAuditEvents_MatchesPatterns(t *testing.T) {
+	var logBuffer bytes.Buffer
+	origOutput := log.Writer()
+	origFlags := log.Flags()
+	log.SetOutput(&logBuffer)
+	log.SetFlags(0)
+	defer log.SetOutput(origOutput)
+	defer log.SetFlags(origFlags)
+
+	events := []json.RawMessage{
+		json.RawMessage(`{"type":{"type":"instance.member.added"},"editor":{"displayName":"alice"},"creationDate":"2026-04-21T15:05:00.000000Z"}`),
+		json.RawMessage(`{"type":{"type":"project.application.added"},"editor":{"displayName":"bob"},"creationDate":"2026-04-21T15:05:00.000000Z"}`),
+	}
+
+	auditEvents(events, []string{`instance.member.*`})
+
+	got := logBuffer.String()
+	if !strings.Contains(got, "Audit event:\ntype=instance.member.added") {
+		t.Fatalf("expected matching audit event to be logged, got %q", got)
+	}
+	if strings.Contains(got, "Audit event:\ntype=project.application.added") {
+		t.Fatalf("expected non-matching audit event to be skipped, got %q", got)
+	}
+}
+
+func TestEventEnvelope_ExtractsNestedType(t *testing.T) {
+	var meta eventEnvelope
+	input := []byte(`{"type":{"type":"instance.member.added"}}`)
+	if err := json.Unmarshal(input, &meta); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got, want := meta.Type.Type, "instance.member.added"; got != want {
+		t.Fatalf("type.type: got %q, want %q", got, want)
+	}
+}
 
 // ---------------------------------------------------------------------------
 // computeWindow
