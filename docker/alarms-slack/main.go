@@ -196,7 +196,6 @@ func postToSlack(ctx context.Context, webhookURL string, payload cloudWatchLogsP
 }
 
 func formatSlackMessage(subscriptionFilters []string, logGroup string, logEvents []cloudWatchLogRecord) slackMessage {
-
 	header := fmt.Sprintf(":fire: *Error %s*", logGroup)
 	colour := "#eb1607"
 	for _, filter := range subscriptionFilters {
