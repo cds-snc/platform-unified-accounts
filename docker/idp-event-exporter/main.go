@@ -5,7 +5,7 @@
 //	ZITADEL_URL            - Base URL of the Zitadel instance
 //	S3_BUCKET              - Destination S3 bucket name
 //	ZITADEL_TOKEN_SSM_PATH - SSM Parameter Store path for the Zitadel Bearer token
-//  ZITADEL_HOST           - Host header value for Zitadel API requests
+//	ZITADEL_HOST           - Host header value for Zitadel API requests
 //
 // Optional environment variables:
 //
@@ -21,6 +21,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -32,6 +33,18 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/ssm"
 )
+
+// List of event types that should alert the team when they occur
+// `*` is replaced by `.*` when the regex is compiled
+var eventsTypesToAudit = []string{
+	"instance.member.*",
+	"org.member.*",
+	"instance.policy.*",
+	"org.policy.*",
+	"project.application.added",
+	"project.application.removed",
+	"project.application.config.*",
+}
 
 // ---------------------------------------------------------------------------
 // Module-level configuration (read once at cold start)
@@ -167,6 +180,19 @@ type eventSearchResponse struct {
 	Events []json.RawMessage `json:"events"`
 }
 
+type eventEnvelope struct {
+	Editor struct {
+		UserID      string `json:"userId"`
+		DisplayName string `json:"displayName"`
+		Service     string `json:"service"`
+	} `json:"editor"`
+	CreationDate string          `json:"creationDate"`
+	Payload      json.RawMessage `json:"payload"`
+	Type         struct {
+		Type string `json:"type"`
+	} `json:"type"`
+}
+
 // fetchEvents fetches all events from the Zitadel Admin API on or after windowStart.
 func fetchEvents(ctx context.Context, client *http.Client, baseURL, token string, windowStart time.Time) ([]json.RawMessage, error) {
 	url := strings.TrimRight(baseURL, "/") + "/admin/v1/events/_search"
@@ -211,6 +237,43 @@ func fetchEvents(ctx context.Context, client *http.Client, baseURL, token string
 
 	log.Printf("Fetched %d event(s)", len(result.Events))
 	return result.Events, nil
+}
+
+func auditEvents(events []json.RawMessage, patterns []string) {
+	log.Printf("Auditing %d event(s) for events of interest", len(events))
+
+	// Pre-compile regex patterns
+	patternsCompiled := make([]*regexp.Regexp, len(patterns))
+	for i, pattern := range patterns {
+		regexPattern := "^" + strings.ReplaceAll(pattern, "*", ".*") + "$"
+		compiledPattern, err := regexp.Compile(regexPattern)
+		if err != nil {
+			log.Printf("Error compiling regex for pattern %q: %v", pattern, err)
+			continue
+		}
+		patternsCompiled[i] = compiledPattern
+	}
+
+	// Loop through events and log those that match any of the patterns we're auditting
+	for _, e := range events {
+		var envelope eventEnvelope
+		if err := json.Unmarshal(e, &envelope); err != nil {
+			log.Printf("Error parsing event metadata: %v", err)
+			continue
+		}
+		for _, pattern := range patternsCompiled {
+			if pattern.MatchString(envelope.Type.Type) {
+				log.Printf(
+					"Audit event:\ntype=%s\neditor=%s\ndate=%s\n\n%s",
+					envelope.Type.Type,
+					envelope.Editor.DisplayName,
+					envelope.CreationDate,
+					string(envelope.Payload),
+				)
+				break
+			}
+		}
+	}
 }
 
 // saveToS3 serialises events as newline-delimited JSON and writes it to the
@@ -286,6 +349,8 @@ func handler(ctx context.Context) (response, error) {
 		log.Printf("Audit export complete: %+v", result)
 		return result, nil
 	}
+
+	auditEvents(events, eventsTypesToAudit)
 
 	s3Key := fmt.Sprintf("events/%s.json", windowStart.Format("2006/01/02/15-04-05"))
 	if err := saveToS3(ctx, s3Bucket, s3Key, events); err != nil {

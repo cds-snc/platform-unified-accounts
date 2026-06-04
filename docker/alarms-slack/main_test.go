@@ -103,9 +103,10 @@ func TestLoadSlackWebhookURL_PropagatesSSMError(t *testing.T) {
 
 func TestDecodeCloudWatchLogsData(t *testing.T) {
 	encodedData := encodeLogsPayload(t, cloudWatchLogsPayload{
-		MessageType: "DATA_MESSAGE",
-		LogGroup:    "/aws/lambda/example",
-		LogStream:   "stream-1",
+		MessageType:         "DATA_MESSAGE",
+		LogGroup:            "/aws/lambda/example",
+		LogStream:           "stream-1",
+		SubscriptionFilters: []string{"audit-event-logged"},
 		LogEvents: []cloudWatchLogRecord{
 			{ID: "1", Message: "something failed"},
 		},
@@ -121,6 +122,9 @@ func TestDecodeCloudWatchLogsData(t *testing.T) {
 	}
 	if len(payload.LogEvents) != 1 || payload.LogEvents[0].Message != "something failed" {
 		t.Fatalf("unexpected payload: %+v", payload.LogEvents)
+	}
+	if len(payload.SubscriptionFilters) != 1 || payload.SubscriptionFilters[0] != "audit-event-logged" {
+		t.Fatalf("unexpected subscription filters: %+v", payload.SubscriptionFilters)
 	}
 }
 
@@ -157,9 +161,10 @@ func TestHandler_PostsSingleSlackMessageForAllLogEvents(t *testing.T) {
 			Data string `json:"data"`
 		}{
 			Data: encodeLogsPayload(t, cloudWatchLogsPayload{
-				MessageType: "DATA_MESSAGE",
-				LogGroup:    "/aws/lambda/example",
-				LogStream:   "stream-1",
+				MessageType:         "DATA_MESSAGE",
+				LogGroup:            "/aws/lambda/example",
+				LogStream:           "stream-1",
+				SubscriptionFilters: []string{"error-alerts"},
 				LogEvents: []cloudWatchLogRecord{
 					{ID: "1", Message: "first failure"},
 					{ID: "2", Message: "second failure"},
@@ -198,6 +203,67 @@ func TestHandler_PostsSingleSlackMessageForAllLogEvents(t *testing.T) {
 	}
 }
 
+func TestHandler_FormatsAuditEventsAsWarnings(t *testing.T) {
+	var requests []slackMessage
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer r.Body.Close()
+
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Fatalf("read request body: %v", err)
+		}
+
+		var message slackMessage
+		if err := json.Unmarshal(body, &message); err != nil {
+			t.Fatalf("unmarshal request body: %v", err)
+		}
+
+		requests = append(requests, message)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	fakeClient := &fakeSSMClient{value: server.URL}
+	restore := setHandlerGlobals(t, "/alerts/slack-webhook", fakeClient, server.Client(), "")
+	defer restore()
+
+	err := handler(t.Context(), cloudWatchLogsEvent{
+		AWSLogs: struct {
+			Data string `json:"data"`
+		}{
+			Data: encodeLogsPayload(t, cloudWatchLogsPayload{
+				MessageType:         "DATA_MESSAGE",
+				LogGroup:            "/aws/lambda/audit-example",
+				LogStream:           "stream-1",
+				SubscriptionFilters: []string{"audit-event-logged"},
+				LogEvents: []cloudWatchLogRecord{
+					{ID: "1", Message: "audit event recorded"},
+				},
+			}),
+		},
+	})
+	if err != nil {
+		t.Fatalf("handle returned error: %v", err)
+	}
+
+	if len(requests) != 1 {
+		t.Fatalf("got %d Slack requests, want 1", len(requests))
+	}
+
+	attachment := requests[0].Attachments[0]
+	if attachment.Color != "#e3b505" {
+		t.Fatalf("unexpected attachment color: %q", attachment.Color)
+	}
+
+	headerText := attachment.Blocks[0].Text.Text
+	if !strings.Contains(headerText, ":warning:") {
+		t.Fatalf("unexpected Slack message header: %q", headerText)
+	}
+	if !strings.Contains(headerText, "/aws/lambda/audit-example") {
+		t.Fatalf("unexpected Slack message header: %q", headerText)
+	}
+}
+
 func TestHandler_IgnoresControlMessages(t *testing.T) {
 	restore := setHandlerGlobals(t, "/alerts/slack-webhook", &fakeSSMClient{}, http.DefaultClient, "https://hooks.slack.test/services/123")
 	defer restore()
@@ -232,10 +298,23 @@ func TestHandler_RequiresAWSLogsData(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestFormatSlackMessageHandlesEmptyMessage(t *testing.T) {
-	msg := formatSlackMessage("/aws/lambda/example", "stream-1", []cloudWatchLogRecord{{Message: "   "}})
+	msg := formatSlackMessage(nil, "/aws/lambda/example", []cloudWatchLogRecord{{Message: "   "}})
 	bodyText := msg.Attachments[0].Blocks[2].Text.Text
 	if !strings.Contains(bodyText, "<empty log message>") {
 		t.Fatalf("unexpected message: %q", bodyText)
+	}
+}
+
+func TestFormatSlackMessageMarksAuditEvents(t *testing.T) {
+	msg := formatSlackMessage([]string{"audit-event-logged"}, "/aws/lambda/example", []cloudWatchLogRecord{{Message: "audit entry"}})
+	attachment := msg.Attachments[0]
+	if attachment.Color != "#e3b505" {
+		t.Fatalf("unexpected attachment color: %q", attachment.Color)
+	}
+
+	headerText := attachment.Blocks[0].Text.Text
+	if !strings.Contains(headerText, ":warning:") {
+		t.Fatalf("unexpected Slack message header: %q", headerText)
 	}
 }
 
