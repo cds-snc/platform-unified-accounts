@@ -1,7 +1,8 @@
 locals {
   # IdP errors
   idp_error_filters = [
-    "level=error"
+    "level=error",
+    "level=ERROR",
   ]
   idp_error_skip_filters = [
     "already been committed",
