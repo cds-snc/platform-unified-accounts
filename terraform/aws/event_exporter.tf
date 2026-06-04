@@ -39,11 +39,15 @@ module "event_exporter_s3" {
 /*
  * Lambda function to export events to S3
  */
+locals {
+  event_window_minutes = 5
+}
+
 module "event_exporter_lambda" {
   source = "github.com/cds-snc/terraform-modules//lambda_schedule?ref=v11.3.0"
 
   lambda_name                = "idp-event-exporter"
-  lambda_schedule_expression = "cron(0/15 * * * ? *)" # Every 15 minutes
+  lambda_schedule_expression = "cron(0/${local.event_window_minutes} * * * ? *)"
   lambda_timeout             = "60"
   lambda_architectures       = ["arm64"]
   lambda_ecr_arn             = aws_ecr_repository.idp_event_exporter.arn
@@ -58,7 +62,7 @@ module "event_exporter_lambda" {
     ZITADEL_HOST           = var.domain
     ZITADEL_TOKEN_SSM_PATH = aws_ssm_parameter.idp_event_exporter_bearer_token.name
     ZITADEL_URL            = "http://idp.${aws_service_discovery_private_dns_namespace.idp_ecs.name}:8080"
-    WINDOW_MINUTES         = 15
+    WINDOW_MINUTES         = local.event_window_minutes
   }
 
   lambda_vpc_config = {
