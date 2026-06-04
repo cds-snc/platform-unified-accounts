@@ -264,10 +264,9 @@ func auditEvents(events []json.RawMessage, patterns []string) {
 		for _, pattern := range patternsCompiled {
 			if pattern.MatchString(envelope.Type.Type) {
 				log.Printf(
-					"Audit event: type=%s editor=%s date=%s payload=%s",
+					"AEVT: %s by %s change=%s",
 					envelope.Type.Type,
 					envelope.Editor.DisplayName,
-					envelope.CreationDate,
 					string(envelope.Payload),
 				)
 				break
