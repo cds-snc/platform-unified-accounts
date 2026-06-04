@@ -43,7 +43,7 @@ module "event_exporter_lambda" {
   source = "github.com/cds-snc/terraform-modules//lambda_schedule?ref=v11.3.0"
 
   lambda_name                = "idp-event-exporter"
-  lambda_schedule_expression = "cron(0/15 * * * ? *)" # Every 15 minutes
+  lambda_schedule_expression = "cron(0/5 * * * ? *)" # Every 5 minutes
   lambda_timeout             = "60"
   lambda_architectures       = ["arm64"]
   lambda_ecr_arn             = aws_ecr_repository.idp_event_exporter.arn

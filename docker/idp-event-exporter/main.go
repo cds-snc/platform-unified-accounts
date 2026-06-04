@@ -264,7 +264,7 @@ func auditEvents(events []json.RawMessage, patterns []string) {
 		for _, pattern := range patternsCompiled {
 			if pattern.MatchString(envelope.Type.Type) {
 				log.Printf(
-					"Audit event:\ntype=%s\neditor=%s\ndate=%s\n\n%s",
+					"Audit event: type=%s editor=%s date=%s payload=%s",
 					envelope.Type.Type,
 					envelope.Editor.DisplayName,
 					envelope.CreationDate,
@@ -324,7 +324,7 @@ func handler(ctx context.Context) (response, error) {
 
 	now := time.Now().UTC()
 	windowStart, windowEnd := computeWindow(now, windowMinutes)
-	log.Printf("Starting audit export: window=[%s, %s) window_minutes=%d",
+	log.Printf("Starting event export: window=[%s, %s) window_minutes=%d",
 		windowStart.Format(time.RFC3339), windowEnd.Format(time.RFC3339), windowMinutes)
 
 	token, err := loadBearerToken(ctx)
@@ -346,7 +346,7 @@ func handler(ctx context.Context) (response, error) {
 
 	if len(events) == 0 {
 		log.Println("No events in window, skipping S3 upload")
-		log.Printf("Audit export complete: %+v", result)
+		log.Printf("Event export complete: %+v", result)
 		return result, nil
 	}
 
@@ -357,7 +357,7 @@ func handler(ctx context.Context) (response, error) {
 		return response{}, fmt.Errorf("saving to S3: %w", err)
 	}
 	result.S3Key = s3Key
-	log.Printf("Audit export complete: %+v", result)
+	log.Printf("Event export complete: %+v", result)
 	return result, nil
 }
 
