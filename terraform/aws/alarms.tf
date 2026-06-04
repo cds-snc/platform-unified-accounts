@@ -1,7 +1,8 @@
 locals {
   # IdP errors
   idp_error_filters = [
-    "level=error"
+    "level=error",
+    "level=ERROR",
   ]
   idp_error_skip_filters = [
     "already been committed",
@@ -231,7 +232,7 @@ resource "aws_cloudwatch_log_subscription_filter" "error_logged" {
 resource "aws_cloudwatch_log_subscription_filter" "audit_event_logged" {
   name            = "audit-event-logged"
   log_group_name  = module.event_exporter_lambda.lambda_function_cloudwatch_log_group_name
-  filter_pattern  = "Audit event:"
+  filter_pattern  = "Audit event"
   destination_arn = module.alarms_slack.function_arn
 }
 
