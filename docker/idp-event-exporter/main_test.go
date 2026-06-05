@@ -28,10 +28,10 @@ func TestAuditEvents_MatchesPatterns(t *testing.T) {
 	auditEvents(events, []string{`instance.member.*`})
 
 	got := logBuffer.String()
-	if !strings.Contains(got, "AEVT: instance.member.added") {
+	if !strings.Contains(got, "AEVT: `instance.member.added`") {
 		t.Fatalf("expected matching audit event to be logged, got %q", got)
 	}
-	if strings.Contains(got, "AEVT: project.application.added") {
+	if strings.Contains(got, "AEVT: `project.application.added`") {
 		t.Fatalf("expected non-matching audit event to be skipped, got %q", got)
 	}
 }
