@@ -228,7 +228,7 @@ func formatSlackMessage(subscriptionFilters []string, logGroup string, logEvents
 					},
 					{
 						Type: "section",
-						Text: &slackBlockText{Type: "plain_text", Text: msgBuilder.String()},
+						Text: &slackBlockText{Type: "mrkdwn", Text: msgBuilder.String()},
 					},
 				},
 			},
