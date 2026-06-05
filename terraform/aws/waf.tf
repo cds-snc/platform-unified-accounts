@@ -486,7 +486,7 @@ resource "aws_wafv2_web_acl" "idp" {
     sampled_requests_enabled   = true
   }
 
-  tags = local.common_tags
+  tags = local.core_tags
 }
 
 resource "aws_wafv2_web_acl_association" "idp" {

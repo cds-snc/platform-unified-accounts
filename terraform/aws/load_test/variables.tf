@@ -4,6 +4,12 @@ variable "common_tags" {
   default     = {}
 }
 
+variable "core_tags" {
+  description = "Core tags to apply to all resources"
+  type        = map(string)
+  default     = {}
+}
+
 variable "ecr_policy" {
   description = "The ECR lifecycle policy JSON content"
   type        = string

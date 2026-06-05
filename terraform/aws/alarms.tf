@@ -101,7 +101,7 @@ resource "aws_cloudwatch_metric_alarm" "idp_ecs_high_cpu" {
     ServiceName = each.key
   }
 
-  tags = local.common_tags
+  tags = local.core_tags
 }
 
 resource "aws_cloudwatch_metric_alarm" "idp_ecs_high_memory" {
@@ -126,7 +126,7 @@ resource "aws_cloudwatch_metric_alarm" "idp_ecs_high_memory" {
     ServiceName = each.key
   }
 
-  tags = local.common_tags
+  tags = local.core_tags
 }
 
 #
@@ -154,7 +154,7 @@ resource "aws_cloudwatch_metric_alarm" "idp_load_balancer_unhealthy_hosts" {
     TargetGroup  = each.value.arn_suffix
   }
 
-  tags = local.common_tags
+  tags = local.core_tags
 }
 
 resource "aws_cloudwatch_metric_alarm" "idp_load_balancer_healthy_hosts" {
@@ -179,7 +179,7 @@ resource "aws_cloudwatch_metric_alarm" "idp_load_balancer_healthy_hosts" {
     TargetGroup  = each.value.arn_suffix
   }
 
-  tags = local.common_tags
+  tags = local.core_tags
 }
 
 resource "aws_cloudwatch_metric_alarm" "idp_load_balancer_response_time" {
@@ -211,7 +211,7 @@ resource "aws_cloudwatch_metric_alarm" "idp_load_balancer_response_time" {
     }
   }
 
-  tags = local.common_tags
+  tags = local.core_tags
 }
 
 #
@@ -256,6 +256,8 @@ resource "aws_cloudwatch_metric_alarm" "lambda_errors" {
 
   alarm_actions = [aws_sns_topic.cloudwatch_alert_warning.arn]
   ok_actions    = [aws_sns_topic.cloudwatch_alert_ok.arn]
+
+  tags = local.core_tags
 }
 
 #
@@ -275,6 +277,8 @@ resource "aws_cloudwatch_metric_alarm" "ses_bounce_rate_high" {
 
   alarm_actions = [aws_sns_topic.cloudwatch_alert_warning.arn]
   ok_actions    = [aws_sns_topic.cloudwatch_alert_ok.arn]
+
+  tags = local.core_tags
 }
 
 resource "aws_cloudwatch_metric_alarm" "ses_complaint_rate_high" {
@@ -291,6 +295,8 @@ resource "aws_cloudwatch_metric_alarm" "ses_complaint_rate_high" {
 
   alarm_actions = [aws_sns_topic.cloudwatch_alert_warning.arn]
   ok_actions    = [aws_sns_topic.cloudwatch_alert_ok.arn]
+
+  tags = local.core_tags
 }
 
 #
@@ -357,5 +363,5 @@ resource "aws_ssm_parameter" "cloudwatch_slack_webhook_url" {
   name  = "cloudwatch_slack_webhook_url"
   type  = "SecureString"
   value = var.cloudwatch_slack_webhook_url
-  tags  = local.common_tags
+  tags  = local.core_tags
 }

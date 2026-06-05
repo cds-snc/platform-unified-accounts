@@ -4,13 +4,13 @@
 resource "aws_sns_topic" "cloudwatch_alert_warning" {
   name              = "cloudwatch-alert-warning"
   kms_master_key_id = aws_kms_key.cloudwatch_alerts.arn
-  tags              = local.common_tags
+  tags              = local.core_tags
 }
 
 resource "aws_sns_topic" "cloudwatch_alert_ok" {
   name              = "cloudwatch-alert-ok"
   kms_master_key_id = aws_kms_key.cloudwatch_alerts.arn
-  tags              = local.common_tags
+  tags              = local.core_tags
 }
 
 #
@@ -20,12 +20,14 @@ resource "aws_sns_topic_subscription" "cloudwatch_alert_warning" {
   topic_arn = aws_sns_topic.cloudwatch_alert_warning.arn
   protocol  = "https"
   endpoint  = var.cloudwatch_slack_webhook_url
+  tags      = local.core_tags
 }
 
 resource "aws_sns_topic_subscription" "cloudwatch_alert_ok" {
   topic_arn = aws_sns_topic.cloudwatch_alert_ok.arn
   protocol  = "https"
   endpoint  = var.cloudwatch_slack_webhook_url
+  tags      = local.core_tags
 }
 
 #

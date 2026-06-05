@@ -14,4 +14,5 @@ module "load_test" {
 
   ecr_policy  = file("${path.module}/ecr-lifecycle.json")
   common_tags = local.common_tags
+  core_tags   = local.core_tags
 }

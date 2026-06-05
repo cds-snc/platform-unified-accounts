@@ -93,5 +93,5 @@ resource "aws_ssm_parameter" "idp_event_exporter_bearer_token" {
   name  = "idp_event_exporter_bearer_token"
   type  = "SecureString"
   value = var.idp_event_exporter_bearer_token
-  tags  = local.common_tags
+  tags  = local.core_tags
 }
