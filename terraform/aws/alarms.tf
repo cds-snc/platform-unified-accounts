@@ -240,12 +240,12 @@ resource "aws_cloudwatch_metric_alarm" "lambda_errors" {
   for_each = local.lambda_functions
 
   alarm_name          = "${each.key}-lambda-errors"
-  alarm_description   = "`${each.value.name}` Lambda failed invocation over 15 minutes"
+  alarm_description   = "`${each.value.name}` Lambda failed invocation over 5 minutes"
   comparison_operator = "GreaterThanThreshold"
   evaluation_periods  = "1"
   metric_name         = "Errors"
   namespace           = "AWS/Lambda"
-  period              = "900"
+  period              = "300"
   statistic           = "Sum"
   threshold           = "0"
   treat_missing_data  = "notBreaching"
