@@ -48,6 +48,7 @@ resource "aws_iam_policy" "pr_review_deploy" {
   name   = local.pr_review_deploy
   path   = "/"
   policy = data.aws_iam_policy_document.pr_review_deploy.json
+  tags   = var.core_tags
 }
 
 #trivy:ignore:AWS-0342
@@ -165,6 +166,7 @@ resource "aws_iam_policy" "pr_review_delete_unused" {
   name   = local.pr_review_delete_unused
   path   = "/"
   policy = data.aws_iam_policy_document.pr_review_delete_unused.json
+  tags   = var.core_tags
 }
 
 #trivy:ignore:AWS-0342
@@ -238,6 +240,7 @@ resource "aws_iam_policy" "pr_review_get_vars" {
   name   = local.pr_review_get_vars
   path   = "/"
   policy = data.aws_iam_policy_document.pr_review_get_vars.json
+  tags   = var.core_tags
 }
 
 data "aws_iam_policy_document" "pr_review_get_vars" {

@@ -32,6 +32,7 @@ resource "aws_iam_policy" "integration_tests" {
   name   = local.integration_tests
   path   = "/"
   policy = data.aws_iam_policy_document.integration_tests.json
+  tags   = local.core_tags
 }
 
 data "aws_iam_policy_document" "integration_tests" {
