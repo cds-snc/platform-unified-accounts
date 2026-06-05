@@ -39,7 +39,6 @@ resource "aws_iam_policy" "idp_send_email" {
 
 resource "aws_iam_group" "idp_send_email" {
   name = "idp_send_email"
-  tags = local.core_tags
 }
 
 resource "aws_iam_group_policy_attachment" "idp_send_email" {
