@@ -234,7 +234,7 @@ resource "aws_wafv2_web_acl" "idp" {
     priority = 60
 
     action {
-      block {}
+      challenge {}
     }
 
     statement {
@@ -244,7 +244,7 @@ resource "aws_wafv2_web_acl" "idp" {
 
         custom_key {
           ja4_fingerprint {
-            fallback_behavior = "MATCH"
+            fallback_behavior = "NO_MATCH"
           }
         }
       }
@@ -296,7 +296,7 @@ resource "aws_wafv2_web_acl" "idp" {
     priority = 80
 
     action {
-      block {}
+      challenge {}
     }
 
     statement {
@@ -306,7 +306,7 @@ resource "aws_wafv2_web_acl" "idp" {
 
         custom_key {
           ja4_fingerprint {
-            fallback_behavior = "MATCH"
+            fallback_behavior = "NO_MATCH"
           }
         }
 
