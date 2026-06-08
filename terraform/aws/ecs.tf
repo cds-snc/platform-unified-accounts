@@ -106,7 +106,7 @@ locals {
 }
 
 module "idp_ecs" {
-  source = "github.com/cds-snc/terraform-modules//ecs?ref=v11.3.0"
+  source = "github.com/cds-snc/terraform-modules//ecs?ref=v11.3.5"
 
   cluster_name     = "idp"
   service_name     = "idp"
@@ -192,7 +192,7 @@ module "idp_ecs" {
 }
 
 module "login_ecs" {
-  source = "github.com/cds-snc/terraform-modules//ecs?ref=v11.3.0"
+  source = "github.com/cds-snc/terraform-modules//ecs?ref=v11.3.5"
 
   create_cluster   = false
   cluster_name     = "idp"
@@ -321,53 +321,53 @@ resource "aws_ssm_parameter" "idp_secret_key" {
   name  = "idp_secret_key"
   type  = "SecureString"
   value = var.idp_secret_key
-  tags  = local.common_tags
+  tags  = local.core_tags
 }
 
 resource "aws_ssm_parameter" "idp_admin_username" {
   name  = "idp_admin_username"
   type  = "SecureString"
   value = var.idp_admin_username
-  tags  = local.common_tags
+  tags  = local.core_tags
 }
 
 resource "aws_ssm_parameter" "idp_admin_password" {
   name  = "idp_admin_password"
   type  = "SecureString"
   value = var.idp_admin_password
-  tags  = local.common_tags
+  tags  = local.core_tags
 }
 
 resource "aws_ssm_parameter" "idp_loginclient_machine_username" {
   name  = "idp_loginclient_machine_username"
   type  = "SecureString"
   value = var.idp_loginclient_machine_username
-  tags  = local.common_tags
+  tags  = local.core_tags
 }
 resource "aws_ssm_parameter" "idp_loginclient_pat" {
   name  = "idp_loginclient_pat"
   type  = "SecureString"
   value = var.idp_loginclient_pat
-  tags  = local.common_tags
+  tags  = local.core_tags
 }
 
 resource "aws_ssm_parameter" "idp_zitadel_org" {
   name  = "idp_zitadel_org"
   type  = "SecureString"
   value = var.idp_zitadel_org
-  tags  = local.common_tags
+  tags  = local.core_tags
 }
 
 resource "aws_ssm_parameter" "idp_notify_api_key" {
   name  = "idp_notify_api_key"
   type  = "SecureString"
   value = var.idp_notify_api_key
-  tags  = local.common_tags
+  tags  = local.core_tags
 }
 
 resource "aws_ssm_parameter" "idp_notify_template_id" {
   name  = "idp_notify_template_id"
   type  = "SecureString"
   value = var.idp_notify_template_id
-  tags  = local.common_tags
+  tags  = local.core_tags
 }

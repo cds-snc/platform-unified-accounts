@@ -16,4 +16,5 @@ module "pr_review" {
   ecr_policy        = file("${path.module}/ecr-lifecycle.json")
   billing_tag_value = var.billing_tag_value
   common_tags       = local.common_tags
+  core_tags         = local.core_tags
 }

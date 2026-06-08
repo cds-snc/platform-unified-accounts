@@ -486,7 +486,7 @@ resource "aws_wafv2_web_acl" "idp" {
     sampled_requests_enabled   = true
   }
 
-  tags = local.common_tags
+  tags = local.core_tags
 }
 
 resource "aws_wafv2_web_acl_association" "idp" {
@@ -524,6 +524,7 @@ resource "aws_kinesis_firehose_delivery_stream" "idp_waf_logs" {
 resource "aws_iam_role" "idp_waf_logs" {
   name               = "idp-waf-logs"
   assume_role_policy = data.aws_iam_policy_document.idp_waf_logs_assume.json
+  tags               = local.core_tags
 }
 
 resource "aws_iam_role_policy" "idp_waf_logs" {

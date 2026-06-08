@@ -1,6 +1,7 @@
 resource "aws_iam_role" "idp_login_pr" {
   name               = "idp-login-pr"
   assume_role_policy = data.aws_iam_policy_document.idp_login_pr.json
+  tags               = var.core_tags
 }
 
 data "aws_iam_policy_document" "idp_login_pr" {
@@ -29,6 +30,7 @@ resource "aws_iam_policy" "idp_login_pr_ssm_params" {
   name   = "idp-login-pr-ssm-params"
   path   = "/"
   policy = data.aws_iam_policy_document.idp_login_pr_ssm_params.json
+  tags   = var.core_tags
 }
 
 data "aws_iam_policy_document" "idp_login_pr_ssm_params" {

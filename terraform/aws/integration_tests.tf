@@ -6,7 +6,7 @@ locals {
 # Create the OIDC roles used by the GitHub workflows
 # 
 module "github_workflow_roles" {
-  source = "github.com/cds-snc/terraform-modules//gh_oidc_role?ref=v11.3.0"
+  source = "github.com/cds-snc/terraform-modules//gh_oidc_role?ref=v11.3.5"
 
   roles = [
     {
@@ -32,6 +32,7 @@ resource "aws_iam_policy" "integration_tests" {
   name   = local.integration_tests
   path   = "/"
   policy = data.aws_iam_policy_document.integration_tests.json
+  tags   = local.core_tags
 }
 
 data "aws_iam_policy_document" "integration_tests" {
@@ -52,7 +53,7 @@ data "aws_iam_policy_document" "integration_tests" {
 # S3 bucket to store integration test results
 #
 module "integration_tests" {
-  source            = "github.com/cds-snc/terraform-modules//S3?ref=v11.3.0"
+  source            = "github.com/cds-snc/terraform-modules//S3?ref=v11.3.5"
   bucket_name       = "platform-unified-accounts-integration-tests-${var.env}"
   billing_tag_value = var.billing_tag_value
 

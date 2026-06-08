@@ -11,7 +11,7 @@ locals {
 # attribute of each role.
 # 
 module "github_workflow_roles" {
-  source = "github.com/cds-snc/terraform-modules//gh_oidc_role?ref=v11.3.0"
+  source = "github.com/cds-snc/terraform-modules//gh_oidc_role?ref=v11.3.5"
 
   roles = [
     {
@@ -48,6 +48,7 @@ resource "aws_iam_policy" "pr_review_deploy" {
   name   = local.pr_review_deploy
   path   = "/"
   policy = data.aws_iam_policy_document.pr_review_deploy.json
+  tags   = var.core_tags
 }
 
 #trivy:ignore:AWS-0342
@@ -165,6 +166,7 @@ resource "aws_iam_policy" "pr_review_delete_unused" {
   name   = local.pr_review_delete_unused
   path   = "/"
   policy = data.aws_iam_policy_document.pr_review_delete_unused.json
+  tags   = var.core_tags
 }
 
 #trivy:ignore:AWS-0342
@@ -238,6 +240,7 @@ resource "aws_iam_policy" "pr_review_get_vars" {
   name   = local.pr_review_get_vars
   path   = "/"
   policy = data.aws_iam_policy_document.pr_review_get_vars.json
+  tags   = var.core_tags
 }
 
 data "aws_iam_policy_document" "pr_review_get_vars" {

@@ -6,7 +6,7 @@ resource "aws_kms_key" "cloudwatch_alerts" {
   enable_key_rotation = true
   policy              = data.aws_iam_policy_document.kms_cloudwatch.json
 
-  tags = local.common_tags
+  tags = local.core_tags
 }
 
 data "aws_iam_policy_document" "kms_cloudwatch" {

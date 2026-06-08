@@ -17,7 +17,7 @@ resource "aws_lb" "idp" {
   ]
   subnets = module.idp_vpc.public_subnet_ids
 
-  tags = local.common_tags
+  tags = local.core_tags
 }
 
 resource "random_string" "alb_idp_tg_suffix" {
@@ -64,7 +64,7 @@ resource "aws_lb_target_group" "idp" {
     type = "lb_cookie"
   }
 
-  tags = local.common_tags
+  tags = local.core_tags
 
   lifecycle {
     create_before_destroy = true
@@ -93,7 +93,7 @@ resource "aws_lb_target_group" "idp_login" {
     type = "lb_cookie"
   }
 
-  tags = local.common_tags
+  tags = local.core_tags
 
   lifecycle {
     create_before_destroy = true
@@ -120,7 +120,7 @@ resource "aws_lb_listener" "idp" {
     aws_route53_record.idp_validation,
   ]
 
-  tags = local.common_tags
+  tags = local.core_tags
 }
 
 resource "aws_lb_listener" "idp_http_redirect" {
@@ -138,7 +138,7 @@ resource "aws_lb_listener" "idp_http_redirect" {
     }
   }
 
-  tags = local.common_tags
+  tags = local.core_tags
 }
 
 # Forward requests to the login UI
@@ -157,7 +157,7 @@ resource "aws_alb_listener_rule" "idp_login" {
     }
   }
 
-  tags = local.common_tags
+  tags = local.core_tags
 }
 
 # Send REST API endpoint requests to the HTTP1 target group
@@ -182,7 +182,7 @@ resource "aws_alb_listener_rule" "idp_protocol_version" {
     }
   }
 
-  tags = local.common_tags
+  tags = local.core_tags
 }
 
 # Serve security.txt as a fixed response from the ALB
@@ -206,5 +206,5 @@ resource "aws_alb_listener_rule" "security_txt" {
     }
   }
 
-  tags = local.common_tags
+  tags = local.core_tags
 }

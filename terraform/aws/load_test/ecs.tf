@@ -96,7 +96,7 @@ resource "aws_ecs_task_definition" "idp_load_test" {
 resource "aws_iam_role" "idp_load_test_task" {
   name               = "idp_load_test_ecs_task_role"
   assume_role_policy = data.aws_iam_policy_document.idp_load_test_task_assume.json
-  tags               = var.common_tags
+  tags               = var.core_tags
 }
 
 data "aws_iam_policy_document" "idp_load_test_task_assume" {
@@ -113,7 +113,7 @@ resource "aws_iam_policy" "idp_load_test_task" {
   name   = "idp_load_test_ecs_task_policy"
   path   = "/"
   policy = data.aws_iam_policy_document.idp_load_test_task_combined.json
-  tags   = var.common_tags
+  tags   = var.core_tags
 }
 
 data "aws_iam_policy_document" "idp_load_test_task_combined" {
@@ -187,5 +187,5 @@ resource "aws_iam_role_policy_attachment" "idp_load_test_task" {
 resource "aws_cloudwatch_log_group" "idp_load_test" {
   name              = "/aws/ecs/idp-load-test"
   retention_in_days = 14
-  tags              = var.common_tags
+  tags              = var.core_tags
 }

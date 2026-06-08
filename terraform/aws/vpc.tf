@@ -1,5 +1,5 @@
 module "idp_vpc" {
-  source = "github.com/cds-snc/terraform-modules//vpc?ref=v11.3.0"
+  source = "github.com/cds-snc/terraform-modules//vpc?ref=v11.3.5"
   name   = "idp-${var.env}"
 
   availability_zones               = local.vpc_az_count
@@ -106,7 +106,7 @@ resource "aws_security_group" "vpc_endpoint" {
   name        = "vpc_endpoint"
   description = "NSG for VPC endpoints"
   vpc_id      = module.idp_vpc.vpc_id
-  tags        = local.common_tags
+  tags        = local.core_tags
 }
 
 resource "aws_security_group_rule" "vpc_endpoint_ingress_idp_ecs" {
@@ -168,7 +168,7 @@ resource "aws_security_group" "idp_ecs" {
   description = "NSG for idp ECS Tasks"
   name        = "idp_ecs"
   vpc_id      = module.idp_vpc.vpc_id
-  tags        = local.common_tags
+  tags        = local.core_tags
 }
 
 resource "aws_security_group_rule" "idp_ecs_egress_endpoint_interface" {
@@ -238,7 +238,7 @@ resource "aws_security_group" "idp_login_ecs" {
   description = "NSG for idp login ECS Tasks"
   name        = "idp_login_ecs"
   vpc_id      = module.idp_vpc.vpc_id
-  tags        = local.common_tags
+  tags        = local.core_tags
 }
 
 resource "aws_security_group_rule" "idp_login_ecs_ingress_lb" {
@@ -286,7 +286,7 @@ resource "aws_security_group" "idp_lb" {
   name        = "idp_lb"
   description = "NSG for idp load balancer"
   vpc_id      = module.idp_vpc.vpc_id
-  tags        = local.common_tags
+  tags        = local.core_tags
 }
 
 resource "aws_security_group_rule" "idp_lb_ingress_internet_http" {
@@ -334,7 +334,7 @@ resource "aws_security_group" "idp_db" {
   name        = "idp_db"
   description = "NSG for idp database"
   vpc_id      = module.idp_vpc.vpc_id
-  tags        = local.common_tags
+  tags        = local.core_tags
 }
 
 resource "aws_security_group_rule" "idp_db_ingress_ecs" {
@@ -362,7 +362,7 @@ resource "aws_security_group" "idp_efs" {
   name        = "idp_efs"
   description = "Allow access to EFS from idp ECS tasks"
   vpc_id      = module.idp_vpc.vpc_id
-  tags        = local.common_tags
+  tags        = local.core_tags
 }
 
 resource "aws_security_group_rule" "idp_efs_ingress_ecs" {
@@ -392,7 +392,7 @@ resource "aws_security_group" "lambda_pr_review" {
   name        = "lambda-pr-review"
   description = "Lambda PR review environment"
   vpc_id      = module.idp_vpc.vpc_id
-  tags        = local.common_tags
+  tags        = local.core_tags
 }
 
 resource "aws_security_group_rule" "lambda_pr_review_egress_internet" {
@@ -438,7 +438,7 @@ resource "aws_security_group" "idp_load_test_ecs" {
   name        = "idp-load-test-ecs"
   description = "IdP load test ECS task"
   vpc_id      = module.idp_vpc.vpc_id
-  tags        = local.common_tags
+  tags        = local.core_tags
 }
 
 resource "aws_security_group_rule" "idp_load_test_ecs_egress_internet" {
@@ -458,7 +458,7 @@ resource "aws_security_group" "idp_event_exporter" {
   description = "NSG for idp event exporter Lambda function"
   name        = "idp_event_exporter"
   vpc_id      = module.idp_vpc.vpc_id
-  tags        = local.common_tags
+  tags        = local.core_tags
 }
 
 resource "aws_security_group_rule" "idp_event_exporter_egress_idp_ecs" {

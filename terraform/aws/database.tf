@@ -2,7 +2,7 @@
 # RDS Postgres cluster
 #
 module "idp_database" {
-  source = "github.com/cds-snc/terraform-modules//rds?ref=v11.3.0"
+  source = "github.com/cds-snc/terraform-modules//rds?ref=v11.3.5"
   name   = "idp-${var.env}"
 
   database_name           = var.idp_database
@@ -57,40 +57,40 @@ resource "aws_ssm_parameter" "idp_database" {
   name  = "idp_database"
   type  = "SecureString"
   value = var.idp_database
-  tags  = local.common_tags
+  tags  = local.core_tags
 }
 
 resource "aws_ssm_parameter" "idp_database_host" {
   name  = "idp_database_host"
   type  = "SecureString"
   value = module.idp_database.rds_cluster_endpoint
-  tags  = local.common_tags
+  tags  = local.core_tags
 }
 
 resource "aws_ssm_parameter" "idp_database_username" {
   name  = "idp_database_username"
   type  = "SecureString"
   value = var.idp_database_username
-  tags  = local.common_tags
+  tags  = local.core_tags
 }
 
 resource "aws_ssm_parameter" "idp_database_password" {
   name  = "idp_database_password"
   type  = "SecureString"
   value = var.idp_database_password
-  tags  = local.common_tags
+  tags  = local.core_tags
 }
 
 resource "aws_ssm_parameter" "idp_database_admin_username" {
   name  = "idp_database_admin_username"
   type  = "SecureString"
   value = var.idp_database_admin_username
-  tags  = local.common_tags
+  tags  = local.core_tags
 }
 
 resource "aws_ssm_parameter" "idp_database_admin_password" {
   name  = "idp_database_admin_password"
   type  = "SecureString"
   value = var.idp_database_admin_password
-  tags  = local.common_tags
+  tags  = local.core_tags
 }

@@ -2,7 +2,7 @@
  * S3 bucket to store exported events
  */
 module "event_exporter_s3" {
-  source            = "github.com/cds-snc/terraform-modules//S3?ref=v11.3.0"
+  source            = "github.com/cds-snc/terraform-modules//S3?ref=v11.3.5"
   bucket_name       = "idp-event-exporter-${var.env}"
   billing_tag_value = var.billing_tag_value
 
@@ -44,7 +44,7 @@ locals {
 }
 
 module "event_exporter_lambda" {
-  source = "github.com/cds-snc/terraform-modules//lambda_schedule?ref=v11.3.0"
+  source = "github.com/cds-snc/terraform-modules//lambda_schedule?ref=v11.3.5"
 
   lambda_name                = "idp-event-exporter"
   lambda_schedule_expression = "cron(0/${local.event_window_minutes} * * * ? *)"
@@ -93,5 +93,5 @@ resource "aws_ssm_parameter" "idp_event_exporter_bearer_token" {
   name  = "idp_event_exporter_bearer_token"
   type  = "SecureString"
   value = var.idp_event_exporter_bearer_token
-  tags  = local.common_tags
+  tags  = local.core_tags
 }
