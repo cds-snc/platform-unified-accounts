@@ -199,7 +199,7 @@ func formatSlackMessage(subscriptionFilters []string, logGroup string, logEvents
 	header := fmt.Sprintf(":fire: *Error %s*", logGroup)
 	colour := "#eb1607"
 	for _, filter := range subscriptionFilters {
-		if filter == "audit-event-logged" {
+		if filter == "audit-event-logged" || filter == "database-pgaudit" {
 			header = fmt.Sprintf(":warning: *Audit %s*", logGroup)
 			colour = "#e3b505"
 			break
