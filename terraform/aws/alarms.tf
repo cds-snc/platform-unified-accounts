@@ -1,4 +1,18 @@
 locals {
+  # Database audit events
+  database_audit_event_filters = [
+    ",DDL,",
+    ",ROLE,",
+    ",WRITE,TRUNCATE,",
+    ",WRITE,* projections.org_members",
+    ",WRITE,* projections.instance_members",
+  ]
+  database_audit_event_skip_filters = [
+    "create unlogged table if not exists",
+  ]
+  database_audit_event_filter_pattern = "[(w=\"*${join("*\" || w=\"*", local.database_audit_event_filters)}*\") && w!=\"*${join("*\" && w!=\"*", local.database_audit_event_skip_filters)}*\"]"
+  database_audit_event_log_group_name = "/aws/rds/cluster/${module.idp_database.rds_cluster_id}/postgresql"
+
   # IdP errors
   idp_error_filters = [
     "level=error",
@@ -48,7 +62,7 @@ locals {
     { for key, value in aws_lb_target_group.idp : "idp-${lower(key)}" => value },
     { idp_login = aws_lb_target_group.idp_login }
   )
-  error_logged_metric_patterns = {
+  error_logged_filter_patterns = {
     idp = {
       error_filters  = local.idp_error_filters
       pattern        = local.idp_error_metric_pattern
@@ -218,7 +232,7 @@ resource "aws_cloudwatch_metric_alarm" "idp_load_balancer_response_time" {
 # Errors logged
 #
 resource "aws_cloudwatch_log_subscription_filter" "error_logged" {
-  for_each = local.error_logged_metric_patterns
+  for_each = local.error_logged_filter_patterns
 
   name            = "${each.key}-error-logged"
   log_group_name  = each.value.log_group_name
@@ -227,12 +241,19 @@ resource "aws_cloudwatch_log_subscription_filter" "error_logged" {
 }
 
 #
-# Audit event logged
+# Audit events
 #
 resource "aws_cloudwatch_log_subscription_filter" "audit_event_logged" {
   name            = "audit-event-logged"
   log_group_name  = module.event_exporter_lambda.lambda_function_cloudwatch_log_group_name
   filter_pattern  = "AEVT"
+  destination_arn = module.alarms_slack.function_arn
+}
+
+resource "aws_cloudwatch_log_subscription_filter" "database_pgaudit" {
+  name            = "database-pgaudit"
+  log_group_name  = local.database_audit_event_log_group_name
+  filter_pattern  = local.database_audit_event_filter_pattern
   destination_arn = module.alarms_slack.function_arn
 }
 
@@ -303,7 +324,7 @@ resource "aws_cloudwatch_metric_alarm" "ses_complaint_rate_high" {
 # Log Insight queries
 #
 resource "aws_cloudwatch_query_definition" "ecs_errors" {
-  for_each = local.error_logged_metric_patterns
+  for_each = local.error_logged_filter_patterns
 
   name            = "${each.key} errors"
   log_group_names = [each.value.log_group_name]
@@ -350,13 +371,21 @@ data "aws_iam_policy_document" "alarms_slack" {
 }
 
 resource "aws_lambda_permission" "alarms_slack" {
-  for_each = local.error_logged_metric_patterns
+  for_each = local.error_logged_filter_patterns
 
   statement_id  = "AllowExecutionFromCloudWatch-${each.key}"
   action        = "lambda:InvokeFunction"
   function_name = module.alarms_slack.function_name
   principal     = "logs.amazonaws.com"
   source_arn    = "arn:aws:logs:${var.region}:${var.account_id}:log-group:${each.value.log_group_name}:*"
+}
+
+resource "aws_lambda_permission" "alarms_slack_database_pgaudit" {
+  statement_id  = "AllowExecutionFromCloudWatch-database-pgaudit"
+  action        = "lambda:InvokeFunction"
+  function_name = module.alarms_slack.function_name
+  principal     = "logs.amazonaws.com"
+  source_arn    = "arn:aws:logs:${var.region}:${var.account_id}:log-group:${local.database_audit_event_log_group_name}:*"
 }
 
 resource "aws_ssm_parameter" "cloudwatch_slack_webhook_url" {
