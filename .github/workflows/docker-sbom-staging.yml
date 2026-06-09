@@ -17,6 +17,7 @@ jobs:
     strategy:
       matrix:
         image:
+          - alarms-slack
           - idp
           - idp-event-exporter
     
