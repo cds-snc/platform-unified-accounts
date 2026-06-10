@@ -44,6 +44,7 @@ var eventsTypesToAudit = []string{
 	"project.application.added",
 	"project.application.removed",
 	"project.application.config.*",
+	"user.locked",
 }
 
 // ---------------------------------------------------------------------------
