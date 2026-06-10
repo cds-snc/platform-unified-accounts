@@ -4,8 +4,10 @@ locals {
     ",DDL,",
     ",ROLE,",
     ",WRITE,TRUNCATE,",
-    ",WRITE,* projections.org_members",
-    ",WRITE,* projections.instance_members",
+    ",WRITE,INSERT,* projections.org_members",
+    ",WRITE,UPDATE,* projections.org_members",
+    ",WRITE,INSERT,* projections.instance_members",
+    ",WRITE,UPDATE,* projections.instance_members",
   ]
   database_audit_event_skip_filters = [
     "create unlogged table if not exists",
