@@ -26,6 +26,8 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/ssm"
 )
 
+const slackBodyMaxLen = 3001
+const slackWaitBetweenMessages = 100 * time.Millisecond
 const slackWebhookParameterNameEnvVar = "SLACK_WEBHOOK_SSM_PARAMETER_NAME"
 
 type ssmAPI interface {
@@ -169,33 +171,39 @@ func decodeCloudWatchLogsData(encodedData string) (*cloudWatchLogsPayload, error
 	return &payload, nil
 }
 
-func postToSlack(ctx context.Context, webhookURL string, payload cloudWatchLogsPayload) error {
-	messageBody, err := json.Marshal(formatSlackMessage(payload.SubscriptionFilters, payload.LogGroup, payload.LogEvents))
-	if err != nil {
-		return fmt.Errorf("marshal Slack payload: %w", err)
-	}
+func postToSlack(ctx context.Context, webhookURL string, messages []slackMessage) error {
+	for i, msg := range messages {
+		if i > 0 {
+			time.Sleep(slackWaitBetweenMessages)
+		}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, webhookURL, bytes.NewReader(messageBody))
-	if err != nil {
-		return fmt.Errorf("create Slack request: %w", err)
-	}
-	req.Header.Set("Content-Type", "application/json")
+		messageBody, err := json.Marshal(msg)
+		if err != nil {
+			return fmt.Errorf("marshal Slack payload: %w", err)
+		}
 
-	resp, err := httpClient.Do(req)
-	if err != nil {
-		return fmt.Errorf("post message to Slack: %w", err)
-	}
-	defer resp.Body.Close()
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, webhookURL, bytes.NewReader(messageBody))
+		if err != nil {
+			return fmt.Errorf("create Slack request: %w", err)
+		}
+		req.Header.Set("Content-Type", "application/json")
 
-	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
-		responseBody, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("Slack webhook returned %d: %s", resp.StatusCode, strings.TrimSpace(string(responseBody)))
+		resp, err := httpClient.Do(req)
+		if err != nil {
+			return fmt.Errorf("post message to Slack: %w", err)
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+			responseBody, _ := io.ReadAll(resp.Body)
+			return fmt.Errorf("Slack webhook returned %d: %s", resp.StatusCode, strings.TrimSpace(string(responseBody)))
+		}
 	}
 
 	return nil
 }
 
-func formatSlackMessage(subscriptionFilters []string, logGroup string, logEvents []cloudWatchLogRecord) slackMessage {
+func formatSlackMessage(subscriptionFilters []string, logGroup string, logEvents []cloudWatchLogRecord) []slackMessage {
 	header := fmt.Sprintf(":fire: *Error %s*", logGroup)
 	colour := "#eb1607"
 	for _, filter := range subscriptionFilters {
@@ -206,34 +214,50 @@ func formatSlackMessage(subscriptionFilters []string, logGroup string, logEvents
 		}
 	}
 
-	var msgBuilder strings.Builder
-	for i, logEvent := range logEvents {
-		if i > 0 {
-			msgBuilder.WriteString("\n")
-		}
-		msgBuilder.WriteString(normalizeLogMessage(logEvent.Message))
-	}
-
-	return slackMessage{
-		Attachments: []slackAttachment{
-			{
-				Color: colour,
-				Blocks: []slackBlock{
-					{
-						Type: "section",
-						Text: &slackBlockText{Type: "mrkdwn", Text: header},
-					},
-					{
-						Type: "divider",
-					},
-					{
-						Type: "section",
-						Text: &slackBlockText{Type: "mrkdwn", Text: msgBuilder.String()},
+	buildMessage := func(body string) slackMessage {
+		return slackMessage{
+			Attachments: []slackAttachment{
+				{
+					Color: colour,
+					Blocks: []slackBlock{
+						{
+							Type: "section",
+							Text: &slackBlockText{Type: "mrkdwn", Text: header},
+						},
+						{
+							Type: "divider",
+						},
+						{
+							Type: "section",
+							Text: &slackBlockText{Type: "mrkdwn", Text: body},
+						},
 					},
 				},
 			},
-		},
+		}
 	}
+
+	var messages []slackMessage
+	var msgBuilder strings.Builder
+
+	for _, logEvent := range logEvents {
+		logMessage := normalizeLogMessage(logEvent.Message)
+		toAdd := logMessage
+		if msgBuilder.Len() > 0 {
+			toAdd = "\n" + logMessage
+		}
+
+		if msgBuilder.Len()+len(toAdd) > slackBodyMaxLen {
+			messages = append(messages, buildMessage(msgBuilder.String()))
+			msgBuilder.Reset()
+			msgBuilder.WriteString(logMessage)
+		} else {
+			msgBuilder.WriteString(toAdd)
+		}
+	}
+
+	messages = append(messages, buildMessage(msgBuilder.String()))
+	return messages
 }
 
 func normalizeLogMessage(logMessage string) string {
@@ -278,7 +302,8 @@ func handler(ctx context.Context, event cloudWatchLogsEvent) error {
 		return err
 	}
 
-	return postToSlack(ctx, webhookURL, *payload)
+	messages := formatSlackMessage(payload.SubscriptionFilters, payload.LogGroup, payload.LogEvents)
+	return postToSlack(ctx, webhookURL, messages)
 }
 
 func main() {
