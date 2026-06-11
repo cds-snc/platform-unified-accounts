@@ -43,6 +43,10 @@ DefaultInstance:
   Features:
     LoginV2:
       Required: true
+  SecretGenerators:
+    EmailVerificationCode:
+      Length: 6
+      Expiry: "15m"
 
 OIDC:
   DefaultAccessTokenLifetime: '0.5h'
