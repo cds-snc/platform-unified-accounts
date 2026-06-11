@@ -203,6 +203,69 @@ func TestHandler_PostsSingleSlackMessageForAllLogEvents(t *testing.T) {
 	}
 }
 
+func TestHandler_PostsMultipleSlackMessagesWhenBodyExceedsLimit(t *testing.T) {
+	var requests []slackMessage
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer r.Body.Close()
+
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Fatalf("read request body: %v", err)
+		}
+
+		var message slackMessage
+		if err := json.Unmarshal(body, &message); err != nil {
+			t.Fatalf("unmarshal request body: %v", err)
+		}
+
+		requests = append(requests, message)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	fakeClient := &fakeSSMClient{value: server.URL}
+	restore := setHandlerGlobals(t, "/alerts/slack-webhook", fakeClient, server.Client(), "")
+	defer restore()
+
+	// Three 1500-char events; pairs exceed 3001 chars so they must be split.
+	long := strings.Repeat("x", 1500)
+	err := handler(t.Context(), cloudWatchLogsEvent{
+		AWSLogs: struct {
+			Data string `json:"data"`
+		}{
+			Data: encodeLogsPayload(t, cloudWatchLogsPayload{
+				MessageType:         "DATA_MESSAGE",
+				LogGroup:            "/aws/lambda/example",
+				LogStream:           "stream-1",
+				SubscriptionFilters: []string{"error-alerts"},
+				LogEvents: []cloudWatchLogRecord{
+					{ID: "1", Message: long},
+					{ID: "2", Message: long},
+					{ID: "3", Message: long},
+				},
+			}),
+		},
+	})
+	if err != nil {
+		t.Fatalf("handle returned error: %v", err)
+	}
+
+	if len(requests) != 2 {
+		t.Fatalf("expected multiple Slack requests due to body length, got %d", len(requests))
+	}
+
+	for i, req := range requests {
+		body := req.Attachments[0].Blocks[2].Text.Text
+		if len(body) > slackBodyMaxLen {
+			t.Fatalf("request %d body length %d exceeds %d", i, len(body), slackBodyMaxLen)
+		}
+		headerText := req.Attachments[0].Blocks[0].Text.Text
+		if !strings.Contains(headerText, "/aws/lambda/example") {
+			t.Fatalf("request %d missing log group in header: %q", i, headerText)
+		}
+	}
+}
+
 func TestHandler_FormatsAuditEventsAsWarnings(t *testing.T) {
 	for _, tc := range []struct {
 		name   string
@@ -308,8 +371,11 @@ func TestHandler_RequiresAWSLogsData(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestFormatSlackMessageHandlesEmptyMessage(t *testing.T) {
-	msg := formatSlackMessage(nil, "/aws/lambda/example", []cloudWatchLogRecord{{Message: "   "}})
-	bodyText := msg.Attachments[0].Blocks[2].Text.Text
+	msgs := formatSlackMessage(nil, "/aws/lambda/example", []cloudWatchLogRecord{{Message: "   "}})
+	if len(msgs) != 1 {
+		t.Fatalf("got %d messages, want 1", len(msgs))
+	}
+	bodyText := msgs[0].Attachments[0].Blocks[2].Text.Text
 	if !strings.Contains(bodyText, "<empty log message>") {
 		t.Fatalf("unexpected message: %q", bodyText)
 	}
@@ -318,8 +384,11 @@ func TestFormatSlackMessageHandlesEmptyMessage(t *testing.T) {
 func TestFormatSlackMessageMarksAuditEvents(t *testing.T) {
 	for _, filter := range []string{"audit-event-logged", "database-pgaudit"} {
 		t.Run(filter, func(t *testing.T) {
-			msg := formatSlackMessage([]string{filter}, "/aws/lambda/example", []cloudWatchLogRecord{{Message: "audit entry"}})
-			attachment := msg.Attachments[0]
+			msgs := formatSlackMessage([]string{filter}, "/aws/lambda/example", []cloudWatchLogRecord{{Message: "audit entry"}})
+			if len(msgs) != 1 {
+				t.Fatalf("got %d messages, want 1", len(msgs))
+			}
+			attachment := msgs[0].Attachments[0]
 			if attachment.Color != "#e3b505" {
 				t.Fatalf("unexpected attachment color: %q", attachment.Color)
 			}
@@ -329,6 +398,42 @@ func TestFormatSlackMessageMarksAuditEvents(t *testing.T) {
 				t.Fatalf("unexpected Slack message header: %q", headerText)
 			}
 		})
+	}
+}
+
+func TestFormatSlackMessage_SplitsLongMessages(t *testing.T) {
+	// Each event is 1500 chars; two together exceed 3001 so they must be split.
+	long := strings.Repeat("a", 1500)
+	events := []cloudWatchLogRecord{
+		{ID: "1", Message: long},
+		{ID: "2", Message: long},
+		{ID: "3", Message: long},
+	}
+
+	msgs := formatSlackMessage(nil, "/aws/lambda/example", events)
+
+	if len(msgs) != 2 {
+		t.Fatalf("expected messages to be split, got %d message(s)", len(msgs))
+	}
+
+	for i, msg := range msgs {
+		body := msg.Attachments[0].Blocks[2].Text.Text
+		if len(body) > slackBodyMaxLen {
+			t.Fatalf("message %d body length %d exceeds %d", i, len(body), slackBodyMaxLen)
+		}
+		headerText := msg.Attachments[0].Blocks[0].Text.Text
+		if !strings.Contains(headerText, "/aws/lambda/example") {
+			t.Fatalf("message %d missing log group in header: %q", i, headerText)
+		}
+	}
+
+	// Verify all event messages appear across the split output.
+	allBody := ""
+	for _, msg := range msgs {
+		allBody += msg.Attachments[0].Blocks[2].Text.Text
+	}
+	if strings.Count(allBody, long) != 3 {
+		t.Fatalf("expected 3 occurrences of the long message across all Slack messages")
 	}
 }
 
