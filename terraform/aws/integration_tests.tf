@@ -12,7 +12,7 @@ module "github_workflow_roles" {
     {
       name      = local.integration_tests
       repo_name = "platform-unified-accounts-user-portal"
-      claim     = "ref:refs/heads/*"
+      claim     = "*"
     }
   ]
 
