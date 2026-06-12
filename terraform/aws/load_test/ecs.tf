@@ -32,12 +32,6 @@ locals {
 #
 # ECS load test task definition
 #
-data "aws_ecr_image" "idp_load_test_latest" {
-  repository_name = aws_ecr_repository.idp_load_test.name
-  most_recent     = true
-}
-
-
 resource "aws_ecs_task_definition" "idp_load_test" {
   family             = "idp-load-test"
   cpu                = 8192
@@ -50,7 +44,7 @@ resource "aws_ecs_task_definition" "idp_load_test" {
     memory    = 16384
     essential = true
     command   = ["run", "--quiet", "/test/login.js"]
-    image     = data.aws_ecr_image.idp_load_test_latest.image_uri
+    image     = "${aws_ecr_repository.idp_load_test.repository_url}:latest"
     linuxParameters = {
       capabilities : {
         add : [],
