@@ -230,6 +230,29 @@ resource "aws_cloudwatch_metric_alarm" "idp_load_balancer_response_time" {
   tags = local.core_tags
 }
 
+resource "aws_cloudwatch_metric_alarm" "idp_database_cpu_writer" {
+  alarm_name          = "idp-database-cpu-writer"
+  alarm_description   = "CPU for database cluster writer over 80% over 5 minutes."
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = "1"
+  threshold           = 80
+  period              = "300"
+  metric_name         = "CPUUtilization"
+  namespace           = "AWS/RDS"
+  statistic           = "Maximum"
+  treat_missing_data  = "notBreaching"
+
+  alarm_actions = [aws_sns_topic.cloudwatch_alert_warning.arn]
+  ok_actions    = [aws_sns_topic.cloudwatch_alert_ok.arn]
+
+  dimensions = {
+    DBClusterIdentifier = module.idp_database.rds_cluster_id
+    Role                = "WRITER"
+  }
+
+  tags = local.core_tags
+}
+
 #
 # Errors logged
 #
