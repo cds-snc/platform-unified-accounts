@@ -84,6 +84,10 @@ locals {
       "name"  = "CUSTOM_REQUEST_HEADERS",
       "value" = "Host:${var.domain}"
     },
+    {
+      "name"  = "HOSTNAME",
+      "value" = "0.0.0.0"
+    },
   ]
   login_container_secrets = [
     {
@@ -119,7 +123,7 @@ resource "aws_service_discovery_http_namespace" "idp_ecs" {
 
 
 module "idp_ecs" {
-  source = "github.com/cds-snc/terraform-modules//ecs?ref=9468eeb58c0fbb3ca3b394d18aecac8c41907259"
+  source = "github.com/cds-snc/terraform-modules//ecs?ref=65063ba417c263b6395a141f2808ca46bb080de7"
 
   cluster_name     = "idp"
   service_name     = "idp"
@@ -195,7 +199,7 @@ module "idp_ecs" {
   security_group_ids = [aws_security_group.idp_ecs.id]
 
   service_connect_enabled        = true
-  service_connect_app_protocol   = "grpc"
+  service_connect_app_protocol   = "http2"
   service_connect_namespace_arn  = aws_service_discovery_http_namespace.idp_ecs.arn
   service_discovery_enabled      = true
   service_discovery_namespace_id = aws_service_discovery_private_dns_namespace.idp_ecs.id
@@ -208,7 +212,7 @@ module "idp_ecs" {
 }
 
 module "login_ecs" {
-  source = "github.com/cds-snc/terraform-modules//ecs?ref=9468eeb58c0fbb3ca3b394d18aecac8c41907259"
+  source = "github.com/cds-snc/terraform-modules//ecs?ref=65063ba417c263b6395a141f2808ca46bb080de7"
 
   create_cluster   = false
   cluster_name     = "idp"
@@ -277,6 +281,7 @@ module "login_ecs" {
   security_group_ids  = [aws_security_group.idp_login_ecs.id]
 
   service_connect_enabled        = true
+  service_connect_app_protocol   = "http"
   service_connect_namespace_arn  = aws_service_discovery_http_namespace.idp_ecs.arn
   service_discovery_enabled      = true
   service_discovery_namespace_id = aws_service_discovery_private_dns_namespace.idp_ecs.id
