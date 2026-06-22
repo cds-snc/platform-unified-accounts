@@ -23,12 +23,6 @@ resource "aws_flow_log" "cloud_based_sensor" {
   tags                 = local.common_tags
 }
 
-resource "aws_service_discovery_private_dns_namespace" "idp_ecs" {
-  name        = "ecs.local"
-  description = "DNS namespace used to provide service discovery for IdP ECS services to allow for communication within the VPC"
-  vpc         = module.idp_vpc.vpc_id
-}
-
 #
 # VPC endpoints
 #

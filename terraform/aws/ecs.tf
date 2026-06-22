@@ -74,7 +74,7 @@ locals {
   login_container_env = [
     {
       "name"  = "ZITADEL_API_URL",
-      "value" = "http://idp.${aws_service_discovery_private_dns_namespace.idp_ecs.name}:8080"
+      "value" = "http://idp:8080"
     },
     {
       "name"  = "NEXT_PUBLIC_BASE_PATH",
@@ -83,6 +83,10 @@ locals {
     {
       "name"  = "CUSTOM_REQUEST_HEADERS",
       "value" = "Host:${var.domain}"
+    },
+    {
+      "name"  = "HOSTNAME",
+      "value" = "0.0.0.0"
     },
   ]
   login_container_secrets = [
@@ -105,8 +109,21 @@ locals {
   ]
 }
 
+resource "aws_service_discovery_private_dns_namespace" "idp_ecs" {
+  name        = "ecs.local"
+  description = "DNS namespace used to provide service discovery for IdP ECS services to allow for communication within the VPC"
+  vpc         = module.idp_vpc.vpc_id
+}
+
+resource "aws_service_discovery_http_namespace" "idp_ecs" {
+  name        = "idp"
+  description = "Service Connect namespace for IdP ECS service-to-service communication"
+  tags        = local.common_tags
+}
+
+
 module "idp_ecs" {
-  source = "github.com/cds-snc/terraform-modules//ecs?ref=v11.3.5"
+  source = "github.com/cds-snc/terraform-modules//ecs?ref=v11.3.6"
 
   cluster_name     = "idp"
   service_name     = "idp"
@@ -181,6 +198,9 @@ module "idp_ecs" {
   subnet_ids         = module.idp_vpc.private_subnet_ids
   security_group_ids = [aws_security_group.idp_ecs.id]
 
+  service_connect_enabled        = true
+  service_connect_app_protocol   = "http2"
+  service_connect_namespace_arn  = aws_service_discovery_http_namespace.idp_ecs.arn
   service_discovery_enabled      = true
   service_discovery_namespace_id = aws_service_discovery_private_dns_namespace.idp_ecs.id
 
@@ -192,7 +212,7 @@ module "idp_ecs" {
 }
 
 module "login_ecs" {
-  source = "github.com/cds-snc/terraform-modules//ecs?ref=v11.3.5"
+  source = "github.com/cds-snc/terraform-modules//ecs?ref=v11.3.6"
 
   create_cluster   = false
   cluster_name     = "idp"
@@ -260,6 +280,9 @@ module "login_ecs" {
   subnet_ids          = module.idp_vpc.private_subnet_ids
   security_group_ids  = [aws_security_group.idp_login_ecs.id]
 
+  service_connect_enabled        = true
+  service_connect_app_protocol   = "http"
+  service_connect_namespace_arn  = aws_service_discovery_http_namespace.idp_ecs.arn
   service_discovery_enabled      = true
   service_discovery_namespace_id = aws_service_discovery_private_dns_namespace.idp_ecs.id
 
