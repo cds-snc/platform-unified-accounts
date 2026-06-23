@@ -52,9 +52,10 @@ locals {
   idp_event_exporter_error_metric_pattern = "[(w=\"*${join("*\" || w=\"*", local.idp_event_exporter_error_filters)}*\")]"
 
   # ECS and ALB thresholds
-  threshold_ecs_high_cpu     = 80
-  threshold_ecs_high_memory  = 80
-  threshold_lb_response_time = 1
+  threshold_ecs_high_cpu      = 80   # percentage
+  threshold_ecs_high_memory   = 80   # percentage
+  threshold_idp_response_time = 1000 # milliseconds
+  threshold_lb_response_time  = 1    # seconds
 
   ecs_services = [
     module.login_ecs,
@@ -140,6 +141,31 @@ resource "aws_cloudwatch_metric_alarm" "idp_ecs_high_memory" {
   dimensions = {
     ClusterName = module.idp_ecs.cluster_name
     ServiceName = each.key
+  }
+
+  tags = local.core_tags
+}
+
+resource "aws_cloudwatch_metric_alarm" "idp_login_slow_idp_responses" {
+  alarm_name          = "idp-login-slow-idp-responses"
+  alarm_description   = "User portal responses from the IdP consistently over 1 second over 5 minutes."
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = "5"
+  datapoints_to_alarm = "4"
+  metric_name         = "TargetResponseTime"
+  namespace           = "AWS/ECS"
+  period              = "60"
+  statistic           = "Average"
+  threshold           = local.threshold_idp_response_time
+  treat_missing_data  = "notBreaching"
+
+  alarm_actions = [aws_sns_topic.cloudwatch_alert_warning.arn]
+  ok_actions    = [aws_sns_topic.cloudwatch_alert_ok.arn]
+
+  dimensions = {
+    ClusterName         = module.idp_ecs.cluster_name
+    ServiceName         = "idp-login"
+    TargetDiscoveryName = "idp"
   }
 
   tags = local.core_tags
