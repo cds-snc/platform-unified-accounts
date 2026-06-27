@@ -5,6 +5,7 @@ resource "aws_lb" "idp" {
 
   drop_invalid_header_fields = true
   enable_deletion_protection = true
+  idle_timeout               = 60
 
   access_logs {
     bucket  = var.cbs_satellite_bucket_name
