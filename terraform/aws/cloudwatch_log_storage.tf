@@ -91,7 +91,7 @@ resource "aws_kinesis_firehose_delivery_stream" "cloudwatch_log_storage" {
         }
         parameters {
           parameter_name  = "MetadataExtractionQuery"
-          parameter_value = "{logGroup:.logGroup}"
+          parameter_value = "{logGroup:(.logGroup | ltrimstr(\"/\") | gsub(\"/\"; \"-\"))}"
         }
       }
     }
