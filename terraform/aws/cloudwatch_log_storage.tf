@@ -83,12 +83,14 @@ resource "aws_kinesis_firehose_delivery_stream" "cloudwatch_log_storage" {
           parameter_value = "JQ-1.6"
         }
         parameters {
-          parameter_name  = "MetadataAttributes"
-          parameter_value = "logGroup"
+          parameter_name  = "MetadataExtractionQuery"
+          parameter_value = "{logGroup:.logGroup}"
         }
       }
     }
 
+    buffering_size      = 64
+    buffering_interval  = 300
     prefix              = "logs/log_group=!{partitionKeyFromQuery:logGroup}/year=!{timestamp:yyyy}/month=!{timestamp:MM}/day=!{timestamp:dd}/"
     error_output_prefix = "errors/year=!{timestamp:yyyy}/month=!{timestamp:MM}/!{firehose:error-output-type}/"
   }
