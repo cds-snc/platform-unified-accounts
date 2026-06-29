@@ -70,3 +70,22 @@ module "resolver_dns" {
 
   billing_tag_value = var.billing_tag_value
 }
+
+#
+# Route53 DNSSEC for auth.cdssandbox.xyz
+# 
+resource "aws_route53_key_signing_key" "idp" {
+  provider = aws.us-east-1
+
+  count                      = var.env == "staging" ? 1 : 0
+  name                       = "auth-cdssandbox-xyz-ksk"
+  hosted_zone_id             = aws_route53_zone.idp.zone_id
+  key_management_service_arn = aws_kms_key.dnssec[0].arn
+}
+
+resource "aws_route53_hosted_zone_dnssec" "idp" {
+  provider = aws.us-east-1
+
+  count          = var.env == "staging" ? 1 : 0
+  hosted_zone_id = aws_route53_key_signing_key.idp[0].hosted_zone_id
+}
