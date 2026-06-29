@@ -32,8 +32,37 @@ module "event_exporter_s3" {
           storage_class = "GLACIER"
         }
       ]
+    },
+    {
+      id      = "expire_objects"
+      enabled = true
+      expiration = {
+        days = "730"
+      }
     }
   ]
+}
+
+resource "aws_s3_bucket_policy" "event_exporter_s3" {
+  bucket = module.event_exporter_s3.s3_bucket_id
+  policy = data.aws_iam_policy_document.event_exporter_s3.json
+}
+
+data "aws_iam_policy_document" "event_exporter_s3" {
+  statement {
+    sid    = "DenyDeleteObject"
+    effect = "Deny"
+    principals {
+      type        = "*"
+      identifiers = ["*"]
+    }
+    actions = [
+      "s3:DeleteObject"
+    ]
+    resources = [
+      "${module.event_exporter_s3.s3_bucket_arn}/*"
+    ]
+  }
 }
 
 /*
