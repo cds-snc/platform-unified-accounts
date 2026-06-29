@@ -32,14 +32,14 @@ Database:
 DefaultInstance:
   LoginPolicy:
     AllowRegister: true
-    ForceMFA: false
+    ForceMFA: true
     HidePasswordReset: false
     IgnoreUnknownUsernames: true
   OIDCSettings:
     AccessTokenLifetime: '0.5h'
     IdTokenLifetime: '0.5h'
-    RefreshTokenIdleExpiration: '720h'
-    RefreshTokenExpiration: '2160h'
+    RefreshTokenIdleExpiration: '24h'
+    RefreshTokenExpiration: '24h'
   Features:
     LoginV2:
       Required: true
