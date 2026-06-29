@@ -77,6 +77,13 @@ resource "aws_kinesis_firehose_delivery_stream" "cloudwatch_log_storage" {
     processing_configuration {
       enabled = true
       processors {
+        type = "Decompression"
+        parameters {
+          parameter_name  = "CompressionFormat"
+          parameter_value = "GZIP"
+        }
+      }
+      processors {
         type = "MetadataExtraction"
         parameters {
           parameter_name  = "JsonParsingEngine"
