@@ -66,9 +66,9 @@ resource "aws_kinesis_firehose_delivery_stream" "cloudwatch_log_storage" {
   }
 
   extended_s3_configuration {
-    role_arn            = aws_iam_role.firehose_cloudwatch_log_storage.arn
-    bucket_arn          = module.cloudwatch_log_storage.s3_bucket_arn
-    compression_format  = "GZIP"
+    role_arn           = aws_iam_role.firehose_cloudwatch_log_storage.arn
+    bucket_arn         = module.cloudwatch_log_storage.s3_bucket_arn
+    compression_format = "GZIP"
 
     dynamic_partitioning_configuration {
       enabled = true
