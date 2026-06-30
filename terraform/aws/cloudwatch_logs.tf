@@ -3,7 +3,7 @@
 #
 module "cloudwatch_log_storage" {
   source = "github.com/cds-snc/terraform-modules//cloudwatch_log_storage?ref=v11.4.1"
-  
+
   product_name          = var.product_name
   athena_workgroup_name = module.athena_access_logs.athena_workgroup_name
   athena_database_name  = module.athena_access_logs.athena_database_name
@@ -14,6 +14,6 @@ module "cloudwatch_log_storage" {
     module.login_ecs.cloudwatch_log_group_name,
     module.event_exporter_lambda.lambda_function_cloudwatch_log_group_name
   ]
-  
+
   billing_tag_value = var.billing_tag_value
 }
