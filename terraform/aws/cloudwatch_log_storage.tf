@@ -77,18 +77,27 @@ resource "aws_kinesis_firehose_delivery_stream" "cloudwatch_log_storage" {
     processing_configuration {
       enabled = true
       processors {
+        type = "Decompression"
+        parameters {
+          parameter_name  = "CompressionFormat"
+          parameter_value = "GZIP"
+        }
+      }
+      processors {
         type = "MetadataExtraction"
         parameters {
           parameter_name  = "JsonParsingEngine"
           parameter_value = "JQ-1.6"
         }
         parameters {
-          parameter_name  = "MetadataAttributes"
-          parameter_value = "logGroup"
+          parameter_name  = "MetadataExtractionQuery"
+          parameter_value = "{logGroup:(.logGroup | ltrimstr(\"/\") | gsub(\"/\"; \"-\"))}"
         }
       }
     }
 
+    buffering_size      = 64
+    buffering_interval  = 300
     prefix              = "logs/log_group=!{partitionKeyFromQuery:logGroup}/year=!{timestamp:yyyy}/month=!{timestamp:MM}/day=!{timestamp:dd}/"
     error_output_prefix = "errors/year=!{timestamp:yyyy}/month=!{timestamp:MM}/!{firehose:error-output-type}/"
   }
