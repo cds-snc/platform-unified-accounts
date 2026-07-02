@@ -42,7 +42,7 @@ The system is composed of four runtime components and several AWS managed servic
 |---|---|
 | Technology | [Zitadel](https://zitadel.com/) (open-source, self-hosted) |
 | Runtime | AWS ECS Fargate, cluster `idp` |
-| Source | `docker/idp/` |
+| Source | [`docker/idp/`](./docker/idp) |
 
 Zitadel is the core identity provider. It handles all OIDC protocol work: token issuance, user management, MFA policy enforcement, and federation workflows. It is the source of truth for user identities and credentials.
 
@@ -72,7 +72,7 @@ Server-side route protection is enforced via the `AuthLevel` enum (`lib/server/r
 |---|---|
 | Technology | Go (AWS Lambda) |
 | Schedule | Every 5 minutes (EventBridge) |
-| Source | `docker/idp-event-exporter/` |
+| Source | [`docker/idp-event-exporter/`](./docker/idp-event-exporter) |
 
 A Lambda function that polls the Zitadel Admin API and writes audit event records as JSON to S3. It also logs `AEVT:`-prefixed lines to CloudWatch, which trigger a subscription filter → `alarms-slack` Lambda → Slack for security-relevant events (e.g., `instance.member.*`, `org.member.*`, `user.locked`).
 
@@ -82,7 +82,7 @@ A Lambda function that polls the Zitadel Admin API and writes audit event record
 |---|---|
 | Technology | Go (AWS Lambda) |
 | Schedule | Every 24 hours (EventBridge) |
-| Source | `docker/idp-deactivate-users/` |
+| Source | [`docker/idp-deactivate-users/`](./docker/idp-deactivate-users) |
 
 A Lambda function that uses the Zitadel User and Events APIs to:
 
@@ -96,7 +96,7 @@ A Lambda function that uses the Zitadel User and Events APIs to:
 | Property | Value |
 |---|---|
 | Technology | AWS Lambda |
-| Source | `docker/alarms-slack/` |
+| Source | [`docker/alarms-slack/`](./docker/alarms-slack) |
 
 Receives CloudWatch subscription filter notifications and forwards formatted alerts to a Slack channel. Acts as the alerting bridge for operational and security events.
 
