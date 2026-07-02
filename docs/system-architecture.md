@@ -56,7 +56,7 @@ Key configuration:
 |---|---|
 | Technology | Next.js, TypeScript |
 | Runtime | AWS ECS Fargate, cluster `idp` |
-| Source | `platform-unified-accounts-user-portal/` |
+| Source | [`cds-snc/platform-unified-accounts-user-portal`](https://github.com/cds-snc/platform-unified-accounts-user-portal) |
 
 The User Portal is the Login V2 frontend for Zitadel. End users (apart from CDS staff) interact exclusively with the User Portal — they never touch Zitadel's built-in UI. The portal mediates all authentication flows:
 
