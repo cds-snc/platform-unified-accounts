@@ -74,9 +74,24 @@ Server-side route protection is enforced via the `AuthLevel` enum (`lib/server/r
 | Schedule | Every 5 minutes (EventBridge) |
 | Source | `docker/idp-event-exporter/` |
 
-A lightweight Lambda function that polls the Zitadel Admin API and writes audit event records as JSON to S3. It also logs `AEVT:`-prefixed lines to CloudWatch, which trigger a subscription filter → `alarms-slack` Lambda → Slack for security-relevant events (e.g., `instance.member.*`, `org.member.*`, `user.locked`).
+A Lambda function that polls the Zitadel Admin API and writes audit event records as JSON to S3. It also logs `AEVT:`-prefixed lines to CloudWatch, which trigger a subscription filter → `alarms-slack` Lambda → Slack for security-relevant events (e.g., `instance.member.*`, `org.member.*`, `user.locked`).
 
-### 2.4 Alarms Slack Lambda
+### 2.4 IdP Deactivate Users (Lambda)
+
+| Property | Value |
+|---|---|
+| Technology | Go (AWS Lambda) |
+| Schedule | Every 24 hours (EventBridge) |
+| Source | `docker/idp-deactivate-users/` |
+
+A Lambda function that uses the Zitadel User and Events APIs to:
+
+1. Retrieve all active human users.
+2. For each user: 
+   1. Determine their most recent activity date. This is based on either their most recent successful password check event or their account creation date.
+   2. If the most recent activity is before the INACTIVE_DAYS cutoff, deactivate the user's account. 
+
+### 2.5 Alarms Slack Lambda
 
 | Property | Value |
 |---|---|
