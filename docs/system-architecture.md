@@ -1,7 +1,7 @@
 # System Architecture — Platform Unified Accounts (SSO/IdP)
 
-**Owner:** Canadian Digital Service — Platform Core Services  
-**Last updated:** 2026-07-02
+- **Owner:** Canadian Digital Service — Platform Core Services  
+- **Last updated:** 2026-07-02
 
 ---
 

@@ -1,8 +1,8 @@
 # Annual Backup Test & Contingency Plan Runbook
 
-**System:** Platform Unified Accounts — SSO/IdP. 
-**Cadence:** Annual (minimum). 
-**Controls satisfied:** CP-9(1), CP-9(2), supports CP-10. 
+- **System:** Platform Unified Accounts — SSO/IdP. 
+- **Cadence:** Annual (minimum). 
+- **Controls satisfied:** CP-9(1), CP-9(2), supports CP-10. 
 
 ---
 
