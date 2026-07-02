@@ -179,10 +179,10 @@ sequenceDiagram
 ### 5.2 Audit Event Flow
 
 ```
-1. Lambda (every 5 min)  ──►  Zitadel Admin API (internal)
-2. Lambda                ──►  S3: idp-event-exporter-{env}  (JSON records)
+1. Lambda (every 5 min)   ──►  Zitadel Admin API (internal)
+2. Lambda                 ──►  S3: idp-event-exporter-{env}  (JSON records)
 3. Lambda CloudWatch logs ──►  Subscription filter
-4. Subscription filter   ──►  alarms-slack Lambda  ──►  Slack
+4. Subscription filter    ──►  alarms-slack Lambda  ──►  Slack
 ```
 
 Security-relevant events (admin membership changes, `user.locked`) trigger Slack alerts.
@@ -190,9 +190,9 @@ Security-relevant events (admin membership changes, `user.locked`) trigger Slack
 ### 5.3 Privileged / Administrative Flow
 
 ```
-1. Admin  ──►  ALB / User Portal  (same path as end users, phishing-resistant MFA required)
-2. Admin  ──►  Zitadel Admin Console  (via browser, organisation-admin PAT)
-3. CI/CD  ──►  GitHub Actions OIDC role  ──►  Terraform / ECR push  ──►  ECS task replacement
+1. Admin  ──►  ALB / User Portal (same path as end users, phishing-resistant MFA required)
+2. Admin  ──►  Zitadel Admin Console (via browser, organisation-admin PAT)
+3. CI/CD  ──►  GitHub Actions OIDC role  ──►  Terraform / ECR / ECS
 ```
 
 No static AWS credentials are used in CI/CD. All infrastructure changes flow through Terraform with OIDC-based role assumption.
