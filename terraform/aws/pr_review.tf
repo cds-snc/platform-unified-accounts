@@ -13,7 +13,7 @@ module "pr_review" {
     aws_ssm_parameter.idp_notify_template_id.arn,
   ]
 
-  ecr_policy        = file("${path.module}/ecr-lifecycle.json")
+  ecr_policy        = data.aws_ecr_lifecycle_policy_document.repo.json
   billing_tag_value = var.billing_tag_value
   common_tags       = local.common_tags
   core_tags         = local.core_tags
