@@ -20,7 +20,7 @@ module "idp_cleanup_users_lambda" {
     ZITADEL_HOST           = var.domain
     ZITADEL_TOKEN_SSM_PATH = aws_ssm_parameter.idp_cleanup_users_bearer_token.name
     ZITADEL_URL            = "http://idp.${aws_service_discovery_private_dns_namespace.idp_ecs.name}:8080"
-    DRY_RUN                = "true"
+    DRY_RUN                = "false"
   }
 
   lambda_vpc_config = {
