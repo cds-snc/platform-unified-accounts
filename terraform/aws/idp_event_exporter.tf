@@ -1,7 +1,7 @@
 /*
  * S3 bucket to store exported events
  */
-module "event_exporter_s3" {
+module "idp_event_exporter_s3" {
   source            = "github.com/cds-snc/terraform-modules//S3?ref=v11.3.5"
   bucket_name       = "idp-event-exporter-${var.env}"
   billing_tag_value = var.billing_tag_value
@@ -43,12 +43,7 @@ module "event_exporter_s3" {
   ]
 }
 
-resource "aws_s3_bucket_policy" "event_exporter_s3" {
-  bucket = module.event_exporter_s3.s3_bucket_id
-  policy = data.aws_iam_policy_document.event_exporter_s3.json
-}
-
-data "aws_iam_policy_document" "event_exporter_s3" {
+data "aws_iam_policy_document" "idp_event_exporter_s3" {
   statement {
     sid    = "DenyDeleteObject"
     effect = "Deny"
@@ -60,7 +55,7 @@ data "aws_iam_policy_document" "event_exporter_s3" {
       "s3:DeleteObject"
     ]
     resources = [
-      "${module.event_exporter_s3.s3_bucket_arn}/*"
+      "${module.idp_event_exporter_s3.s3_bucket_arn}/*"
     ]
   }
 }
@@ -72,7 +67,7 @@ locals {
   event_window_minutes = 5
 }
 
-module "event_exporter_lambda" {
+module "idp_event_exporter_lambda" {
   source = "github.com/cds-snc/terraform-modules//lambda_schedule?ref=v11.3.5"
 
   lambda_name                = "idp-event-exporter"
@@ -83,11 +78,11 @@ module "event_exporter_lambda" {
   lambda_image_uri           = aws_ecr_repository.repo["idp-event-exporter"].repository_url
 
   lambda_policies = [
-    data.aws_iam_policy_document.event_exporter_get_ssm_parameters.json
+    data.aws_iam_policy_document.idp_event_exporter_get_ssm_parameters.json
   ]
 
   lambda_environment_variables = {
-    S3_BUCKET              = module.event_exporter_s3.s3_bucket_id
+    S3_BUCKET              = module.idp_event_exporter_s3.s3_bucket_id
     ZITADEL_HOST           = var.domain
     ZITADEL_TOKEN_SSM_PATH = aws_ssm_parameter.idp_event_exporter_bearer_token.name
     ZITADEL_URL            = "http://idp.${aws_service_discovery_private_dns_namespace.idp_ecs.name}:8080"
@@ -100,11 +95,11 @@ module "event_exporter_lambda" {
   }
 
   create_ecr_repository = false
-  s3_arn_write_path     = "${module.event_exporter_s3.s3_bucket_arn}/*"
+  s3_arn_write_path     = "${module.idp_event_exporter_s3.s3_bucket_arn}/*"
   billing_tag_value     = var.billing_tag_value
 }
 
-data "aws_iam_policy_document" "event_exporter_get_ssm_parameters" {
+data "aws_iam_policy_document" "idp_event_exporter_get_ssm_parameters" {
   statement {
     sid    = "GetSSMParameters"
     effect = "Allow"
@@ -123,4 +118,92 @@ resource "aws_ssm_parameter" "idp_event_exporter_bearer_token" {
   type  = "SecureString"
   value = var.idp_event_exporter_bearer_token
   tags  = local.core_tags
+}
+
+/*
+ * Moved blocks: idp_ prefix added to module names
+ */
+moved {
+  from = module.event_exporter_s3.aws_s3_bucket.this
+  to   = module.idp_event_exporter_s3.aws_s3_bucket.this
+}
+
+moved {
+  from = module.event_exporter_s3.aws_s3_bucket_public_access_block.this
+  to   = module.idp_event_exporter_s3.aws_s3_bucket_public_access_block.this
+}
+
+moved {
+  from = module.event_exporter_lambda.aws_cloudwatch_event_rule.this
+  to   = module.idp_event_exporter_lambda.aws_cloudwatch_event_rule.this
+}
+
+moved {
+  from = module.event_exporter_lambda.aws_cloudwatch_event_target.this
+  to   = module.idp_event_exporter_lambda.aws_cloudwatch_event_target.this
+}
+
+moved {
+  from = module.event_exporter_lambda.aws_lambda_permission.this
+  to   = module.idp_event_exporter_lambda.aws_lambda_permission.this
+}
+
+moved {
+  from = module.event_exporter_lambda.module.this_lambda.aws_cloudwatch_log_group.this
+  to   = module.idp_event_exporter_lambda.module.this_lambda.aws_cloudwatch_log_group.this
+}
+
+moved {
+  from = module.event_exporter_lambda.module.this_lambda.aws_cloudwatch_query_definition.lambda_statistics
+  to   = module.idp_event_exporter_lambda.module.this_lambda.aws_cloudwatch_query_definition.lambda_statistics
+}
+
+moved {
+  from = module.event_exporter_lambda.module.this_lambda.aws_iam_policy.policies[0]
+  to   = module.idp_event_exporter_lambda.module.this_lambda.aws_iam_policy.policies[0]
+}
+
+moved {
+  from = module.event_exporter_lambda.module.this_lambda.aws_iam_policy.policies[1]
+  to   = module.idp_event_exporter_lambda.module.this_lambda.aws_iam_policy.policies[1]
+}
+
+moved {
+  from = module.event_exporter_lambda.module.this_lambda.aws_iam_policy.vpc_policies[0]
+  to   = module.idp_event_exporter_lambda.module.this_lambda.aws_iam_policy.vpc_policies[0]
+}
+
+moved {
+  from = module.event_exporter_lambda.module.this_lambda.aws_iam_role.this
+  to   = module.idp_event_exporter_lambda.module.this_lambda.aws_iam_role.this
+}
+
+moved {
+  from = module.event_exporter_lambda.module.this_lambda.aws_iam_role_policy_attachment.AWSLambdaVPCAccessExecutionRole[0]
+  to   = module.idp_event_exporter_lambda.module.this_lambda.aws_iam_role_policy_attachment.AWSLambdaVPCAccessExecutionRole[0]
+}
+
+moved {
+  from = module.event_exporter_lambda.module.this_lambda.aws_iam_role_policy_attachment.attachments[0]
+  to   = module.idp_event_exporter_lambda.module.this_lambda.aws_iam_role_policy_attachment.attachments[0]
+}
+
+moved {
+  from = module.event_exporter_lambda.module.this_lambda.aws_iam_role_policy_attachment.attachments[1]
+  to   = module.idp_event_exporter_lambda.module.this_lambda.aws_iam_role_policy_attachment.attachments[1]
+}
+
+moved {
+  from = module.event_exporter_lambda.module.this_lambda.aws_iam_role_policy_attachment.lambda_insights[0]
+  to   = module.idp_event_exporter_lambda.module.this_lambda.aws_iam_role_policy_attachment.lambda_insights[0]
+}
+
+moved {
+  from = module.event_exporter_lambda.module.this_lambda.aws_iam_role_policy_attachment.vpc_policies[0]
+  to   = module.idp_event_exporter_lambda.module.this_lambda.aws_iam_role_policy_attachment.vpc_policies[0]
+}
+
+moved {
+  from = module.event_exporter_lambda.module.this_lambda.aws_lambda_function.this
+  to   = module.idp_event_exporter_lambda.module.this_lambda.aws_lambda_function.this
 }
