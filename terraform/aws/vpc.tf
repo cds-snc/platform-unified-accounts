@@ -157,6 +157,16 @@ resource "aws_security_group_rule" "vpc_endpoint_ingress_idp_event_exporter" {
   source_security_group_id = aws_security_group.idp_event_exporter.id
 }
 
+resource "aws_security_group_rule" "vpc_endpoint_ingress_idp_cleanup_users" {
+  description              = "Ingress from idp cleanup users Lambda to VPC endpoint"
+  type                     = "ingress"
+  from_port                = 443
+  to_port                  = 443
+  protocol                 = "tcp"
+  security_group_id        = aws_security_group.vpc_endpoint.id
+  source_security_group_id = aws_security_group.idp_cleanup_users.id
+}
+
 # ECS IdP =====================================================================
 resource "aws_security_group" "idp_ecs" {
   description = "NSG for idp ECS Tasks"
