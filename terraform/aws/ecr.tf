@@ -23,81 +23,91 @@ resource "aws_ecr_lifecycle_policy" "repo" {
   for_each = local.ecr_repos
 
   repository = aws_ecr_repository.repo[each.key].name
-  policy = jsonencode({
-    "rules" : [
-      {
-        "rulePriority" : 10,
-        "description" : "Keep last 20 git SHA tagged images",
-        "selection" : {
-          "tagStatus" : "tagged",
-          "tagPrefixList" : [
-            "sha-"
-          ],
-          "countType" : "imageCountMoreThan",
-          "countNumber" : 20
-        },
-        "action" : {
-          "type" : "expire"
-        }
-      },
-      {
-        "rulePriority" : 20,
-        "description" : "Keep last 20 PR SHA tagged images",
-        "selection" : {
-          "tagStatus" : "tagged",
-          "tagPrefixList" : [
-            "pr-"
-          ],
-          "countType" : "imageCountMoreThan",
-          "countNumber" : 20
-        },
-        "action" : {
-          "type" : "expire"
-        }
-      },
-      {
-        "rulePriority" : 30,
-        "description" : "Expire untagged images older than 1 day",
-        "selection" : {
-          "tagStatus" : "untagged",
-          "countType" : "sinceImagePushed",
-          "countUnit" : "days",
-          "countNumber" : 1
-        },
-        "action" : {
-          "type" : "expire"
-        }
-      },
-      {
-        "rulePriority" : 40,
-        "description" : "Archive images not pulled in 90 days",
-        "selection" : {
-          "tagStatus" : "any",
-          "countType" : "sinceImagePulled",
-          "countUnit" : "days",
-          "countNumber" : 90
-        },
-        "action" : {
-          "type" : "transition",
-          "targetStorageClass" : "archive"
-        }
-      },
-      {
-        "rulePriority" : 50,
-        "description" : "Expire images archived for more than 90 days",
-        "selection" : {
-          "tagStatus" : "any",
-          "storageClass" : "archive",
-          "countType" : "sinceImageTransitioned",
-          "countUnit" : "days",
-          "countNumber" : 90
-        },
-        "action" : {
-          "type" : "expire"
-        }
-      }
-    ]
-  })
+  policy     = data.aws_ecr_lifecycle_policy_document.repo.json
+}
+
+data "aws_ecr_lifecycle_policy_document" "repo" {
+  rule {
+    priority    = 10
+    description = "Keep last 20 git SHA tagged images"
+
+    selection {
+      tag_status      = "tagged"
+      tag_prefix_list = ["sha-"]
+      count_type      = "imageCountMoreThan"
+      count_number    = 20
+    }
+
+    action {
+      type = "expire"
+    }
+  }
+
+  rule {
+    priority    = 20
+    description = "Keep last 20 PR SHA tagged images"
+
+    selection {
+      tag_status      = "tagged"
+      tag_prefix_list = ["pr-"]
+      count_type      = "imageCountMoreThan"
+      count_number    = 20
+    }
+
+    action {
+      type = "expire"
+    }
+  }
+
+  rule {
+    priority    = 30
+    description = "Expire untagged images older than 1 day"
+
+    selection {
+      tag_status   = "untagged"
+      count_type   = "sinceImagePushed"
+      count_unit   = "days"
+      count_number = 1
+    }
+
+    action {
+      type = "expire"
+    }
+  }
+
+  rule {
+    priority    = 40
+    description = "Archive images not pulled in 90 days"
+
+    selection {
+      tag_status   = "any"
+      count_type   = "sinceImagePulled"
+      count_unit   = "days"
+      count_number = 90
+    }
+
+    action {
+      type                 = "transition"
+      target_storage_class = "archive"
+    }
+  }
+
+  rule {
+    priority    = 50
+    description = "Expire images archived for more than 90 days"
+
+    selection {
+      tag_status    = "any"
+      storage_class = "archive"
+      count_type    = "sinceImageTransitioned"
+      count_unit    = "days"
+      count_number  = 90
+    }
+
+    action {
+      type = "expire"
+    }
+  }
 }
 
 moved {

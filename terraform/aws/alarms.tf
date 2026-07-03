@@ -393,8 +393,8 @@ resource "aws_cloudwatch_query_definition" "ecs_errors" {
 module "alarms_slack" {
   source    = "github.com/cds-snc/terraform-modules//lambda?ref=v11.3.5"
   name      = "alarms-slack"
-  ecr_arn   = aws_ecr_repository.alarms_slack.arn
-  image_uri = "${aws_ecr_repository.alarms_slack.repository_url}:latest"
+  ecr_arn   = aws_ecr_repository.repo["alarms-slack"].arn
+  image_uri = "${aws_ecr_repository.repo["alarms-slack"].repository_url}:latest"
 
   architectures = ["arm64"]
   memory        = 1024

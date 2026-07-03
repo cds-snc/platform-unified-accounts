@@ -12,7 +12,7 @@ module "load_test" {
   idp_load_test_password    = var.idp_load_test_password
   idp_load_test_totp_secret = var.idp_load_test_totp_secret
 
-  ecr_policy  = file("${path.module}/ecr-lifecycle.json")
+  ecr_policy  = data.aws_ecr_lifecycle_policy_document.repo.json
   common_tags = local.common_tags
   core_tags   = local.core_tags
 }

@@ -79,8 +79,8 @@ module "event_exporter_lambda" {
   lambda_schedule_expression = "cron(0/${local.event_window_minutes} * * * ? *)"
   lambda_timeout             = "60"
   lambda_architectures       = ["arm64"]
-  lambda_ecr_arn             = aws_ecr_repository.idp_event_exporter.arn
-  lambda_image_uri           = aws_ecr_repository.idp_event_exporter.repository_url
+  lambda_ecr_arn             = aws_ecr_repository.repo["idp-event-exporter"].arn
+  lambda_image_uri           = aws_ecr_repository.repo["idp-event-exporter"].repository_url
 
   lambda_policies = [
     data.aws_iam_policy_document.event_exporter_get_ssm_parameters.json
