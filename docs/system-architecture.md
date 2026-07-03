@@ -84,12 +84,12 @@ A Lambda function that polls the Zitadel Admin API and writes audit event record
 | Schedule | Every 24 hours (EventBridge) |
 | Source | [`docker/idp-cleanup-users/`](../docker/idp-cleanup-users) |
 
-A Lambda function that uses the Zitadel User and Events APIs to:
+A Lambda function that uses the Zitadel User API to delete users that have not completed registration within 30 days.
 
-1. Retrieve all active human users.
-2. For each user: 
-   1. Check if they have verified their email and have MFA factors added.
-   2. If they don't, and the user was created more than 30 days in the past, delete the user. 
+Registration is considered complete when a user has:
+
+1. verified their email, and
+2. added at least one MFA method.
 
 ### 2.5 Alarms Slack Lambda
 
