@@ -14,6 +14,7 @@ env:
   TF_VAR_idp_admin_username: ${{ secrets.STAGING_IDP_ADMIN_USERNAME }}
   TF_VAR_idp_admin_password: ${{ secrets.STAGING_IDP_ADMIN_PASSWORD }}
   TF_VAR_cloudwatch_slack_webhook_url: ${{ secrets.STAGING_CLOUDWATCH_ALERT_SLACK_WEBHOOK }}
+  TF_VAR_idp_cleanup_users_bearer_token: ${{ secrets.STAGING_IDP_CLEANUP_USERS_BEARER_TOKEN }}
   TF_VAR_idp_database_username: ${{ secrets.STAGING_IDP_DATABASE_USERNAME }}
   TF_VAR_idp_database_password: ${{ secrets.STAGING_IDP_DATABASE_PASSWORD }}
   TF_VAR_idp_database_admin_username: ${{ secrets.STAGING_IDP_DATABASE_ADMIN_USERNAME }}

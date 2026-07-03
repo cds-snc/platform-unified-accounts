@@ -12,6 +12,7 @@ module "cloudwatch_log_storage" {
   cloudwatch_log_group_names = [
     module.idp_ecs.cloudwatch_log_group_name,
     module.login_ecs.cloudwatch_log_group_name,
+    module.idp_cleanup_users_lambda.lambda_function_cloudwatch_log_group_name,
     module.event_exporter_lambda.lambda_function_cloudwatch_log_group_name
   ]
 

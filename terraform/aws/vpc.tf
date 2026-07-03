@@ -447,6 +447,54 @@ resource "aws_security_group_rule" "idp_load_test_ecs_egress_internet" {
   cidr_blocks       = ["0.0.0.0/0"]
 }
 
+# IdP cleanup users ==========================================================
+resource "aws_security_group" "idp_cleanup_users" {
+  description = "NSG for idp cleanup users Lambda function"
+  name        = "idp_cleanup_users"
+  vpc_id      = module.idp_vpc.vpc_id
+  tags        = local.core_tags
+}
+
+resource "aws_security_group_rule" "idp_cleanup_users_egress_idp_ecs" {
+  description              = "Egress from idp cleanup users to idp ECS task"
+  type                     = "egress"
+  to_port                  = 8080
+  from_port                = 8080
+  protocol                 = "tcp"
+  security_group_id        = aws_security_group.idp_cleanup_users.id
+  source_security_group_id = aws_security_group.idp_ecs.id
+}
+
+resource "aws_security_group_rule" "idp_ecs_ingress_idp_cleanup_users" {
+  description              = "Ingress to idp ECS task from idp cleanup users"
+  type                     = "ingress"
+  to_port                  = 8080
+  from_port                = 8080
+  protocol                 = "tcp"
+  security_group_id        = aws_security_group.idp_ecs.id
+  source_security_group_id = aws_security_group.idp_cleanup_users.id
+}
+
+resource "aws_security_group_rule" "idp_cleanup_users_egress_s3" {
+  description       = "Egress from idp cleanup users to S3"
+  type              = "egress"
+  from_port         = 443
+  to_port           = 443
+  protocol          = "tcp"
+  security_group_id = aws_security_group.idp_cleanup_users.id
+  prefix_list_ids   = [aws_vpc_endpoint.gateway["s3"].prefix_list_id]
+}
+
+resource "aws_security_group_rule" "idp_cleanup_users_egress_vpc_endpoint" {
+  description              = "Egress from idp cleanup users to VPC endpoint"
+  type                     = "egress"
+  from_port                = 443
+  to_port                  = 443
+  protocol                 = "tcp"
+  security_group_id        = aws_security_group.idp_cleanup_users.id
+  source_security_group_id = aws_security_group.vpc_endpoint.id
+}
+
 # IdP event exporter ==========================================================
 resource "aws_security_group" "idp_event_exporter" {
   description = "NSG for idp event exporter Lambda function"

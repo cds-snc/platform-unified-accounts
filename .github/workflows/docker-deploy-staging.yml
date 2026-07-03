@@ -27,6 +27,8 @@ jobs:
             type: lambda
           - name: idp
             type: ecs
+          - name: idp-cleanup-users
+            type: lambda
           - name: idp-event-exporter
             type: lambda
 
