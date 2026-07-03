@@ -1,5 +1,5 @@
 docker:
-	docker build -t idp-deactivate-users:latest .
+	docker build -t idp-cleanup-users:latest .
 
 fmt:
 	gofmt -s -w .

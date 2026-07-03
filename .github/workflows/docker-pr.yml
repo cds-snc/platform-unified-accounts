@@ -21,7 +21,7 @@ jobs:
         image:
           - alarms-slack
           - idp
-          - idp-deactivate-users
+          - idp-cleanup-users
           - idp-event-exporter
 
     steps: 

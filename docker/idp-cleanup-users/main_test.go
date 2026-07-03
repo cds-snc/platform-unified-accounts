@@ -218,7 +218,7 @@ func TestDoJSONRequest_SendsBodyAndParsesResponse(t *testing.T) {
 	defer srv.Close()
 
 	var out respT
-	err := doJSONRequest(t.Context(), srv.Client(), srv.URL, "/api/test", "abc", reqT{Hello: "world"}, &out)
+	err := doJSONRequest(t.Context(), srv.Client(), srv.URL, "/api/test", "abc", http.MethodPost, reqT{Hello: "world"}, &out)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -252,7 +252,7 @@ func TestDoJSONRequest_NilBodyOmitsContentType(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	if err := doJSONRequest(t.Context(), srv.Client(), srv.URL, "/", "tok", nil, nil); err != nil {
+	if err := doJSONRequest(t.Context(), srv.Client(), srv.URL, "/", "tok", http.MethodPost, nil, nil); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if gotCT != "" {
@@ -271,7 +271,7 @@ func TestDoJSONRequest_TrailingSlashStripped(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	if err := doJSONRequest(t.Context(), srv.Client(), srv.URL+"/", "/v2/users", "tok", nil, nil); err != nil {
+	if err := doJSONRequest(t.Context(), srv.Client(), srv.URL+"/", "/v2/users", "tok", http.MethodPost, nil, nil); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if gotPath != "/v2/users" {
@@ -285,7 +285,7 @@ func TestDoJSONRequest_HTTPError(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	err := doJSONRequest(t.Context(), srv.Client(), srv.URL, "/", "tok", nil, nil)
+	err := doJSONRequest(t.Context(), srv.Client(), srv.URL, "/", "tok", http.MethodPost, nil, nil)
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
@@ -306,11 +306,50 @@ func TestDoJSONRequest_SetsHostHeaderWhenConfigured(t *testing.T) {
 	zitadelHost = "zitadel.example.com"
 	defer func() { zitadelHost = orig }()
 
-	if err := doJSONRequest(t.Context(), srv.Client(), srv.URL, "/", "tok", nil, nil); err != nil {
+	if err := doJSONRequest(t.Context(), srv.Client(), srv.URL, "/", "tok", http.MethodPost, nil, nil); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if gotHost != "zitadel.example.com" {
 		t.Errorf("Host: got %q, want zitadel.example.com", gotHost)
+	}
+}
+
+func TestDoJSONRequest_DeleteMethodSucceeds(t *testing.T) {
+	var gotMethod, gotPath, gotAuth string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotMethod = r.Method
+		gotPath = r.URL.Path
+		gotAuth = r.Header.Get("Authorization")
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	if err := doJSONRequest(t.Context(), srv.Client(), srv.URL, "/v2/users/u1", "tok", http.MethodDelete, nil, nil); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if gotMethod != http.MethodDelete {
+		t.Errorf("method: got %q, want DELETE", gotMethod)
+	}
+	if gotPath != "/v2/users/u1" {
+		t.Errorf("path: got %q", gotPath)
+	}
+	if gotAuth != "Bearer tok" {
+		t.Errorf("Authorization: got %q", gotAuth)
+	}
+}
+
+func TestDoJSONRequest_DeleteHTTPError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "not found", http.StatusNotFound)
+	}))
+	defer srv.Close()
+
+	err := doJSONRequest(t.Context(), srv.Client(), srv.URL, "/v2/users/u1", "tok", http.MethodDelete, nil, nil)
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "HTTP 404") {
+		t.Errorf("error should mention status: got %v", err)
 	}
 }
 
@@ -445,111 +484,207 @@ func TestListActiveUsers_HTTPError(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// lastPasswordCheckSucceeded
+// isEmailVerified
 // ---------------------------------------------------------------------------
 
-func TestLastPasswordCheckSucceeded_EventFound(t *testing.T) {
-	var gotBody map[string]any
+func TestIsEmailVerified_Verified(t *testing.T) {
+	u := user{Human: &userHuman{Email: &userEmail{IsVerified: true}}}
+	if !isEmailVerified(u) {
+		t.Error("got false, want true")
+	}
+}
+
+func TestIsEmailVerified_NotVerified(t *testing.T) {
+	u := user{Human: &userHuman{Email: &userEmail{IsVerified: false}}}
+	if isEmailVerified(u) {
+		t.Error("got true, want false")
+	}
+}
+
+func TestIsEmailVerified_NilHuman(t *testing.T) {
+	u := user{Human: nil}
+	if isEmailVerified(u) {
+		t.Error("got true, want false for nil human")
+	}
+}
+
+func TestIsEmailVerified_NilEmail(t *testing.T) {
+	u := user{Human: &userHuman{Email: nil}}
+	if isEmailVerified(u) {
+		t.Error("got true, want false for nil email")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// listAuthenticationFactors
+// ---------------------------------------------------------------------------
+
+func TestListAuthenticationFactors_ReturnsFactor(t *testing.T) {
 	var gotPath string
+	var gotMethod string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotPath = r.URL.Path
-		json.NewDecoder(r.Body).Decode(&gotBody)
+		gotMethod = r.Method
 		json.NewEncoder(w).Encode(map[string]any{
-			"events": []map[string]any{
-				{"creationDate": "2026-04-21T15:00:00.000000Z"},
+			"result": []map[string]any{
+				{"state": "AUTH_FACTOR_STATE_READY"},
 			},
 		})
 	}))
 	defer srv.Close()
 
-	got, found, err := lastPasswordCheckSucceeded(t.Context(), srv.Client(), srv.URL, "tok", "user-123")
+	factors, err := listAuthenticationFactors(t.Context(), srv.Client(), srv.URL, "tok", "user-123")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if !found {
-		t.Fatal("expected found=true")
+	if len(factors) != 1 {
+		t.Fatalf("got %d factors, want 1", len(factors))
 	}
-	want := time.Date(2026, 4, 21, 15, 0, 0, 0, time.UTC)
-	if !got.Equal(want) {
-		t.Errorf("got %v, want %v", got, want)
+	if factors[0].State != "AUTH_FACTOR_STATE_READY" {
+		t.Errorf("state: got %q", factors[0].State)
 	}
-	if gotPath != "/admin/v1/events/_search" {
+	if gotPath != "/v2/users/user-123/authentication_factors/_search" {
 		t.Errorf("path: got %q", gotPath)
 	}
-	if gotBody["aggregateId"] != "user-123" {
-		t.Errorf("aggregateId: got %v", gotBody["aggregateId"])
-	}
-	types, _ := gotBody["eventTypes"].([]any)
-	if len(types) != 1 || types[0] != passwordCheckSucceededEventType {
-		t.Errorf("eventTypes: got %v", gotBody["eventTypes"])
-	}
-	if gotBody["asc"].(bool) {
-		t.Errorf("asc: got true, want false")
-	}
-	if gotBody["limit"].(float64) != 1 {
-		t.Errorf("limit: got %v, want 1", gotBody["limit"])
+	if gotMethod != http.MethodPost {
+		t.Errorf("method: got %q, want POST", gotMethod)
 	}
 }
 
-func TestLastPasswordCheckSucceeded_NoEvents(t *testing.T) {
+func TestListAuthenticationFactors_Empty(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode(map[string]any{"events": []any{}})
+		json.NewEncoder(w).Encode(map[string]any{"result": []any{}})
 	}))
 	defer srv.Close()
 
-	_, found, err := lastPasswordCheckSucceeded(t.Context(), srv.Client(), srv.URL, "tok", "user-123")
+	factors, err := listAuthenticationFactors(t.Context(), srv.Client(), srv.URL, "tok", "u1")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if found {
-		t.Fatal("expected found=false")
+	if len(factors) != 0 {
+		t.Errorf("got %d factors, want 0", len(factors))
 	}
 }
 
-func TestLastPasswordCheckSucceeded_HTTPError(t *testing.T) {
+func TestListAuthenticationFactors_HTTPError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "nope", http.StatusInternalServerError)
 	}))
 	defer srv.Close()
 
-	if _, _, err := lastPasswordCheckSucceeded(t.Context(), srv.Client(), srv.URL, "tok", "u"); err == nil {
+	if _, err := listAuthenticationFactors(t.Context(), srv.Client(), srv.URL, "tok", "u1"); err == nil {
 		t.Fatal("expected error, got nil")
 	}
 }
 
-func TestLastPasswordCheckSucceeded_InvalidTimestamp(t *testing.T) {
+// ---------------------------------------------------------------------------
+// hasCompletedRegistration
+// ---------------------------------------------------------------------------
+
+func TestHasCompletedRegistration_EmailNotVerified_SkipsFactorCheck(t *testing.T) {
+	// Server should never be called when email is not verified.
+	var called bool
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		called = true
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer srv.Close()
+
+	u := user{
+		UserID: "u1",
+		Human:  &userHuman{Email: &userEmail{IsVerified: false}},
+	}
+	got, err := hasCompletedRegistration(t.Context(), srv.Client(), srv.URL, "tok", u)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got {
+		t.Error("got true, want false")
+	}
+	if called {
+		t.Error("auth factors endpoint should not be called when email is not verified")
+	}
+}
+
+func TestHasCompletedRegistration_EmailVerifiedNoFactors(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		json.NewEncoder(w).Encode(map[string]any{"result": []any{}})
+	}))
+	defer srv.Close()
+
+	u := user{
+		UserID: "u1",
+		Human:  &userHuman{Email: &userEmail{IsVerified: true}},
+	}
+	got, err := hasCompletedRegistration(t.Context(), srv.Client(), srv.URL, "tok", u)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got {
+		t.Error("got true, want false (no factors)")
+	}
+}
+
+func TestHasCompletedRegistration_EmailVerifiedWithFactors(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(map[string]any{
-			"events": []map[string]any{{"creationDate": "garbage"}},
+			"result": []map[string]any{{"state": "AUTH_FACTOR_STATE_READY"}},
 		})
 	}))
 	defer srv.Close()
 
-	if _, _, err := lastPasswordCheckSucceeded(t.Context(), srv.Client(), srv.URL, "tok", "u"); err == nil {
+	u := user{
+		UserID: "u1",
+		Human:  &userHuman{Email: &userEmail{IsVerified: true}},
+	}
+	got, err := hasCompletedRegistration(t.Context(), srv.Client(), srv.URL, "tok", u)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !got {
+		t.Error("got false, want true")
+	}
+}
+
+func TestHasCompletedRegistration_FactorAPIError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "boom", http.StatusInternalServerError)
+	}))
+	defer srv.Close()
+
+	u := user{
+		UserID: "u1",
+		Human:  &userHuman{Email: &userEmail{IsVerified: true}},
+	}
+	if _, err := hasCompletedRegistration(t.Context(), srv.Client(), srv.URL, "tok", u); err == nil {
 		t.Fatal("expected error, got nil")
 	}
 }
 
 // ---------------------------------------------------------------------------
-// deactivateUser
+// deleteUser
 // ---------------------------------------------------------------------------
 
-func TestDeactivateUser_Success(t *testing.T) {
-	var gotPath, gotAuth string
+func TestDeleteUser_Success(t *testing.T) {
+	var gotPath, gotMethod, gotAuth string
 	var gotBody []byte
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotPath = r.URL.Path
+		gotMethod = r.Method
 		gotAuth = r.Header.Get("Authorization")
 		gotBody, _ = io.ReadAll(r.Body)
 		json.NewEncoder(w).Encode(map[string]any{"details": map[string]any{}})
 	}))
 	defer srv.Close()
 
-	if err := deactivateUser(t.Context(), srv.Client(), srv.URL, "tok", "user-abc"); err != nil {
+	if err := deleteUser(t.Context(), srv.Client(), srv.URL, "tok", "user-abc"); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if gotPath != "/v2/users/user-abc/deactivate" {
+	if gotPath != "/v2/users/user-abc" {
 		t.Errorf("path: got %q", gotPath)
+	}
+	if gotMethod != http.MethodDelete {
+		t.Errorf("method: got %q, want DELETE", gotMethod)
 	}
 	if gotAuth != "Bearer tok" {
 		t.Errorf("auth: got %q", gotAuth)
@@ -559,13 +694,13 @@ func TestDeactivateUser_Success(t *testing.T) {
 	}
 }
 
-func TestDeactivateUser_HTTPError(t *testing.T) {
+func TestDeleteUser_HTTPError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		http.Error(w, "already inactive", http.StatusBadRequest)
+		http.Error(w, "not found", http.StatusNotFound)
 	}))
 	defer srv.Close()
 
-	err := deactivateUser(t.Context(), srv.Client(), srv.URL, "tok", "user-abc")
+	err := deleteUser(t.Context(), srv.Client(), srv.URL, "tok", "user-abc")
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
@@ -575,95 +710,18 @@ func TestDeactivateUser_HTTPError(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// lastActivity
-// ---------------------------------------------------------------------------
-
-func TestLastActivity_UsesPasswordCheckEventWhenPresent(t *testing.T) {
-	tokenTime := "2026-05-01T12:00:00.000000Z"
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode(map[string]any{
-			"events": []map[string]any{{"creationDate": tokenTime}},
-		})
-	}))
-	defer srv.Close()
-
-	u := user{UserID: "u1"}
-	u.Details.CreationDate = "2026-01-01T00:00:00.000000Z"
-	got, src, err := lastActivity(t.Context(), srv.Client(), srv.URL, "tok", u)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if src != "password_check" {
-		t.Errorf("source: got %q, want password_check", src)
-	}
-	want, _ := time.Parse(time.RFC3339Nano, tokenTime)
-	if !got.Equal(want) {
-		t.Errorf("got %v, want %v", got, want)
-	}
-}
-
-func TestLastActivity_FallsBackToCreationDate(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode(map[string]any{"events": []any{}})
-	}))
-	defer srv.Close()
-
-	creation := "2025-12-15T08:30:00.000000Z"
-	u := user{UserID: "u1"}
-	u.Details.CreationDate = creation
-	got, src, err := lastActivity(t.Context(), srv.Client(), srv.URL, "tok", u)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if src != "creation" {
-		t.Errorf("source: got %q, want creation", src)
-	}
-	want, _ := time.Parse(time.RFC3339Nano, creation)
-	if !got.Equal(want) {
-		t.Errorf("got %v, want %v", got, want)
-	}
-}
-
-func TestLastActivity_FallbackErrorsOnBadCreationDate(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode(map[string]any{"events": []any{}})
-	}))
-	defer srv.Close()
-
-	u := user{UserID: "u1"}
-	u.Details.CreationDate = ""
-	if _, _, err := lastActivity(t.Context(), srv.Client(), srv.URL, "tok", u); err == nil {
-		t.Fatal("expected error for missing creation date, got nil")
-	}
-}
-
-func TestLastActivity_PropagatesEventError(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		http.Error(w, "boom", http.StatusInternalServerError)
-	}))
-	defer srv.Close()
-
-	u := user{UserID: "u1"}
-	u.Details.CreationDate = "2025-12-15T08:30:00.000000Z"
-	if _, _, err := lastActivity(t.Context(), srv.Client(), srv.URL, "tok", u); err == nil {
-		t.Fatal("expected error, got nil")
-	}
-}
-
-// ---------------------------------------------------------------------------
 // processUsers
 // ---------------------------------------------------------------------------
 
-// fakeZitadel returns an httptest server that responds to ListEvents and
-// DeactivateUser requests for a controlled set of users.
+// fakeZitadel handles authentication_factors and delete requests for a
+// controlled set of users.
 type fakeZitadel struct {
 	mu sync.Mutex
-	// per-user creationDate string returned by /admin/v1/events/_search;
-	// empty string means "no events".
-	tokenDates map[string]string
-	// deactivate behaviour
-	deactivateErrFor map[string]int // user -> HTTP status to return (0 = OK)
-	deactivated      []string
+	// per-user: auth factors to return (nil or empty = no factors)
+	authFactors map[string][]string
+	// per-user: HTTP status to return on delete (0 = success)
+	deleteErrFor map[string]int
+	deleted      []string
 }
 
 func (f *fakeZitadel) handler() http.Handler {
@@ -672,23 +730,25 @@ func (f *fakeZitadel) handler() http.Handler {
 		defer f.mu.Unlock()
 		path := r.URL.Path
 		switch {
-		case path == "/admin/v1/events/_search":
-			var body map[string]any
-			json.NewDecoder(r.Body).Decode(&body)
-			aggID, _ := body["aggregateId"].(string)
-			date := f.tokenDates[aggID]
-			events := []map[string]any{}
-			if date != "" {
-				events = append(events, map[string]any{"creationDate": date})
+		case r.Method == http.MethodPost && strings.HasSuffix(path, "/authentication_factors/_search"):
+			// /v2/users/{userID}/authentication_factors/_search
+			trimmed := strings.TrimPrefix(path, "/v2/users/")
+			userID := strings.TrimSuffix(trimmed, "/authentication_factors/_search")
+			var result []map[string]any
+			for _, s := range f.authFactors[userID] {
+				result = append(result, map[string]any{"state": s})
 			}
-			json.NewEncoder(w).Encode(map[string]any{"events": events})
-		case strings.HasPrefix(path, "/v2/users/") && strings.HasSuffix(path, "/deactivate"):
-			userID := strings.TrimSuffix(strings.TrimPrefix(path, "/v2/users/"), "/deactivate")
-			if status := f.deactivateErrFor[userID]; status != 0 {
+			if result == nil {
+				result = []map[string]any{}
+			}
+			json.NewEncoder(w).Encode(map[string]any{"result": result})
+		case r.Method == http.MethodDelete && strings.HasPrefix(path, "/v2/users/"):
+			userID := strings.TrimPrefix(path, "/v2/users/")
+			if status := f.deleteErrFor[userID]; status != 0 {
 				http.Error(w, "no", status)
 				return
 			}
-			f.deactivated = append(f.deactivated, userID)
+			f.deleted = append(f.deleted, userID)
 			json.NewEncoder(w).Encode(map[string]any{"details": map[string]any{}})
 		default:
 			http.NotFound(w, r)
@@ -696,145 +756,148 @@ func (f *fakeZitadel) handler() http.Handler {
 	})
 }
 
-func mkUser(id, created string) user {
+// mkUser builds a user with the given id, creation date, and email verification state.
+func mkUser(id, created string, emailVerified bool) user {
 	u := user{UserID: id, Username: id}
 	u.Details.CreationDate = created
+	u.Human = &userHuman{Email: &userEmail{IsVerified: emailVerified}}
 	return u
 }
 
-func TestProcessUsers_DeactivatesUsersOlderThanThreshold(t *testing.T) {
+func TestProcessUsers_DeletesUsersWithIncompleteRegistration(t *testing.T) {
 	now := time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC)
-	threshold := now.AddDate(0, 0, -90)
+	threshold := now.AddDate(0, 0, -7)
 
-	fz := &fakeZitadel{tokenDates: map[string]string{
-		"recent": "2026-05-15T12:00:00.000000Z", // within window → keep
-		"old":    "2025-12-01T12:00:00.000000Z", // pre-threshold → deactivate
-	}}
+	fz := &fakeZitadel{
+		authFactors: map[string][]string{
+			// email-verified-with-factors: registration complete → keep
+			"complete": {"AUTH_FACTOR_STATE_READY"},
+			// email-verified-no-factors: incomplete → delete
+			// email-not-verified: no authFactors entry, incomplete → delete
+		},
+	}
 	srv := httptest.NewServer(fz.handler())
 	defer srv.Close()
 
+	old := "2026-01-01T00:00:00.000000Z"
 	users := []user{
-		mkUser("recent", "2025-01-01T00:00:00.000000Z"),
-		mkUser("old", "2025-01-01T00:00:00.000000Z"),
+		mkUser("complete", old, true),
+		mkUser("verified-no-factors", old, true),
+		mkUser("unverified", old, false),
 	}
 
-	resp, err := processUsers(t.Context(), srv.Client(), srv.URL, "tok", users, now, threshold, false)
+	resp, err := processUsers(t.Context(), srv.Client(), srv.URL, "tok", users, threshold, false)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if resp.UsersChecked != 2 {
-		t.Errorf("checked: got %d, want 2", resp.UsersChecked)
+	if resp.UsersChecked != 3 {
+		t.Errorf("checked: got %d, want 3", resp.UsersChecked)
 	}
-	if resp.UsersDeactivated != 1 {
-		t.Errorf("deactivated: got %d, want 1", resp.UsersDeactivated)
+	if resp.UsersDeleted != 2 {
+		t.Errorf("deleted: got %d, want 2", resp.UsersDeleted)
 	}
-	if len(resp.DeactivatedUsers) != 1 || resp.DeactivatedUsers[0] != "old" {
-		t.Errorf("DeactivatedUsers: got %v", resp.DeactivatedUsers)
-	}
-	if len(fz.deactivated) != 1 || fz.deactivated[0] != "old" {
-		t.Errorf("server-side deactivated: got %v", fz.deactivated)
+	if len(fz.deleted) != 2 {
+		t.Errorf("server-side deleted: got %v", fz.deleted)
 	}
 }
 
-func TestProcessUsers_DryRunSkipsDeactivateCall(t *testing.T) {
+func TestProcessUsers_DryRunSkipsDeleteCall(t *testing.T) {
 	now := time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC)
-	threshold := now.AddDate(0, 0, -90)
+	threshold := now.AddDate(0, 0, -7)
 
-	fz := &fakeZitadel{tokenDates: map[string]string{
-		"old": "2025-12-01T12:00:00.000000Z",
-	}}
+	fz := &fakeZitadel{authFactors: map[string][]string{}}
 	srv := httptest.NewServer(fz.handler())
 	defer srv.Close()
 
-	users := []user{mkUser("old", "2025-01-01T00:00:00.000000Z")}
+	users := []user{mkUser("old-unverified", "2026-01-01T00:00:00.000000Z", false)}
 
-	resp, err := processUsers(t.Context(), srv.Client(), srv.URL, "tok", users, now, threshold, true)
+	resp, err := processUsers(t.Context(), srv.Client(), srv.URL, "tok", users, threshold, true)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if resp.UsersDeactivated != 1 {
-		t.Errorf("deactivated count: got %d, want 1", resp.UsersDeactivated)
+	if resp.UsersDeleted != 1 {
+		t.Errorf("deleted count: got %d, want 1", resp.UsersDeleted)
 	}
 	if !resp.DryRun {
 		t.Error("DryRun: got false, want true")
 	}
-	if len(fz.deactivated) != 0 {
-		t.Errorf("server-side deactivated under dry-run: got %v, want none", fz.deactivated)
+	if len(fz.deleted) != 0 {
+		t.Errorf("server-side deleted under dry-run: got %v, want none", fz.deleted)
 	}
 }
 
-func TestProcessUsers_FallsBackToCreationWhenNoTokenEvent(t *testing.T) {
+func TestProcessUsers_KeepsUsersWithinGracePeriod(t *testing.T) {
 	now := time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC)
-	threshold := now.AddDate(0, 0, -90)
+	threshold := now.AddDate(0, 0, -7)
 
-	fz := &fakeZitadel{tokenDates: map[string]string{}} // no events for anyone
+	fz := &fakeZitadel{authFactors: map[string][]string{}}
 	srv := httptest.NewServer(fz.handler())
 	defer srv.Close()
 
-	users := []user{
-		mkUser("never-logged-in-old", "2025-01-01T00:00:00.000000Z"), // way before threshold
-		mkUser("never-logged-in-new", "2026-05-15T12:00:00.000000Z"), // within window
-	}
+	// User created after threshold (within grace period) with incomplete registration.
+	users := []user{mkUser("new-unverified", "2026-05-30T00:00:00.000000Z", false)}
 
-	resp, err := processUsers(t.Context(), srv.Client(), srv.URL, "tok", users, now, threshold, false)
+	resp, err := processUsers(t.Context(), srv.Client(), srv.URL, "tok", users, threshold, false)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if resp.UsersDeactivated != 1 {
-		t.Errorf("deactivated: got %d, want 1", resp.UsersDeactivated)
+	if resp.UsersDeleted != 0 {
+		t.Errorf("deleted: got %d, want 0 (within grace period)", resp.UsersDeleted)
 	}
-	if len(fz.deactivated) != 1 || fz.deactivated[0] != "never-logged-in-old" {
-		t.Errorf("deactivated set: got %v", fz.deactivated)
+	if len(fz.deleted) != 0 {
+		t.Errorf("server-side deleted: got %v", fz.deleted)
 	}
 }
 
-func TestProcessUsers_DeactivateFailureIsSkippedNotFatal(t *testing.T) {
+func TestProcessUsers_DeleteFailureIsSkippedNotFatal(t *testing.T) {
 	now := time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC)
-	threshold := now.AddDate(0, 0, -90)
+	threshold := now.AddDate(0, 0, -7)
 
 	fz := &fakeZitadel{
-		tokenDates: map[string]string{
-			"u1": "2025-01-01T00:00:00.000000Z",
-			"u2": "2025-01-01T00:00:00.000000Z",
-		},
-		deactivateErrFor: map[string]int{"u1": http.StatusInternalServerError},
+		authFactors:  map[string][]string{},
+		deleteErrFor: map[string]int{"u1": http.StatusInternalServerError},
 	}
 	srv := httptest.NewServer(fz.handler())
 	defer srv.Close()
 
-	users := []user{mkUser("u1", "2025-01-01T00:00:00.000000Z"), mkUser("u2", "2025-01-01T00:00:00.000000Z")}
-	resp, err := processUsers(t.Context(), srv.Client(), srv.URL, "tok", users, now, threshold, false)
+	old := "2026-01-01T00:00:00.000000Z"
+	users := []user{
+		mkUser("u1", old, false),
+		mkUser("u2", old, false),
+	}
+	resp, err := processUsers(t.Context(), srv.Client(), srv.URL, "tok", users, threshold, false)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if resp.UsersDeactivated != 1 {
-		t.Errorf("deactivated: got %d, want 1", resp.UsersDeactivated)
+	if resp.UsersDeleted != 1 {
+		t.Errorf("deleted: got %d, want 1", resp.UsersDeleted)
 	}
 	if resp.UsersSkipped != 1 {
 		t.Errorf("skipped: got %d, want 1", resp.UsersSkipped)
 	}
-	if len(fz.deactivated) != 1 || fz.deactivated[0] != "u2" {
-		t.Errorf("server-side deactivated: got %v", fz.deactivated)
+	if len(fz.deleted) != 1 || fz.deleted[0] != "u2" {
+		t.Errorf("server-side deleted: got %v", fz.deleted)
 	}
 }
 
-func TestProcessUsers_LookupErrorIsSkipped(t *testing.T) {
+func TestProcessUsers_FactorLookupErrorIsSkipped(t *testing.T) {
 	now := time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC)
-	threshold := now.AddDate(0, 0, -90)
+	threshold := now.AddDate(0, 0, -7)
 
-	// Server returns 500 on every events call.
+	// Server returns 500 on every request.
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "boom", http.StatusInternalServerError)
 	}))
 	defer srv.Close()
 
-	users := []user{mkUser("u1", "2025-01-01T00:00:00.000000Z")}
-	resp, err := processUsers(t.Context(), srv.Client(), srv.URL, "tok", users, now, threshold, false)
+	// Email is verified so the auth factors endpoint will be called and fail.
+	users := []user{mkUser("u1", "2026-01-01T00:00:00.000000Z", true)}
+	resp, err := processUsers(t.Context(), srv.Client(), srv.URL, "tok", users, threshold, false)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if resp.UsersDeactivated != 0 {
-		t.Errorf("deactivated: got %d, want 0", resp.UsersDeactivated)
+	if resp.UsersDeleted != 0 {
+		t.Errorf("deleted: got %d, want 0", resp.UsersDeleted)
 	}
 	if resp.UsersSkipped != 1 {
 		t.Errorf("skipped: got %d, want 1", resp.UsersSkipped)
@@ -843,22 +906,46 @@ func TestProcessUsers_LookupErrorIsSkipped(t *testing.T) {
 
 func TestProcessUsers_ExactlyAtThresholdIsKept(t *testing.T) {
 	now := time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC)
-	threshold := now.AddDate(0, 0, -90)
+	threshold := now.AddDate(0, 0, -7)
 
-	fz := &fakeZitadel{tokenDates: map[string]string{
-		"boundary": threshold.Format("2006-01-02T15:04:05.000000Z"),
-	}}
+	fz := &fakeZitadel{authFactors: map[string][]string{}}
 	srv := httptest.NewServer(fz.handler())
 	defer srv.Close()
 
+	// Created exactly at threshold.
+	created := threshold.Format("2006-01-02T15:04:05.000000Z")
 	resp, err := processUsers(t.Context(), srv.Client(), srv.URL, "tok",
-		[]user{mkUser("boundary", "2025-01-01T00:00:00.000000Z")},
-		now, threshold, false)
+		[]user{mkUser("boundary", created, false)},
+		threshold, false)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if resp.UsersDeactivated != 0 {
-		t.Errorf("deactivated: got %d, want 0 (exactly at threshold should be kept)", resp.UsersDeactivated)
+	if resp.UsersDeleted != 0 {
+		t.Errorf("deleted: got %d, want 0 (exactly at threshold should be kept)", resp.UsersDeleted)
+	}
+}
+
+func TestProcessUsers_BadCreationDateIsSkipped(t *testing.T) {
+	now := time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC)
+	threshold := now.AddDate(0, 0, -7)
+
+	fz := &fakeZitadel{authFactors: map[string][]string{}}
+	srv := httptest.NewServer(fz.handler())
+	defer srv.Close()
+
+	u := user{UserID: "u1", Username: "u1"}
+	u.Details.CreationDate = "not-a-date"
+	u.Human = &userHuman{Email: &userEmail{IsVerified: false}}
+
+	resp, err := processUsers(t.Context(), srv.Client(), srv.URL, "tok", []user{u}, threshold, false)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if resp.UsersDeleted != 0 {
+		t.Errorf("deleted: got %d, want 0", resp.UsersDeleted)
+	}
+	if resp.UsersSkipped != 1 {
+		t.Errorf("skipped: got %d, want 1", resp.UsersSkipped)
 	}
 }
 
@@ -897,7 +984,7 @@ func setHandlerGlobals(t *testing.T, zURL, token string, days, page int, dry boo
 	}
 }
 
-// fullFakeZitadel responds to ListUsers + ListEvents + DeactivateUser.
+// fullFakeZitadel responds to ListUsers + auth factors + delete.
 func fullFakeZitadel(users []map[string]any, fz *fakeZitadel) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
@@ -909,14 +996,24 @@ func fullFakeZitadel(users []map[string]any, fz *fakeZitadel) http.Handler {
 	})
 }
 
-func TestHandler_DeactivatesInactiveUsers(t *testing.T) {
-	fz := &fakeZitadel{tokenDates: map[string]string{
-		"u1": "2020-01-01T00:00:00.000000Z", // very old → deactivate
-		"u2": time.Now().UTC().Format("2006-01-02T15:04:05.000000Z"),
-	}}
+func TestHandler_DeletesUsersWithIncompleteRegistration(t *testing.T) {
+	fz := &fakeZitadel{
+		authFactors: map[string][]string{
+			// u2 has email verified AND a factor → complete registration
+			"u2": {"AUTH_FACTOR_STATE_READY"},
+		},
+	}
 	users := []map[string]any{
-		{"userId": "u1", "username": "a", "state": userStateActive, "details": map[string]any{"creationDate": "2020-01-01T00:00:00.000000Z"}},
-		{"userId": "u2", "username": "b", "state": userStateActive, "details": map[string]any{"creationDate": "2020-01-01T00:00:00.000000Z"}},
+		{
+			"userId": "u1", "username": "a", "state": userStateActive,
+			"details": map[string]any{"creationDate": "2020-01-01T00:00:00.000000Z"},
+			"human":   map[string]any{"email": map[string]any{"isVerified": false}},
+		},
+		{
+			"userId": "u2", "username": "b", "state": userStateActive,
+			"details": map[string]any{"creationDate": "2020-01-01T00:00:00.000000Z"},
+			"human":   map[string]any{"email": map[string]any{"isVerified": true}},
+		},
 	}
 	srv := httptest.NewServer(fullFakeZitadel(users, fz))
 	defer srv.Close()
@@ -931,11 +1028,11 @@ func TestHandler_DeactivatesInactiveUsers(t *testing.T) {
 	if resp.UsersChecked != 2 {
 		t.Errorf("checked: got %d, want 2", resp.UsersChecked)
 	}
-	if resp.UsersDeactivated != 1 {
-		t.Errorf("deactivated: got %d, want 1", resp.UsersDeactivated)
+	if resp.UsersDeleted != 1 {
+		t.Errorf("deleted: got %d, want 1", resp.UsersDeleted)
 	}
-	if len(fz.deactivated) != 1 || fz.deactivated[0] != "u1" {
-		t.Errorf("server-side deactivated: got %v", fz.deactivated)
+	if len(fz.deleted) != 1 || fz.deleted[0] != "u1" {
+		t.Errorf("server-side deleted: got %v", fz.deleted)
 	}
 }
 

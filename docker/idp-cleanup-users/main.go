@@ -1,21 +1,24 @@
-// Lambda function that deactivates inactive Zitadel users.
+// Lambda function that deletes Zitadel users who have not completed
+// registration.
 //
-// For every active user in the Zitadel instance, the function looks up the
-// timestamp of the most recent `user.human.password.check.succeeded` event.
-// If that timestamp — or the user's creation date when no such event has ever
-// occurred — is older than INACTIVE_DAYS, the user is deactivated via the
-// Zitadel User v2 API.
+// A user has not completed registration when they:
+//   - Have not verified their email address, OR
+//   - Have no MFA methods registered.
+//
+// For every active human user in the Zitadel instance, the function checks
+// whether registration is complete. Users whose registration has been
+// incomplete for longer than INACTIVE_DAYS are deleted.
 //
 // Required environment variables:
 //
 //	ZITADEL_URL            - Base URL of the Zitadel instance
 //	ZITADEL_TOKEN_SSM_PATH - SSM Parameter Store path for the Zitadel Bearer token
 //	ZITADEL_HOST           - Host header value for Zitadel API requests
-//	INACTIVE_DAYS          - Users idle longer than this are deactivated
+//	INACTIVE_DAYS          - Users with incomplete registration older than this are deleted
 //
 // Optional environment variables:
 //
-//	DRY_RUN    - When "true", report what would be deactivated without making changes (default: false)
+//	DRY_RUN    - When "true", report what would be deleted without making changes (default: false)
 package main
 
 import (
@@ -39,9 +42,8 @@ import (
 )
 
 const (
-	passwordCheckSucceededEventType = "user.human.password.check.succeeded"
-	userStateActive                 = "USER_STATE_ACTIVE"
-	defaultPageLimit                = 100
+	userStateActive  = "USER_STATE_ACTIVE"
+	defaultPageLimit = 100
 )
 
 // ---------------------------------------------------------------------------
@@ -209,10 +211,19 @@ func loadBearerToken(ctx context.Context) (string, error) {
 // Zitadel API types
 // ---------------------------------------------------------------------------
 
+type userEmail struct {
+	IsVerified bool `json:"isVerified"`
+}
+
+type userHuman struct {
+	Email *userEmail `json:"email"`
+}
+
 type user struct {
-	UserID   string `json:"userId"`
-	Username string `json:"username"`
-	State    string `json:"state"`
+	UserID   string     `json:"userId"`
+	Username string     `json:"username"`
+	State    string     `json:"state"`
+	Human    *userHuman `json:"human"`
 	Details  struct {
 		CreationDate string `json:"creationDate"`
 	} `json:"details"`
@@ -236,29 +247,22 @@ type listUsersResponse struct {
 	Result []user `json:"result"`
 }
 
-type listEventsRequest struct {
-	AggregateID string   `json:"aggregateId"`
-	EventTypes  []string `json:"eventTypes"`
-	Asc         bool     `json:"asc"`
-	Limit       int      `json:"limit"`
+type authFactor struct {
+	State string `json:"state"`
 }
 
-type event struct {
-	CreationDate string `json:"creationDate"`
-}
-
-type listEventsResponse struct {
-	Events []event `json:"events"`
+type listAuthFactorsResponse struct {
+	Result []authFactor `json:"result"`
 }
 
 // ---------------------------------------------------------------------------
 // HTTP helpers
 // ---------------------------------------------------------------------------
 
-// doJSONRequest performs a JSON POST to the Zitadel API. If body is nil the
-// request is sent without a payload. If out is nil the response body is
-// discarded.
-func doJSONRequest(ctx context.Context, client *http.Client, baseURL, path, token string, body, out any) error {
+// doJSONRequest performs an HTTP request to the Zitadel API using the given
+// method. If body is nil the request is sent without a payload. If out is nil
+// the response body is discarded.
+func doJSONRequest(ctx context.Context, client *http.Client, baseURL, path, token, method string, body, out any) error {
 	url := strings.TrimRight(baseURL, "/") + path
 
 	var reader io.Reader
@@ -270,7 +274,7 @@ func doJSONRequest(ctx context.Context, client *http.Client, baseURL, path, toke
 		reader = bytes.NewReader(b)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, reader)
+	req, err := http.NewRequestWithContext(ctx, method, url, reader)
 	if err != nil {
 		return fmt.Errorf("building request: %w", err)
 	}
@@ -329,7 +333,7 @@ func listActiveUsers(ctx context.Context, client *http.Client, baseURL, token st
 		}
 		var resp listUsersResponse
 		log.Printf("Listing active users offset=%d limit=%d", offset, limit)
-		if err := doJSONRequest(ctx, client, baseURL, "/v2/users", token, req, &resp); err != nil {
+		if err := doJSONRequest(ctx, client, baseURL, "/v2/users", token, http.MethodPost, req, &resp); err != nil {
 			return nil, fmt.Errorf("listing users: %w", err)
 		}
 		all = append(all, resp.Result...)
@@ -342,56 +346,46 @@ func listActiveUsers(ctx context.Context, client *http.Client, baseURL, token st
 	return all, nil
 }
 
-// lastPasswordCheckSucceeded returns the timestamp of the most recent
-// `user.human.password.check.succeeded` event for the given user. The second return value is
-// false when no such event exists. This event is being used as a proxy for user activity since it is consistenly
-// emitted when a user logs into Zitadel or a Relying Party.
-func lastPasswordCheckSucceeded(ctx context.Context, client *http.Client, baseURL, token, userID string) (time.Time, bool, error) {
-	req := listEventsRequest{
-		AggregateID: userID,
-		EventTypes:  []string{passwordCheckSucceededEventType},
-		Asc:         false,
-		Limit:       1,
+// isEmailVerified returns true if the user's email address has been verified.
+func isEmailVerified(u user) bool {
+	if u.Human == nil || u.Human.Email == nil {
+		return false
 	}
-	var resp listEventsResponse
-	if err := doJSONRequest(ctx, client, baseURL, "/admin/v1/events/_search", token, req, &resp); err != nil {
-		return time.Time{}, false, fmt.Errorf("listing events for user %s: %w", userID, err)
-	}
-	if len(resp.Events) == 0 {
-		log.Printf("No events found for %s", userID)
-		return time.Time{}, false, nil
-	}
-	t, err := parseZitadelTime(resp.Events[0].CreationDate)
-	if err != nil {
-		return time.Time{}, false, fmt.Errorf("user %s: %w", userID, err)
-	}
-	return t, true, nil
+	return u.Human.Email.IsVerified
 }
 
-func deactivateUser(ctx context.Context, client *http.Client, baseURL, token, userID string) error {
-	path := "/v2/users/" + userID + "/deactivate"
-	if err := doJSONRequest(ctx, client, baseURL, path, token, nil, nil); err != nil {
-		return fmt.Errorf("deactivating user %s: %w", userID, err)
+// listAuthenticationFactors returns all authentication factors registered for
+// the given user.
+func listAuthenticationFactors(ctx context.Context, client *http.Client, baseURL, token, userID string) ([]authFactor, error) {
+	path := "/v2/users/" + userID + "/authentication_factors/_search"
+	var resp listAuthFactorsResponse
+	if err := doJSONRequest(ctx, client, baseURL, path, token, http.MethodPost, map[string]any{}, &resp); err != nil {
+		return nil, fmt.Errorf("listing authentication factors for user %s: %w", userID, err)
+	}
+	return resp.Result, nil
+}
+
+// hasCompletedRegistration returns true when the user has both a verified email
+// address and at least one authentication factor registered. The auth-factors
+// check is skipped when the email is not yet verified.
+func hasCompletedRegistration(ctx context.Context, client *http.Client, baseURL, token string, u user) (bool, error) {
+	if !isEmailVerified(u) {
+		return false, nil
+	}
+	factors, err := listAuthenticationFactors(ctx, client, baseURL, token, u.UserID)
+	if err != nil {
+		return false, err
+	}
+	return len(factors) > 0, nil
+}
+
+// deleteUser permanently deletes the user from Zitadel.
+func deleteUser(ctx context.Context, client *http.Client, baseURL, token, userID string) error {
+	path := "/v2/users/" + userID
+	if err := doJSONRequest(ctx, client, baseURL, path, token, http.MethodDelete, nil, nil); err != nil {
+		return fmt.Errorf("deleting user %s: %w", userID, err)
 	}
 	return nil
-}
-
-// lastActivity returns the user's last activity timestamp. It uses the most
-// recent `user.human.password.check.succeeded` event when present, otherwise falls back to
-// the user's creation date so accounts that have never logged in are still eligible for deactivation.
-func lastActivity(ctx context.Context, client *http.Client, baseURL, token string, u user) (time.Time, string, error) {
-	t, found, err := lastPasswordCheckSucceeded(ctx, client, baseURL, token, u.UserID)
-	if err != nil {
-		return time.Time{}, "", err
-	}
-	if found {
-		return t, "password_check", nil
-	}
-	created, err := parseZitadelTime(u.Details.CreationDate)
-	if err != nil {
-		return time.Time{}, "", fmt.Errorf("user %s has no password check events and unparseable creation date: %w", u.UserID, err)
-	}
-	return created, "creation", nil
 }
 
 // ---------------------------------------------------------------------------
@@ -399,17 +393,17 @@ func lastActivity(ctx context.Context, client *http.Client, baseURL, token strin
 // ---------------------------------------------------------------------------
 
 type response struct {
-	StatusCode       int      `json:"statusCode"`
-	UsersChecked     int      `json:"users_checked"`
-	UsersDeactivated int      `json:"users_deactivated"`
-	UsersSkipped     int      `json:"users_skipped"`
-	DeactivatedUsers []string `json:"deactivated_users,omitempty"`
-	InactiveDays     int      `json:"inactive_days"`
-	DryRun           bool     `json:"dry_run"`
-	Threshold        string   `json:"threshold"`
+	StatusCode   int      `json:"statusCode"`
+	UsersChecked int      `json:"users_checked"`
+	UsersDeleted int      `json:"users_deleted"`
+	UsersSkipped int      `json:"users_skipped"`
+	DeletedUsers []string `json:"deleted_users,omitempty"`
+	InactiveDays int      `json:"inactive_days"`
+	DryRun       bool     `json:"dry_run"`
+	Threshold    string   `json:"threshold"`
 }
 
-func processUsers(ctx context.Context, client *http.Client, baseURL, token string, users []user, now time.Time, threshold time.Time, dryRun bool) (response, error) {
+func processUsers(ctx context.Context, client *http.Client, baseURL, token string, users []user, threshold time.Time, dryRun bool) (response, error) {
 	resp := response{
 		StatusCode:   200,
 		UsersChecked: len(users),
@@ -419,28 +413,42 @@ func processUsers(ctx context.Context, client *http.Client, baseURL, token strin
 	}
 
 	for _, u := range users {
-		activity, source, err := lastActivity(ctx, client, baseURL, token, u)
+		created, err := parseZitadelTime(u.Details.CreationDate)
+		if err != nil {
+			log.Printf("Skipping user %s (%s): unparseable creation date: %v", u.UserID, u.Username, err)
+			resp.UsersSkipped++
+			continue
+		}
+
+		if !created.Before(threshold) {
+			log.Printf("Keeping user %s (%s): account created %s is within the registration grace period",
+				u.UserID, u.Username, created.Format(time.RFC3339))
+			continue
+		}
+
+		completed, err := hasCompletedRegistration(ctx, client, baseURL, token, u)
 		if err != nil {
 			log.Printf("Skipping user %s (%s): %v", u.UserID, u.Username, err)
 			resp.UsersSkipped++
 			continue
 		}
-		if !activity.Before(threshold) {
-			log.Printf("Keeping user %s (%s): last activity %s (%s) is within window",
-				u.UserID, u.Username, activity.Format(time.RFC3339), source)
+
+		if completed {
+			log.Printf("Keeping user %s (%s): registration is complete", u.UserID, u.Username)
 			continue
 		}
-		log.Printf("Deactivating user %s (%s): last activity %s (%s) is older than %s",
-			u.UserID, u.Username, activity.Format(time.RFC3339), source, threshold.Format(time.RFC3339))
+
+		log.Printf("Deleting user %s (%s): registration incomplete and account created %s is older than threshold %s",
+			u.UserID, u.Username, created.Format(time.RFC3339), threshold.Format(time.RFC3339))
 		if !dryRun {
-			if err := deactivateUser(ctx, client, baseURL, token, u.UserID); err != nil {
-				log.Printf("Failed to deactivate user %s (%s): %v", u.UserID, u.Username, err)
+			if err := deleteUser(ctx, client, baseURL, token, u.UserID); err != nil {
+				log.Printf("Failed to delete user %s (%s): %v", u.UserID, u.Username, err)
 				resp.UsersSkipped++
 				continue
 			}
 		}
-		resp.UsersDeactivated++
-		resp.DeactivatedUsers = append(resp.DeactivatedUsers, u.Username)
+		resp.UsersDeleted++
+		resp.DeletedUsers = append(resp.DeletedUsers, u.Username)
 	}
 	return resp, nil
 }
@@ -452,7 +460,7 @@ func handler(ctx context.Context) (response, error) {
 
 	now := time.Now().UTC()
 	threshold := now.AddDate(0, 0, -inactiveDays)
-	log.Printf("Starting inactive user sweep: inactive_days=%d threshold=%s dry_run=%t",
+	log.Printf("Starting incomplete registration sweep: inactive_days=%d threshold=%s dry_run=%t",
 		inactiveDays, threshold.Format(time.RFC3339), dryRun)
 
 	token, err := loadBearerToken(ctx)
@@ -465,12 +473,12 @@ func handler(ctx context.Context) (response, error) {
 		return response{}, fmt.Errorf("listing active users: %w", err)
 	}
 
-	result, err := processUsers(ctx, http.DefaultClient, zitadelURL, token, users, now, threshold, dryRun)
+	result, err := processUsers(ctx, http.DefaultClient, zitadelURL, token, users, threshold, dryRun)
 	if err != nil {
 		return response{}, err
 	}
-	log.Printf("User deactivate finished: checked=%d deactivated=%d skipped=%d dry_run=%t",
-		result.UsersChecked, result.UsersDeactivated, result.UsersSkipped, result.DryRun)
+	log.Printf("Incomplete registration sweep finished: checked=%d deleted=%d skipped=%d dry_run=%t",
+		result.UsersChecked, result.UsersDeleted, result.UsersSkipped, result.DryRun)
 	return result, nil
 }
 
