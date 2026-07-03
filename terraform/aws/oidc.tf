@@ -49,10 +49,11 @@ data "aws_iam_policy_document" "docker_push" {
       "ecr:UploadLayerPart",
     ]
     resources = [
-      aws_ecr_repository.idp.arn,
-      aws_ecr_repository.idp_login.arn,
-      aws_ecr_repository.alarms_slack.arn,
-      aws_ecr_repository.idp_event_exporter.arn,
+      aws_ecr_repository.repo["alarms-slack"].arn,
+      aws_ecr_repository.repo["idp"].arn,
+      aws_ecr_repository.repo["idp-cleanup-users"].arn,
+      aws_ecr_repository.repo["idp-event-exporter"].arn,
+      aws_ecr_repository.repo["idp-login"].arn,
     ]
   }
 

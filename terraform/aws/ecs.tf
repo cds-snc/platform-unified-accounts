@@ -144,7 +144,7 @@ module "idp_ecs" {
   ecs_scale_memory_threshold = 30
 
   # Task definition
-  container_image                     = "${aws_ecr_repository.idp.repository_url}:latest"
+  container_image                     = "${aws_ecr_repository.repo["idp"].repository_url}:latest"
   container_command                   = ["start", "--masterkeyFromEnv", "--tlsMode", "external", "--config", "/app/config.yaml"]
   container_host_port                 = 8080
   container_port                      = 8080
@@ -233,7 +233,7 @@ module "login_ecs" {
   ecs_scale_memory_threshold = 30
 
   # Task definition
-  container_image                     = "${aws_ecr_repository.idp_login.repository_url}:latest"
+  container_image                     = "${aws_ecr_repository.repo["idp-login"].repository_url}:latest"
   container_host_port                 = 3000
   container_port                      = 3000
   container_environment               = local.login_container_env

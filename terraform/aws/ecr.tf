@@ -1,5 +1,17 @@
-resource "aws_ecr_repository" "alarms_slack" {
-  name                 = "alarms-slack"
+locals {
+  ecr_repos = toset([
+    "alarms-slack",
+    "idp",
+    "idp-cleanup-users",
+    "idp-event-exporter",
+    "idp-login",
+  ])
+}
+
+resource "aws_ecr_repository" "repo" {
+  for_each = local.ecr_repos
+
+  name                 = each.value
   image_tag_mutability = "IMMUTABLE"
   image_scanning_configuration {
     scan_on_push = true
@@ -7,49 +19,133 @@ resource "aws_ecr_repository" "alarms_slack" {
   tags = local.common_tags
 }
 
-resource "aws_ecr_lifecycle_policy" "alarms_slack" {
-  repository = aws_ecr_repository.alarms_slack.name
-  policy     = file("${path.module}/ecr-lifecycle.json")
+resource "aws_ecr_lifecycle_policy" "repo" {
+  for_each = local.ecr_repos
+
+  repository = aws_ecr_repository.repo[each.key].name
+  policy     = data.aws_ecr_lifecycle_policy_document.repo.json
 }
 
-resource "aws_ecr_repository" "idp" {
-  name                 = "idp"
-  image_tag_mutability = "IMMUTABLE"
-  image_scanning_configuration {
-    scan_on_push = true
+data "aws_ecr_lifecycle_policy_document" "repo" {
+  rule {
+    priority    = 10
+    description = "Keep last 20 git SHA tagged images"
+
+    selection {
+      tag_status      = "tagged"
+      tag_prefix_list = ["sha-"]
+      count_type      = "imageCountMoreThan"
+      count_number    = 20
+    }
+
+    action {
+      type = "expire"
+    }
   }
-  tags = local.common_tags
-}
 
-resource "aws_ecr_lifecycle_policy" "idp" {
-  repository = aws_ecr_repository.idp.name
-  policy     = file("${path.module}/ecr-lifecycle.json")
-}
+  rule {
+    priority    = 20
+    description = "Keep last 20 PR SHA tagged images"
 
-resource "aws_ecr_repository" "idp_login" {
-  name                 = "idp-login"
-  image_tag_mutability = "IMMUTABLE"
-  image_scanning_configuration {
-    scan_on_push = true
+    selection {
+      tag_status      = "tagged"
+      tag_prefix_list = ["pr-"]
+      count_type      = "imageCountMoreThan"
+      count_number    = 20
+    }
+
+    action {
+      type = "expire"
+    }
   }
-  tags = local.common_tags
-}
 
-resource "aws_ecr_lifecycle_policy" "idp_login" {
-  repository = aws_ecr_repository.idp_login.name
-  policy     = file("${path.module}/ecr-lifecycle.json")
-}
+  rule {
+    priority    = 30
+    description = "Expire untagged images older than 1 day"
 
-resource "aws_ecr_repository" "idp_event_exporter" {
-  name                 = "idp-event-exporter"
-  image_tag_mutability = "IMMUTABLE"
-  image_scanning_configuration {
-    scan_on_push = true
+    selection {
+      tag_status   = "untagged"
+      count_type   = "sinceImagePushed"
+      count_unit   = "days"
+      count_number = 1
+    }
+
+    action {
+      type = "expire"
+    }
   }
-  tags = local.common_tags
+
+  rule {
+    priority    = 40
+    description = "Archive images not pulled in 90 days"
+
+    selection {
+      tag_status   = "any"
+      count_type   = "sinceImagePulled"
+      count_unit   = "days"
+      count_number = 90
+    }
+
+    action {
+      type                 = "transition"
+      target_storage_class = "archive"
+    }
+  }
+
+  rule {
+    priority    = 50
+    description = "Expire images archived for more than 90 days"
+
+    selection {
+      tag_status    = "any"
+      storage_class = "archive"
+      count_type    = "sinceImageTransitioned"
+      count_unit    = "days"
+      count_number  = 90
+    }
+
+    action {
+      type = "expire"
+    }
+  }
 }
 
-resource "aws_ecr_lifecycle_policy" "idp_event_exporter" {
-  repository = aws_ecr_repository.idp_event_exporter.name
-  policy     = file("${path.module}/ecr-lifecycle.json")
+moved {
+  from = aws_ecr_repository.alarms_slack
+  to   = aws_ecr_repository.repo["alarms-slack"]
+}
+
+moved {
+  from = aws_ecr_lifecycle_policy.alarms_slack
+  to   = aws_ecr_lifecycle_policy.repo["alarms-slack"]
+}
+
+moved {
+  from = aws_ecr_repository.idp
+  to   = aws_ecr_repository.repo["idp"]
+}
+
+moved {
+  from = aws_ecr_lifecycle_policy.idp
+  to   = aws_ecr_lifecycle_policy.repo["idp"]
+}
+
+moved {
+  from = aws_ecr_repository.idp_event_exporter
+  to   = aws_ecr_repository.repo["idp-event-exporter"]
+}
+
+moved {
+  from = aws_ecr_lifecycle_policy.idp_event_exporter
+  to   = aws_ecr_lifecycle_policy.repo["idp-event-exporter"]
+}
+
+moved {
+  from = aws_ecr_repository.idp_login
+  to   = aws_ecr_repository.repo["idp-login"]
+}
+
+moved {
+  from = aws_ecr_lifecycle_policy.idp_login
+  to   = aws_ecr_lifecycle_policy.repo["idp-login"]
 }
