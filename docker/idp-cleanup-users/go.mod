@@ -1,4 +1,4 @@
-module github.com/cds-snc/platform-unified-accounts/idp-inactive-user-deactivator
+module github.com/cds-snc/platform-unified-accounts/idp-cleanup-users
 
 go 1.26
 
