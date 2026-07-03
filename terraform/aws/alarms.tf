@@ -44,6 +44,14 @@ locals {
   ]
   idp_login_error_metric_pattern = "[(w=\"*${join("*\" || w=\"*", local.idp_login_error_filters)}*\") && w!=\"*${join("*\" && w!=\"*", local.idp_login_skip_filters)}*\"]"
 
+  # IdP Cleanup Users errors
+  idp_cleanup_users_error_filters = [
+    "error",
+    "exception"
+  ]
+  idp_cleanup_users_error_metric_pattern = "[(w=\"*${join("*\" || w=\"*", local.idp_cleanup_users_error_filters)}*\")]"
+
+
   # IdP Event Exporter errors
   idp_event_exporter_error_filters = [
     "error",
@@ -76,6 +84,11 @@ locals {
       pattern        = local.idp_login_error_metric_pattern
       log_group_name = module.login_ecs.cloudwatch_log_group_name
     }
+    idp_cleanup_users = {
+      error_filters  = local.idp_cleanup_users_error_filters
+      pattern        = local.idp_cleanup_users_error_metric_pattern
+      log_group_name = module.idp_cleanup_users_lambda.lambda_function_cloudwatch_log_group_name
+    }
     idp_event_exporter = {
       error_filters  = local.idp_event_exporter_error_filters
       pattern        = local.idp_event_exporter_error_metric_pattern
@@ -86,6 +99,9 @@ locals {
   lambda_functions = {
     alarms_slack = {
       name = module.alarms_slack.function_name
+    }
+    idp_cleanup_users = {
+      name = module.idp_cleanup_users_lambda.lambda_function_name
     }
     idp_event_exporter = {
       name = module.event_exporter_lambda.lambda_function_name

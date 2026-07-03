@@ -57,6 +57,12 @@ variable "idp_admin_password" {
   sensitive   = true
 }
 
+variable "idp_cleanup_users_bearer_token" {
+  description = "The bearer token for the IdP cleanup users lambda to authenticate with the IdP API."
+  type        = string
+  sensitive   = true
+}
+
 variable "idp_cluster_capacity_provider" {
   description = "The capacity provider for the IdP ECS cluster."
   type        = string
