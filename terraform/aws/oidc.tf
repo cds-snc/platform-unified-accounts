@@ -128,6 +128,7 @@ data "aws_iam_policy_document" "docker_deploy" {
     ]
     resources = [
       "arn:aws:lambda:${var.region}:${var.account_id}:function:alarms-slack",
+      "arn:aws:lambda:${var.region}:${var.account_id}:function:idp-cleanup-users",
       "arn:aws:lambda:${var.region}:${var.account_id}:function:idp-event-exporter",
     ]
   }
