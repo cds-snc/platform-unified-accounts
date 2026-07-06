@@ -10,27 +10,27 @@
 
 This runbook describes how to:
 
-1. Authenticate to a ZITADEL instance using the **break-glass `SystemAPIUsers` mechanism**, which bypasses normal database-backed authentication and is therefore available even when the live PAT is unavailable.
-2. **Provision a new machine user** with the `IAM_LOGIN_CLIENT` role.
-3. **Generate a Personal Access Token (PAT)** and restore it to the EFS path consumed by the User Portal ECS task.
+1. Authenticate to Zitadel using the break-glass `SystemAPIUsers` mechanism, which is available when the user portal's PAT is unavailable.
+2. Provision a new machine user with the `IAM_LOGIN_CLIENT` role.
+3. Generate a Personal Access Token (PAT) and update the user portal's ECS task with the new value.
 
-The break-glass mechanism relies on an RSA keypair whose public half is declared in the ZITADEL runtime `config.yaml`:
+The break-glass mechanism relies on an RSA keypair whose public half is declared in the Zitadel runtime `config.yaml`:
 
 | Component | What it is | Location |
 |-----------|------------|----------|
-| Break-glass public key | Registered in ZITADEL config under `SystemAPIUsers` | Secrets Manager / CDS Password Manager |
-| Break-glass private key | Used to sign the JWT assertion that mints a bearer token | Password Manager |
+| Break-glass public key | Registered in Zitadel config under `SystemAPIUsers` | Secrets Manager / CDS Password Manager |
+| Break-glass private key | Used to sign the JWT assertion that mints a bearer token | CDS Password Manager |
 | `IAM_LOGIN_CLIENT` PAT | Long-lived token read by the User Portal at startup | Secrets Manager / CDS Password Manager |
 
-A successful recovery ends with the User Portal ECS task restarting and serving authenticated requests.
+A successful recovery ends with the user portal ECS task restarting and serving authenticated requests.
 
 ---
 
 ## 2. Scope
 
-This procedure targets the live ZITADEL instance. It does not require a full DR failover.
+This procedure targets the live Zitadel instance. It does not require a full DR failover.
 
-Steps 4.2–4.6 can be run from any workstation with network access to the ZITADEL ALB. The break-glass private key must be retrieved from the CDS Password Manager before starting.
+Steps 4.2–4.6 can be run from any system with network access to Zitadel. The break-glass private key must be retrieved from the CDS Password Manager before starting.
 
 ---
 
@@ -38,7 +38,7 @@ Steps 4.2–4.6 can be run from any workstation with network access to the ZITAD
 
 Before starting, confirm:
 
-- [ ] The `SystemAPIUsers` block in the ZITADEL `config.yaml` is already populated with the break-glass public key (see §4.1 for the required format).
+- [ ] The `SystemAPIUsers` block in the Zitadel `config.yaml` is already populated with the break-glass public key (see §4.1 for the required format).
 - [ ] You have retrieved the corresponding break-glass private key PEM.
 - [ ] [`zitadel-tools`](https://github.com/zitadel/zitadel-tools) is installed locally (`zitadel-tools --version`).
 - [ ] `jq` is installed locally (`jq --version`).
@@ -49,7 +49,9 @@ Before starting, confirm:
 
 ### 4.1 Verify the `SystemAPIUsers` configuration
 
-Add the following block to the ZITADEL runtime `config.yaml` and then create and merge a PR to trigger an IdP ECS task redeploy.
+Add the following block to the Zitadel runtime `config.yaml` and then create and merge a PR to trigger an IdP ECS task redeploy. 
+
+> **Important** The [IdP ECS Task's container command must be `start-from-setup`](https://github.com/cds-snc/platform-unified-accounts/blob/15683153392acb3217e8f7c09b380e79639469a8/terraform/aws/ecs.tf#L148) to create the new user.
 
 ```yaml
 SystemAPIUsers:
@@ -75,12 +77,12 @@ SystemAPIUsers:
 Use `zitadel-tools` to sign a JWT assertion with the break-glass private key.
 
 ```bash
-# Set the ZITADEL host for the target environment
-export ZITADEL_HOST="https://auth.cdssandbox.xyz"
+# Set the Zitadel host for the target environment
+export Zitadel_HOST="https://auth.cdssandbox.xyz"
 
 # Mint a client assertion bearer token using the break-glass private key
 export BEARER_TOKEN=$(zitadel-tools key2jwt \
-  --audience="${ZITADEL_HOST}" \
+  --audience="${Zitadel_HOST}" \
   --key="/path/to/breakglass-admin.pem" \
   --issuer="breakglass-system-admin")
 
@@ -95,7 +97,7 @@ The machine user must be created within an organization. Retrieve the default or
 
 ```bash
 export ORG_ID=$(curl -s --request GET \
-  --url "${ZITADEL_HOST}/management/v1/orgs/me" \
+  --url "${Zitadel_HOST}/management/v1/orgs/me" \
   --header "Authorization: Bearer ${BEARER_TOKEN}" \
   | jq -r '.org.id')
 
@@ -106,11 +108,11 @@ Confirm a numeric ID is printed before continuing.
 
 ### 4.4 Create the machine user
 
-Create a new machine user via the ZITADEL Users API:
+Create a new machine user via the Zitadel Users API:
 
 ```bash
 export USER_ID=$(curl -s --request POST \
-  --url "${ZITADEL_HOST}/v2/users/machine" \
+  --url "${Zitadel_HOST}/v2/users/machine" \
   --header "Authorization: Bearer ${BEARER_TOKEN}" \
   --header "Content-Type: application/json" \
   --header "x-zitadel-orgid: ${ORG_ID}" \
@@ -125,11 +127,11 @@ echo "Created Machine User ID: ${USER_ID}"
 
 ### 4.5 Assign the `IAM_LOGIN_CLIENT` role
 
-Assign the required instance-level role to the new service account:
+Assign the required role to the new service account:
 
 ```bash
 curl -s --request POST \
-  --url "${ZITADEL_HOST}/admin/v1/members" \
+  --url "${Zitadel_HOST}/admin/v1/members" \
   --header "Authorization: Bearer ${BEARER_TOKEN}" \
   --header "Content-Type: application/json" \
   --data '{
@@ -140,11 +142,11 @@ curl -s --request POST \
 
 ### 4.6 Generate a Personal Access Token (PAT)
 
-Generate a long-lived PAT for the machine user and capture it immediately — ZITADEL will not show the token value again after this call:
+Generate a long-lived PAT for the machine user:
 
 ```bash
 export NEW_PAT=$(curl -s --request POST \
-  --url "${ZITADEL_HOST}/management/v1/users/${USER_ID}/pats" \
+  --url "${Zitadel_HOST}/management/v1/users/${USER_ID}/pats" \
   --header "Authorization: Bearer ${BEARER_TOKEN}" \
   --header "Content-Type: application/json" \
   --header "x-zitadel-orgid: ${ORG_ID}" \
@@ -160,4 +162,4 @@ echo "PAT created (first 20 chars): ${NEW_PAT:0:20}..."
 ### 4.7 Restore the PAT and validate the User Portal
 
 1. Update the GitHub `<ENV>_IDP_LOGINCLIENT_PAT` secret. 
-2. This new value will be deployed and update the IdP ECS task on next Terraform apply operation.
+2. This new value will be deployed and update the user portal ECS task on next `terraform apply` operation.
