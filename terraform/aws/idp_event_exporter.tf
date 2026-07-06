@@ -135,11 +135,11 @@ resource "aws_athena_named_query" "idp_event_exporter_create_table" {
   )
 }
 
-resource "aws_athena_named_query" "idp_event_exporter_view_events_by_type" {
-  name      = "Zitadel events: view events by type"
+resource "aws_athena_named_query" "idp_event_exporter_select_by_type" {
+  name      = "Zitadel events: select events by type"
   workgroup = module.athena_access_logs.athena_workgroup_name
   database  = module.athena_access_logs.athena_database_name
-  query = templatefile("${path.module}/athena_queries/zitadel_view_events_by_type.sql",
+  query = templatefile("${path.module}/athena_queries/zitadel_events_select_by_type.sql",
     {
       database_name = module.athena_access_logs.athena_database_name
     }
