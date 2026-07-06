@@ -120,90 +120,28 @@ resource "aws_ssm_parameter" "idp_event_exporter_bearer_token" {
   tags  = local.core_tags
 }
 
-/*
- * Moved blocks: idp_ prefix added to module names
- */
-moved {
-  from = module.event_exporter_s3.aws_s3_bucket.this
-  to   = module.idp_event_exporter_s3.aws_s3_bucket.this
+#
+# Athena queries to create a table that can be used to query events
+#
+resource "aws_athena_named_query" "idp_event_exporter_create_table" {
+  name      = "Zitadel events: create table"
+  workgroup = module.athena_access_logs.athena_workgroup_name
+  database  = module.athena_access_logs.athena_database_name
+  query = templatefile("${path.module}/athena_queries/zitadel_events_create_table.sql",
+    {
+      bucket_name   = module.idp_event_exporter_s3.s3_bucket_id
+      database_name = module.athena_access_logs.athena_database_name
+    }
+  )
 }
 
-moved {
-  from = module.event_exporter_s3.aws_s3_bucket_public_access_block.this
-  to   = module.idp_event_exporter_s3.aws_s3_bucket_public_access_block.this
-}
-
-moved {
-  from = module.event_exporter_lambda.aws_cloudwatch_event_rule.this
-  to   = module.idp_event_exporter_lambda.aws_cloudwatch_event_rule.this
-}
-
-moved {
-  from = module.event_exporter_lambda.aws_cloudwatch_event_target.this
-  to   = module.idp_event_exporter_lambda.aws_cloudwatch_event_target.this
-}
-
-moved {
-  from = module.event_exporter_lambda.aws_lambda_permission.this
-  to   = module.idp_event_exporter_lambda.aws_lambda_permission.this
-}
-
-moved {
-  from = module.event_exporter_lambda.module.this_lambda.aws_cloudwatch_log_group.this
-  to   = module.idp_event_exporter_lambda.module.this_lambda.aws_cloudwatch_log_group.this
-}
-
-moved {
-  from = module.event_exporter_lambda.module.this_lambda.aws_cloudwatch_query_definition.lambda_statistics
-  to   = module.idp_event_exporter_lambda.module.this_lambda.aws_cloudwatch_query_definition.lambda_statistics
-}
-
-moved {
-  from = module.event_exporter_lambda.module.this_lambda.aws_iam_policy.policies[0]
-  to   = module.idp_event_exporter_lambda.module.this_lambda.aws_iam_policy.policies[0]
-}
-
-moved {
-  from = module.event_exporter_lambda.module.this_lambda.aws_iam_policy.policies[1]
-  to   = module.idp_event_exporter_lambda.module.this_lambda.aws_iam_policy.policies[1]
-}
-
-moved {
-  from = module.event_exporter_lambda.module.this_lambda.aws_iam_policy.vpc_policies[0]
-  to   = module.idp_event_exporter_lambda.module.this_lambda.aws_iam_policy.vpc_policies[0]
-}
-
-moved {
-  from = module.event_exporter_lambda.module.this_lambda.aws_iam_role.this
-  to   = module.idp_event_exporter_lambda.module.this_lambda.aws_iam_role.this
-}
-
-moved {
-  from = module.event_exporter_lambda.module.this_lambda.aws_iam_role_policy_attachment.AWSLambdaVPCAccessExecutionRole[0]
-  to   = module.idp_event_exporter_lambda.module.this_lambda.aws_iam_role_policy_attachment.AWSLambdaVPCAccessExecutionRole[0]
-}
-
-moved {
-  from = module.event_exporter_lambda.module.this_lambda.aws_iam_role_policy_attachment.attachments[0]
-  to   = module.idp_event_exporter_lambda.module.this_lambda.aws_iam_role_policy_attachment.attachments[0]
-}
-
-moved {
-  from = module.event_exporter_lambda.module.this_lambda.aws_iam_role_policy_attachment.attachments[1]
-  to   = module.idp_event_exporter_lambda.module.this_lambda.aws_iam_role_policy_attachment.attachments[1]
-}
-
-moved {
-  from = module.event_exporter_lambda.module.this_lambda.aws_iam_role_policy_attachment.lambda_insights[0]
-  to   = module.idp_event_exporter_lambda.module.this_lambda.aws_iam_role_policy_attachment.lambda_insights[0]
-}
-
-moved {
-  from = module.event_exporter_lambda.module.this_lambda.aws_iam_role_policy_attachment.vpc_policies[0]
-  to   = module.idp_event_exporter_lambda.module.this_lambda.aws_iam_role_policy_attachment.vpc_policies[0]
-}
-
-moved {
-  from = module.event_exporter_lambda.module.this_lambda.aws_lambda_function.this
-  to   = module.idp_event_exporter_lambda.module.this_lambda.aws_lambda_function.this
+resource "aws_athena_named_query" "idp_event_exporter_view_events_by_type" {
+  name      = "Zitadel events: view events by type"
+  workgroup = module.athena_access_logs.athena_workgroup_name
+  database  = module.athena_access_logs.athena_database_name
+  query = templatefile("${path.module}/athena_queries/zitadel_view_events_by_type.sql",
+    {
+      database_name = module.athena_access_logs.athena_database_name
+    }
+  )
 }
