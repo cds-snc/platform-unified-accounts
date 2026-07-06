@@ -92,7 +92,7 @@ locals {
     idp_event_exporter = {
       error_filters  = local.idp_event_exporter_error_filters
       pattern        = local.idp_event_exporter_error_metric_pattern
-      log_group_name = module.event_exporter_lambda.lambda_function_cloudwatch_log_group_name
+      log_group_name = module.idp_event_exporter_lambda.lambda_function_cloudwatch_log_group_name
     }
   }
 
@@ -104,7 +104,7 @@ locals {
       name = module.idp_cleanup_users_lambda.lambda_function_name
     }
     idp_event_exporter = {
-      name = module.event_exporter_lambda.lambda_function_name
+      name = module.idp_event_exporter_lambda.lambda_function_name
     }
   }
 }
@@ -312,7 +312,7 @@ resource "aws_cloudwatch_log_subscription_filter" "error_logged" {
 #
 resource "aws_cloudwatch_log_subscription_filter" "audit_event_logged" {
   name            = "audit-event-logged"
-  log_group_name  = module.event_exporter_lambda.lambda_function_cloudwatch_log_group_name
+  log_group_name  = module.idp_event_exporter_lambda.lambda_function_cloudwatch_log_group_name
   filter_pattern  = "AEVT"
   destination_arn = module.alarms_slack.function_arn
 }
