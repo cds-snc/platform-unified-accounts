@@ -62,7 +62,9 @@ resource "aws_acmpca_certificate_authority" "ecs_service_connect" {
     }
   }
 
-  tags = local.common_tags
+  tags = merge(local.common_tags, {
+    "AmazonECSManaged" = "true"
+  })
 }
 
 resource "aws_acmpca_certificate" "ecs_service_connect" {
@@ -72,8 +74,8 @@ resource "aws_acmpca_certificate" "ecs_service_connect" {
   template_arn                = "arn:aws:acm-pca:::template/RootCACertificate/V1"
 
   validity {
-    type  = "DAYS"
-    value = 7
+    type  = "YEARS"
+    value = 10
   }
 }
 

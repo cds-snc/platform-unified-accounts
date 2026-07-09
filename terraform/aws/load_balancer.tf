@@ -27,7 +27,7 @@ resource "random_string" "alb_idp_tg_suffix" {
   upper   = false
   keepers = {
     port     = 8080
-    protocol = "HTTP"
+    protocol = "HTTPS"
     path     = "/debug/healthz"
   }
 }
@@ -38,7 +38,7 @@ resource "random_string" "alb_idp_login_tg_suffix" {
   upper   = false
   keepers = {
     port     = 3000
-    protocol = "HTTP"
+    protocol = "HTTPS"
     path     = "/ui/v2/healthy"
   }
 }
@@ -48,7 +48,7 @@ resource "aws_lb_target_group" "idp" {
 
   name                 = "idp-tg-${each.value}-${random_string.alb_idp_tg_suffix.result}"
   port                 = 8080
-  protocol             = "HTTP"
+  protocol             = "HTTPS"
   protocol_version     = each.value
   target_type          = "ip"
   deregistration_delay = 30
@@ -56,7 +56,7 @@ resource "aws_lb_target_group" "idp" {
 
   health_check {
     enabled  = true
-    protocol = "HTTP"
+    protocol = "HTTPS"
     path     = "/debug/healthz"
     matcher  = "200"
   }
@@ -78,14 +78,14 @@ resource "aws_lb_target_group" "idp" {
 resource "aws_lb_target_group" "idp_login" {
   name                 = "idp-login-tg-${random_string.alb_idp_login_tg_suffix.result}"
   port                 = 3000
-  protocol             = "HTTP"
+  protocol             = "HTTPS"
   target_type          = "ip"
   deregistration_delay = 30
   vpc_id               = module.idp_vpc.vpc_id
 
   health_check {
     enabled  = true
-    protocol = "HTTP"
+    protocol = "HTTPS"
     path     = "/ui/v2/healthy"
     matcher  = "200"
   }
