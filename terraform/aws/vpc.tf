@@ -466,23 +466,13 @@ resource "aws_security_group" "idp_cleanup_users" {
 }
 
 resource "aws_security_group_rule" "idp_cleanup_users_egress_idp_ecs" {
-  description              = "Egress from idp cleanup users to idp ECS task"
-  type                     = "egress"
-  to_port                  = 8080
-  from_port                = 8080
-  protocol                 = "tcp"
-  security_group_id        = aws_security_group.idp_cleanup_users.id
-  source_security_group_id = aws_security_group.idp_ecs.id
-}
-
-resource "aws_security_group_rule" "idp_ecs_ingress_idp_cleanup_users" {
-  description              = "Ingress to idp ECS task from idp cleanup users"
-  type                     = "ingress"
-  to_port                  = 8080
-  from_port                = 8080
-  protocol                 = "tcp"
-  security_group_id        = aws_security_group.idp_ecs.id
-  source_security_group_id = aws_security_group.idp_cleanup_users.id
+  description       = "Egress from idp cleanup users to the internet"
+  type              = "egress"
+  to_port           = 443
+  from_port         = 443
+  protocol          = "tcp"
+  security_group_id = aws_security_group.idp_cleanup_users.id
+  cidr_blocks       = ["0.0.0.0/0"]
 }
 
 resource "aws_security_group_rule" "idp_cleanup_users_egress_s3" {
@@ -514,23 +504,13 @@ resource "aws_security_group" "idp_event_exporter" {
 }
 
 resource "aws_security_group_rule" "idp_event_exporter_egress_idp_ecs" {
-  description              = "Egress from idp event exporter to idp ECS task"
-  type                     = "egress"
-  to_port                  = 8080
-  from_port                = 8080
-  protocol                 = "tcp"
-  security_group_id        = aws_security_group.idp_event_exporter.id
-  source_security_group_id = aws_security_group.idp_ecs.id
-}
-
-resource "aws_security_group_rule" "idp_ecs_ingress_idp_event_exporter" {
-  description              = "Ingress to idp ECS task from idp event exporter"
-  type                     = "ingress"
-  to_port                  = 8080
-  from_port                = 8080
-  protocol                 = "tcp"
-  security_group_id        = aws_security_group.idp_ecs.id
-  source_security_group_id = aws_security_group.idp_event_exporter.id
+  description       = "Egress from idp event exporter to the internet"
+  type              = "egress"
+  to_port           = 443
+  from_port         = 443
+  protocol          = "tcp"
+  security_group_id = aws_security_group.idp_event_exporter.id
+  cidr_blocks       = ["0.0.0.0/0"]
 }
 
 resource "aws_security_group_rule" "idp_event_exporter_egress_s3" {

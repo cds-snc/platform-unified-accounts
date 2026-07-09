@@ -123,7 +123,7 @@ resource "aws_service_discovery_http_namespace" "idp_ecs" {
 
 
 module "idp_ecs" {
-  source = "github.com/cds-snc/terraform-modules//ecs?ref=v11.3.6"
+  source = "github.com/cds-snc/terraform-modules//ecs?ref=v11.4.2"
 
   cluster_name     = "idp"
   service_name     = "idp"
@@ -198,11 +198,13 @@ module "idp_ecs" {
   subnet_ids         = module.idp_vpc.private_subnet_ids
   security_group_ids = [aws_security_group.idp_ecs.id]
 
-  service_connect_enabled        = true
-  service_connect_app_protocol   = "http2"
-  service_connect_namespace_arn  = aws_service_discovery_http_namespace.idp_ecs.arn
-  service_discovery_enabled      = true
-  service_discovery_namespace_id = aws_service_discovery_private_dns_namespace.idp_ecs.id
+  service_connect_enabled                = true
+  service_connect_app_protocol           = "http2"
+  service_connect_namespace_arn          = aws_service_discovery_http_namespace.idp_ecs.arn
+  service_connect_tls_enabled            = true
+  service_connect_tls_cert_authority_arn = aws_acmpca_certificate_authority.ecs_service_connect.arn
+  service_discovery_enabled              = true
+  service_discovery_namespace_id         = aws_service_discovery_private_dns_namespace.idp_ecs.id
 
   billing_tag_value = var.billing_tag_value
 
@@ -212,7 +214,7 @@ module "idp_ecs" {
 }
 
 module "login_ecs" {
-  source = "github.com/cds-snc/terraform-modules//ecs?ref=v11.3.6"
+  source = "github.com/cds-snc/terraform-modules//ecs?ref=v11.4.2"
 
   create_cluster   = false
   cluster_name     = "idp"
@@ -280,11 +282,13 @@ module "login_ecs" {
   subnet_ids          = module.idp_vpc.private_subnet_ids
   security_group_ids  = [aws_security_group.idp_login_ecs.id]
 
-  service_connect_enabled        = true
-  service_connect_app_protocol   = "http"
-  service_connect_namespace_arn  = aws_service_discovery_http_namespace.idp_ecs.arn
-  service_discovery_enabled      = true
-  service_discovery_namespace_id = aws_service_discovery_private_dns_namespace.idp_ecs.id
+  service_connect_enabled                = true
+  service_connect_app_protocol           = "http"
+  service_connect_namespace_arn          = aws_service_discovery_http_namespace.idp_ecs.arn
+  service_connect_tls_enabled            = true
+  service_connect_tls_cert_authority_arn = aws_acmpca_certificate_authority.ecs_service_connect.arn
+  service_discovery_enabled              = true
+  service_discovery_namespace_id         = aws_service_discovery_private_dns_namespace.idp_ecs.id
 
   billing_tag_value = var.billing_tag_value
 

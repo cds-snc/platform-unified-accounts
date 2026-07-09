@@ -85,7 +85,7 @@ module "idp_event_exporter_lambda" {
     S3_BUCKET              = module.idp_event_exporter_s3.s3_bucket_id
     ZITADEL_HOST           = var.domain
     ZITADEL_TOKEN_SSM_PATH = aws_ssm_parameter.idp_event_exporter_bearer_token.name
-    ZITADEL_URL            = "http://idp.${aws_service_discovery_private_dns_namespace.idp_ecs.name}:8080"
+    ZITADEL_URL            = "https://${var.domain}"
     WINDOW_MINUTES         = local.event_window_minutes
   }
 
