@@ -8,7 +8,8 @@
 //
 // Optional environment variables:
 //
-//	WINDOW_MINUTES - Duration of the collection window in minutes (default: 15)
+//	WINDOW_MINUTES - Duration of the collection window in minutes (default: 5)
+//	LOCAL          - When "true", run the handler directly instead of starting the Lambda (default: false)
 package main
 
 import (
@@ -139,7 +140,7 @@ func init() {
 func parseWindowMinutes() (int, error) {
 	v := os.Getenv("WINDOW_MINUTES")
 	if v == "" {
-		return 15, nil
+		return 5, nil
 	}
 	i, err := strconv.Atoi(v)
 	if err != nil {
@@ -170,7 +171,7 @@ func loadSSMParameter(ctx context.Context, path string) (string, error) {
 // computeWindow returns the (windowStart, windowEnd) for the most recently
 // completed window aligned to windowMins boundaries on the UTC clock.
 //
-// Example: now=15:22:45 with windowMins=15 → (15:00:00, 15:15:00)
+// Example: now=15:22:45 with windowMins=5 → (15:15:00, 15:20:00)
 func computeWindow(now time.Time, windowMins int) (time.Time, time.Time) {
 	windowSecs := int64(windowMins * 60)
 	epochSecs := now.Unix()
@@ -199,11 +200,16 @@ type eventEnvelope struct {
 
 // fetchEvents fetches all events from the Zitadel Admin API on or after
 // windowStart and returns them serialised as JSON.
-func fetchEvents(ctx context.Context, svc adminService, windowStart time.Time) ([]json.RawMessage, error) {
+func fetchEvents(ctx context.Context, svc adminService, windowStart, windowEnd time.Time) ([]json.RawMessage, error) {
 	log.Printf("Fetching events from Zitadel starting at %s", windowStart.Format(time.RFC3339))
 
 	resp, err := svc.ListEvents(ctx, &adminpb.ListEventsRequest{
-		CreationDate: timestamppb.New(windowStart),
+		CreationDateFilter: &adminpb.ListEventsRequest_Range{
+			Range: &adminpb.ListEventsRequestCreationDateRange{
+				Since: timestamppb.New(windowStart),
+				Until: timestamppb.New(windowEnd),
+			},
+		},
 	})
 	if err != nil {
 		return nil, fmt.Errorf("fetching events: %w", err)
@@ -311,7 +317,7 @@ func handler(ctx context.Context) (response, error) {
 
 	svc := zitadelAPIClient.AdminService()
 
-	events, err := fetchEvents(ctx, svc, windowStart)
+	events, err := fetchEvents(ctx, svc, windowStart, windowEnd)
 	if err != nil {
 		return response{}, fmt.Errorf("fetching events: %w", err)
 	}
@@ -341,5 +347,16 @@ func handler(ctx context.Context) (response, error) {
 }
 
 func main() {
-	lambda.Start(handler)
+	isLocal := os.Getenv("LOCAL") == "true"
+	if isLocal {
+		log.Println("Running locally, invoking handler directly")
+		response, err := handler(context.Background())
+		if err != nil {
+			log.Fatalf("Handler error: %v", err)
+		}
+		log.Printf("Handler response: %+v", response)
+	} else {
+		log.Println("Running in Lambda")
+		lambda.Start(handler)
+	}
 }

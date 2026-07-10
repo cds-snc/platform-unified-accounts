@@ -17,7 +17,8 @@
 //
 // Optional environment variables:
 //
-//	DRY_RUN    - When "true", report what would be deleted without making changes (default: false)
+//	DRY_RUN - When "true", report what would be deleted without making changes (default: false)
+//	LOCAL   - When "true", run the handler directly instead of starting the Lambda (default: false)
 package main
 
 import (
@@ -345,5 +346,16 @@ func handler(ctx context.Context) (response, error) {
 }
 
 func main() {
-	lambda.Start(handler)
+	isLocal := os.Getenv("LOCAL") == "true"
+	if isLocal {
+		log.Println("Running locally, invoking handler directly")
+		response, err := handler(context.Background())
+		if err != nil {
+			log.Fatalf("Handler error: %v", err)
+		}
+		log.Printf("Handler response: %+v", response)
+	} else {
+		log.Println("Running in Lambda")
+		lambda.Start(handler)
+	}
 }

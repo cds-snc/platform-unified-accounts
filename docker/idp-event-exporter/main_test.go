@@ -14,7 +14,6 @@ import (
 	adminpb "github.com/zitadel/zitadel-go/v3/pkg/client/zitadel/admin"
 	eventpb "github.com/zitadel/zitadel-go/v3/pkg/client/zitadel/event"
 	"google.golang.org/grpc"
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // ---------------------------------------------------------------------------
@@ -96,8 +95,9 @@ func TestComputeWindow_DurationEqualsWindowMinutes(t *testing.T) {
 func TestFetchEvents_EmptyResponse(t *testing.T) {
 	svc := &mockAdminService{}
 	windowStart := time.Date(2026, 4, 21, 15, 0, 0, 0, time.UTC)
+	windowEnd := time.Date(2026, 4, 21, 15, 15, 0, 0, time.UTC)
 
-	got, err := fetchEvents(t.Context(), svc, windowStart)
+	got, err := fetchEvents(t.Context(), svc, windowStart, windowEnd)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -111,8 +111,9 @@ func TestFetchEvents_SingleEvent(t *testing.T) {
 		events: []*eventpb.Event{{}}, // one empty proto event
 	}
 	windowStart := time.Date(2026, 4, 21, 15, 0, 0, 0, time.UTC)
+	windowEnd := time.Date(2026, 4, 21, 15, 15, 0, 0, time.UTC)
 
-	got, err := fetchEvents(t.Context(), svc, windowStart)
+	got, err := fetchEvents(t.Context(), svc, windowStart, windowEnd)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -129,29 +130,33 @@ func TestFetchEvents_SingleEvent(t *testing.T) {
 func TestFetchEvents_SetsCreationDateFilter(t *testing.T) {
 	svc := &mockAdminService{}
 	windowStart := time.Date(2026, 4, 21, 15, 0, 0, 0, time.UTC)
+	windowEnd := time.Date(2026, 4, 21, 15, 15, 0, 0, time.UTC)
 
-	_, err := fetchEvents(t.Context(), svc, windowStart)
+	_, err := fetchEvents(t.Context(), svc, windowStart, windowEnd)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if svc.capturedReq == nil {
 		t.Fatal("ListEvents was not called")
 	}
-	got := svc.capturedReq.GetCreationDate()
-	if got == nil {
-		t.Fatal("CreationDate was not set in request")
+	rangeFilter, ok := svc.capturedReq.GetCreationDateFilter().(*adminpb.ListEventsRequest_Range)
+	if !ok || rangeFilter.Range == nil {
+		t.Fatal("CreationDateFilter was not set to a Range in request")
 	}
-	want := timestamppb.New(windowStart)
-	if !got.AsTime().Equal(want.AsTime()) {
-		t.Errorf("CreationDate: got %v, want %v", got.AsTime(), want.AsTime())
+	if !rangeFilter.Range.Since.AsTime().Equal(windowStart) {
+		t.Errorf("CreationDateFilter.Since: got %v, want %v", rangeFilter.Range.Since.AsTime(), windowStart)
+	}
+	if !rangeFilter.Range.Until.AsTime().Equal(windowEnd) {
+		t.Errorf("CreationDateFilter.Until: got %v, want %v", rangeFilter.Range.Until.AsTime(), windowEnd)
 	}
 }
 
 func TestFetchEvents_Error(t *testing.T) {
 	svc := &mockAdminService{eventsErr: errors.New("api error")}
 	windowStart := time.Date(2026, 4, 21, 15, 0, 0, 0, time.UTC)
+	windowEnd := time.Date(2026, 4, 21, 15, 15, 0, 0, time.UTC)
 
-	if _, err := fetchEvents(t.Context(), svc, windowStart); err == nil {
+	if _, err := fetchEvents(t.Context(), svc, windowStart, windowEnd); err == nil {
 		t.Fatal("expected error, got nil")
 	}
 }
