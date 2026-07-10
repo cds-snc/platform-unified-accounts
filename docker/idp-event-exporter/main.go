@@ -30,7 +30,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/ssm"
 	"github.com/zitadel/oidc/v3/pkg/oidc"
-	"github.com/zitadel/zitadel-go/v3/pkg/client"
+	zitadelclient "github.com/zitadel/zitadel-go/v3/pkg/client"
 	adminpb "github.com/zitadel/zitadel-go/v3/pkg/client/zitadel/admin"
 	"github.com/zitadel/zitadel-go/v3/pkg/zitadel"
 	"google.golang.org/grpc"
@@ -66,7 +66,7 @@ var (
 var (
 	s3Client         *s3.Client
 	ssmClient        *ssm.Client
-	zitadelAPIClient *client.Client
+	zitadelAPIClient *zitadelclient.Client
 	initErr          error
 )
 
@@ -116,19 +116,19 @@ func init() {
 		initErr = fmt.Errorf("loading Zitadel private key from SSM: %w", err)
 		return
 	}
-	keyFile, err := client.ConfigFromKeyFileData([]byte(keyJSON))
+	keyFile, err := zitadelclient.ConfigFromKeyFileData([]byte(keyJSON))
 	if err != nil {
 		initErr = fmt.Errorf("parsing Zitadel private key: %w", err)
 		return
 	}
 
-	zitadelAPIClient, err = client.New(
+	zitadelAPIClient, err = zitadelclient.New(
 		context.Background(),
 		zitadel.New(zitadelURL),
-		client.WithAuth(client.AuthenticationJWTProfile(
+		zitadelclient.WithAuth(zitadelclient.AuthenticationJWTProfile(
 			keyFile,
 			oidc.ScopeOpenID,
-			client.ScopeZitadelAPI(),
+			zitadelclient.ScopeZitadelAPI(),
 		)),
 	)
 	if err != nil {
@@ -309,6 +309,13 @@ func handler(ctx context.Context) (response, error) {
 	if initErr != nil {
 		return response{}, initErr
 	}
+
+	// Fetch the token once so all gRPC calls reuse the same OIDC session
+	token, err := zitadelAPIClient.GetValidToken()
+	if err != nil {
+		return response{}, fmt.Errorf("getting Zitadel token: %w", err)
+	}
+	ctx = zitadelclient.BearerTokenCtx(ctx, token)
 
 	now := time.Now().UTC()
 	windowStart, windowEnd := computeWindow(now, windowMinutes)
