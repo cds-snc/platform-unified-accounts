@@ -57,8 +57,8 @@ variable "idp_admin_password" {
   sensitive   = true
 }
 
-variable "idp_cleanup_users_bearer_token" {
-  description = "The bearer token for the IdP cleanup users lambda to authenticate with the IdP API."
+variable "idp_cleanup_users_key_json" {
+  description = "The JSON key for the IdP cleanup users lambda to authenticate with the IdP API."
   type        = string
   sensitive   = true
 }
@@ -113,8 +113,8 @@ variable "idp_database_instance_count" {
   type        = number
 }
 
-variable "idp_event_exporter_bearer_token" {
-  description = "The bearer token for the IdP event exporter to authenticate with the IdP API."
+variable "idp_event_exporter_key_json" {
+  description = "The JSON key for the IdP event exporter to authenticate with the IdP API."
   type        = string
   sensitive   = true
 }

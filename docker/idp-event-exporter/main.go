@@ -2,14 +2,14 @@
 //
 // Required environment variables:
 //
-//	ZITADEL_URL            - Base URL of the Zitadel instance
-//	S3_BUCKET              - Destination S3 bucket name
-//	ZITADEL_TOKEN_SSM_PATH - SSM Parameter Store path for the Zitadel Bearer token
-//	ZITADEL_HOST           - Host header value for Zitadel API requests
+//	ZITADEL_URL                  - Base URL of the Zitadel instance
+//	S3_BUCKET                    - Destination S3 bucket name
+//	ZITADEL_PRIVATE_KEY_SSM_PATH - SSM Parameter Store path for the Zitadel service account JSON key
 //
 // Optional environment variables:
 //
-//	WINDOW_MINUTES - Duration of the collection window in minutes (default: 15)
+//	WINDOW_MINUTES - Duration of the collection window in minutes (default: 5)
+//	LOCAL          - When "true", run the handler directly instead of starting the Lambda (default: false)
 package main
 
 import (
@@ -17,14 +17,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"log"
-	"net/http"
 	"os"
 	"regexp"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/aws/aws-lambda-go/lambda"
@@ -32,10 +29,17 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/ssm"
+	"github.com/zitadel/oidc/v3/pkg/oidc"
+	"github.com/zitadel/zitadel-go/v3/pkg/client"
+	adminpb "github.com/zitadel/zitadel-go/v3/pkg/client/zitadel/admin"
+	"github.com/zitadel/zitadel-go/v3/pkg/zitadel"
+	"google.golang.org/grpc"
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-// List of event types that should alert the team when they occur
-// `*` is replaced by `.*` when the regex is compiled
+// List of event types that should alert the team when they occur.
+// `*` is replaced by `.*` when the regex is compiled.
 var eventsTypesToAudit = []string{
 	"instance.member.*",
 	"org.member.*",
@@ -52,25 +56,25 @@ var eventsTypesToAudit = []string{
 // ---------------------------------------------------------------------------
 
 var (
-	zitadelURL          string
-	s3Bucket            string
-	zitadelTokenSSMPath string
-	zitadelHost         string
-	windowMinutes       int
+	zitadelURL               string
+	s3Bucket                 string
+	zitadelPrivateKeySSMPath string
+	windowMinutes            int
 )
 
-// AWS clients initialised at cold start.
+// AWS and Zitadel clients initialised at cold start.
 var (
-	s3Client  *s3.Client
-	ssmClient *ssm.Client
-	initErr   error
+	s3Client         *s3.Client
+	ssmClient        *ssm.Client
+	zitadelAPIClient *client.Client
+	initErr          error
 )
 
-// Bearer token cached after the first SSM read
-var (
-	tokenMu     sync.Mutex
-	cachedToken string
-)
+// adminService is the subset of the Zitadel AdminService gRPC client used by
+// this function.
+type adminService interface {
+	ListEvents(context.Context, *adminpb.ListEventsRequest, ...grpc.CallOption) (*adminpb.ListEventsResponse, error)
+}
 
 func init() {
 	var missing []string
@@ -82,13 +86,9 @@ func init() {
 	if s3Bucket == "" {
 		missing = append(missing, "S3_BUCKET")
 	}
-	zitadelTokenSSMPath = os.Getenv("ZITADEL_TOKEN_SSM_PATH")
-	if zitadelTokenSSMPath == "" {
-		missing = append(missing, "ZITADEL_TOKEN_SSM_PATH")
-	}
-	zitadelHost = os.Getenv("ZITADEL_HOST")
-	if zitadelHost == "" {
-		missing = append(missing, "ZITADEL_HOST")
+	zitadelPrivateKeySSMPath = os.Getenv("ZITADEL_PRIVATE_KEY_SSM_PATH")
+	if zitadelPrivateKeySSMPath == "" {
+		missing = append(missing, "ZITADEL_PRIVATE_KEY_SSM_PATH")
 	}
 	if len(missing) > 0 {
 		initErr = fmt.Errorf("required environment variables not set: %s", strings.Join(missing, ", "))
@@ -109,12 +109,38 @@ func init() {
 	}
 	s3Client = s3.NewFromConfig(cfg)
 	ssmClient = ssm.NewFromConfig(cfg)
+
+	// Load private key from SSM
+	keyJSON, err := loadSSMParameter(context.Background(), zitadelPrivateKeySSMPath)
+	if err != nil {
+		initErr = fmt.Errorf("loading Zitadel private key from SSM: %w", err)
+		return
+	}
+	keyFile, err := client.ConfigFromKeyFileData([]byte(keyJSON))
+	if err != nil {
+		initErr = fmt.Errorf("parsing Zitadel private key: %w", err)
+		return
+	}
+
+	zitadelAPIClient, err = client.New(
+		context.Background(),
+		zitadel.New(zitadelURL),
+		client.WithAuth(client.AuthenticationJWTProfile(
+			keyFile,
+			oidc.ScopeOpenID,
+			client.ScopeZitadelAPI(),
+		)),
+	)
+	if err != nil {
+		initErr = fmt.Errorf("creating Zitadel client: %w", err)
+		return
+	}
 }
 
 func parseWindowMinutes() (int, error) {
 	v := os.Getenv("WINDOW_MINUTES")
 	if v == "" {
-		return 15, nil
+		return 5, nil
 	}
 	i, err := strconv.Atoi(v)
 	if err != nil {
@@ -124,13 +150,28 @@ func parseWindowMinutes() (int, error) {
 }
 
 // ---------------------------------------------------------------------------
+// SSM
+// ---------------------------------------------------------------------------
+
+func loadSSMParameter(ctx context.Context, path string) (string, error) {
+	out, err := ssmClient.GetParameter(ctx, &ssm.GetParameterInput{
+		Name:           aws.String(path),
+		WithDecryption: aws.Bool(true),
+	})
+	if err != nil {
+		return "", fmt.Errorf("getting SSM parameter %s: %w", path, err)
+	}
+	return aws.ToString(out.Parameter.Value), nil
+}
+
+// ---------------------------------------------------------------------------
 // Internal helpers
 // ---------------------------------------------------------------------------
 
 // computeWindow returns the (windowStart, windowEnd) for the most recently
 // completed window aligned to windowMins boundaries on the UTC clock.
 //
-// Example: now=15:22:45 with windowMins=15 → (15:00:00, 15:15:00)
+// Example: now=15:22:45 with windowMins=5 → (15:15:00, 15:20:00)
 func computeWindow(now time.Time, windowMins int) (time.Time, time.Time) {
 	windowSecs := int64(windowMins * 60)
 	epochSecs := now.Unix()
@@ -140,46 +181,9 @@ func computeWindow(now time.Time, windowMins int) (time.Time, time.Time) {
 	return windowStart, windowEnd
 }
 
-// formatTimestamp formats a UTC time as an RFC 3339 string with microsecond
-// precision (all zeros), matching the Zitadel API expectation.
-func formatTimestamp(t time.Time) string {
-	return t.UTC().Format("2006-01-02T15:04:05.000000Z")
-}
-
-// loadBearerToken reads the Zitadel Bearer token from SSM Parameter Store,
-// caching it for subsequent warm invocations.
-func loadBearerToken(ctx context.Context) (string, error) {
-	tokenMu.Lock()
-	defer tokenMu.Unlock()
-	if cachedToken != "" {
-		log.Println("Using cached Bearer token")
-		return cachedToken, nil
-	}
-	log.Printf("Loading Bearer token from SSM: %s", zitadelTokenSSMPath)
-	out, err := ssmClient.GetParameter(ctx, &ssm.GetParameterInput{
-		Name:           aws.String(zitadelTokenSSMPath),
-		WithDecryption: aws.Bool(true),
-	})
-	if err != nil {
-		return "", fmt.Errorf("getting SSM parameter: %w", err)
-	}
-	cachedToken = aws.ToString(out.Parameter.Value)
-	log.Println("Bearer token loaded successfully from SSM")
-	return cachedToken, nil
-}
-
 // ---------------------------------------------------------------------------
 // Core logic
 // ---------------------------------------------------------------------------
-
-type eventSearchRequest struct {
-	From string `json:"from"`
-	Asc  bool   `json:"asc"`
-}
-
-type eventSearchResponse struct {
-	Events []json.RawMessage `json:"events"`
-}
 
 type eventEnvelope struct {
 	Editor struct {
@@ -194,50 +198,34 @@ type eventEnvelope struct {
 	} `json:"type"`
 }
 
-// fetchEvents fetches all events from the Zitadel Admin API on or after windowStart.
-func fetchEvents(ctx context.Context, client *http.Client, baseURL, token string, windowStart time.Time) ([]json.RawMessage, error) {
-	url := strings.TrimRight(baseURL, "/") + "/admin/v1/events/_search"
-	fromStr := formatTimestamp(windowStart)
+// fetchEvents fetches all events from the Zitadel Admin API between windowStart and
+// windowEnd and returns them serialised as JSON.
+func fetchEvents(ctx context.Context, svc adminService, windowStart, windowEnd time.Time) ([]json.RawMessage, error) {
+	log.Printf("Fetching events from Zitadel starting at %s and ending at %s", windowStart.Format(time.RFC3339), windowEnd.Format(time.RFC3339))
 
-	reqBody := eventSearchRequest{From: fromStr, Asc: true}
-	reqBytes, err := json.Marshal(reqBody)
+	resp, err := svc.ListEvents(ctx, &adminpb.ListEventsRequest{
+		CreationDateFilter: &adminpb.ListEventsRequest_Range{
+			Range: &adminpb.ListEventsRequestCreationDateRange{
+				Since: timestamppb.New(windowStart),
+				Until: timestamppb.New(windowEnd),
+			},
+		},
+	})
 	if err != nil {
-		return nil, fmt.Errorf("marshalling request body: %w", err)
+		return nil, fmt.Errorf("fetching events: %w", err)
 	}
 
-	log.Printf("Fetching events from %s starting at %s", url, fromStr)
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(reqBytes))
-	if err != nil {
-		return nil, fmt.Errorf("building request: %w", err)
-	}
-	req.Header.Set("Authorization", "Bearer "+token)
-	req.Header.Set("Content-Type", "application/json")
-	req.Host = zitadelHost
-
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("executing request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("HTTP %d from Zitadel: %s", resp.StatusCode, body)
+	result := make([]json.RawMessage, 0, len(resp.GetEvents()))
+	for _, event := range resp.GetEvents() {
+		b, err := protojson.Marshal(event)
+		if err != nil {
+			return nil, fmt.Errorf("marshalling event: %w", err)
+		}
+		result = append(result, json.RawMessage(b))
 	}
 
-	respBytes, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("reading response body: %w", err)
-	}
-
-	var result eventSearchResponse
-	if err := json.Unmarshal(respBytes, &result); err != nil {
-		return nil, fmt.Errorf("parsing response: %w", err)
-	}
-
-	log.Printf("Fetched %d event(s)", len(result.Events))
-	return result.Events, nil
+	log.Printf("Fetched %d event(s)", len(result))
+	return result, nil
 }
 
 func auditEvents(events []json.RawMessage, patterns []string) {
@@ -255,7 +243,7 @@ func auditEvents(events []json.RawMessage, patterns []string) {
 		patternsCompiled[i] = compiledPattern
 	}
 
-	// Loop through events and log those that match any of the patterns we're auditting
+	// Loop through events and log those that match any of the patterns we're auditing.
 	for _, e := range events {
 		var envelope eventEnvelope
 		if err := json.Unmarshal(e, &envelope); err != nil {
@@ -276,7 +264,7 @@ func auditEvents(events []json.RawMessage, patterns []string) {
 	}
 }
 
-// saveToS3 serialises events as newline-delimited JSON and writes it to the
+// saveToS3 serialises events as newline-delimited JSON and writes them to the
 // given key in bucket.
 func saveToS3(ctx context.Context, bucket, key string, events []json.RawMessage) error {
 	log.Printf("Saving %d event(s) to s3://%s/%s", len(events), bucket, key)
@@ -327,12 +315,9 @@ func handler(ctx context.Context) (response, error) {
 	log.Printf("Starting event export: window=[%s, %s) window_minutes=%d",
 		windowStart.Format(time.RFC3339), windowEnd.Format(time.RFC3339), windowMinutes)
 
-	token, err := loadBearerToken(ctx)
-	if err != nil {
-		return response{}, fmt.Errorf("loading bearer token: %w", err)
-	}
+	svc := zitadelAPIClient.AdminService()
 
-	events, err := fetchEvents(ctx, http.DefaultClient, zitadelURL, token, windowStart)
+	events, err := fetchEvents(ctx, svc, windowStart, windowEnd)
 	if err != nil {
 		return response{}, fmt.Errorf("fetching events: %w", err)
 	}
@@ -362,5 +347,16 @@ func handler(ctx context.Context) (response, error) {
 }
 
 func main() {
-	lambda.Start(handler)
+	isLocal := os.Getenv("LOCAL") == "true"
+	if isLocal {
+		log.Println("Running locally, invoking handler directly")
+		response, err := handler(context.Background())
+		if err != nil {
+			log.Fatalf("Handler error: %v", err)
+		}
+		log.Printf("Handler response: %+v", response)
+	} else {
+		log.Println("Running in Lambda")
+		lambda.Start(handler)
+	}
 }

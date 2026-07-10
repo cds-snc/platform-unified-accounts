@@ -16,11 +16,10 @@ module "idp_cleanup_users_lambda" {
   ]
 
   lambda_environment_variables = {
-    INACTIVE_DAYS          = 30
-    ZITADEL_HOST           = var.domain
-    ZITADEL_TOKEN_SSM_PATH = aws_ssm_parameter.idp_cleanup_users_bearer_token.name
-    ZITADEL_URL            = "https://${var.domain}"
-    DRY_RUN                = "false"
+    INACTIVE_DAYS                = 30
+    ZITADEL_PRIVATE_KEY_SSM_PATH = aws_ssm_parameter.idp_cleanup_users_key_json.name
+    ZITADEL_URL                  = var.domain
+    DRY_RUN                      = "true"
   }
 
   lambda_vpc_config = {
@@ -41,14 +40,14 @@ data "aws_iam_policy_document" "idp_cleanup_users_get_ssm_parameters" {
       "ssm:GetParameters",
     ]
     resources = [
-      aws_ssm_parameter.idp_cleanup_users_bearer_token.arn,
+      aws_ssm_parameter.idp_cleanup_users_key_json.arn,
     ]
   }
 }
 
-resource "aws_ssm_parameter" "idp_cleanup_users_bearer_token" {
-  name  = "idp_cleanup_users_bearer_token"
+resource "aws_ssm_parameter" "idp_cleanup_users_key_json" {
+  name  = "idp_cleanup_users_key_json"
   type  = "SecureString"
-  value = var.idp_cleanup_users_bearer_token
+  value = var.idp_cleanup_users_key_json
   tags  = local.core_tags
 }

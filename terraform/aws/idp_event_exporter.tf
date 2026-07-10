@@ -82,11 +82,10 @@ module "idp_event_exporter_lambda" {
   ]
 
   lambda_environment_variables = {
-    S3_BUCKET              = module.idp_event_exporter_s3.s3_bucket_id
-    ZITADEL_HOST           = var.domain
-    ZITADEL_TOKEN_SSM_PATH = aws_ssm_parameter.idp_event_exporter_bearer_token.name
-    ZITADEL_URL            = "https://${var.domain}"
-    WINDOW_MINUTES         = local.event_window_minutes
+    S3_BUCKET                    = module.idp_event_exporter_s3.s3_bucket_id
+    ZITADEL_PRIVATE_KEY_SSM_PATH = aws_ssm_parameter.idp_event_exporter_key_json.name
+    ZITADEL_URL                  = var.domain
+    WINDOW_MINUTES               = local.event_window_minutes
   }
 
   lambda_vpc_config = {
@@ -108,15 +107,15 @@ data "aws_iam_policy_document" "idp_event_exporter_get_ssm_parameters" {
       "ssm:GetParameters",
     ]
     resources = [
-      aws_ssm_parameter.idp_event_exporter_bearer_token.arn,
+      aws_ssm_parameter.idp_event_exporter_key_json.arn,
     ]
   }
 }
 
-resource "aws_ssm_parameter" "idp_event_exporter_bearer_token" {
-  name  = "idp_event_exporter_bearer_token"
+resource "aws_ssm_parameter" "idp_event_exporter_key_json" {
+  name  = "idp_event_exporter_key_json"
   type  = "SecureString"
-  value = var.idp_event_exporter_bearer_token
+  value = var.idp_event_exporter_key_json
   tags  = local.core_tags
 }
 
