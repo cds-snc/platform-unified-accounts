@@ -11,10 +11,9 @@
 //
 // Required environment variables:
 //
-//	ZITADEL_URL            - Base URL of the Zitadel instance
-//	ZITADEL_TOKEN_SSM_PATH - SSM Parameter Store path for the Zitadel Bearer token
-//	ZITADEL_HOST           - Host header value for Zitadel API requests
-//	INACTIVE_DAYS          - Users with incomplete registration older than this are deleted
+//	ZITADEL_URL                  - Base URL of the Zitadel instance
+//	ZITADEL_PRIVATE_KEY_SSM_PATH - SSM Parameter Store path for the Zitadel service account JSON key
+//	INACTIVE_DAYS                - Users with incomplete registration older than this are deleted
 //
 // Optional environment variables:
 //
@@ -22,28 +21,28 @@
 package main
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
-	"io"
 	"log"
-	"net/http"
 	"os"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/ssm"
+	"github.com/zitadel/oidc/v3/pkg/oidc"
+	"github.com/zitadel/zitadel-go/v3/pkg/client"
+	objectv2 "github.com/zitadel/zitadel-go/v3/pkg/client/zitadel/object/v2"
+	userv2 "github.com/zitadel/zitadel-go/v3/pkg/client/zitadel/user/v2"
+	"github.com/zitadel/zitadel-go/v3/pkg/zitadel"
+	"google.golang.org/grpc"
 )
 
 const (
-	userStateActive  = "USER_STATE_ACTIVE"
-	defaultPageLimit = 100
+	pageLimit = 100
 )
 
 // ---------------------------------------------------------------------------
@@ -51,23 +50,25 @@ const (
 // ---------------------------------------------------------------------------
 
 var (
-	zitadelURL          string
-	zitadelTokenSSMPath string
-	zitadelHost         string
-	inactiveDays        int
-	pageLimit           int
-	dryRun              bool
+	zitadelURL               string
+	zitadelPrivateKeySSMPath string
+	inactiveDays             int
+	dryRun                   bool
 )
 
 var (
-	ssmClient *ssm.Client
-	initErr   error
+	ssmClient        *ssm.Client
+	zitadelAPIClient *client.Client
+	initErr          error
 )
 
-var (
-	tokenMu     sync.Mutex
-	cachedToken string
-)
+// userService is the subset of the Zitadel UserServiceV2 gRPC client used by
+// this function.
+type userService interface {
+	ListUsers(context.Context, *userv2.ListUsersRequest, ...grpc.CallOption) (*userv2.ListUsersResponse, error)
+	ListAuthenticationFactors(context.Context, *userv2.ListAuthenticationFactorsRequest, ...grpc.CallOption) (*userv2.ListAuthenticationFactorsResponse, error)
+	DeleteUser(context.Context, *userv2.DeleteUserRequest, ...grpc.CallOption) (*userv2.DeleteUserResponse, error)
+}
 
 func init() {
 	var missing []string
@@ -75,13 +76,9 @@ func init() {
 	if zitadelURL == "" {
 		missing = append(missing, "ZITADEL_URL")
 	}
-	zitadelTokenSSMPath = os.Getenv("ZITADEL_TOKEN_SSM_PATH")
-	if zitadelTokenSSMPath == "" {
-		missing = append(missing, "ZITADEL_TOKEN_SSM_PATH")
-	}
-	zitadelHost = os.Getenv("ZITADEL_HOST")
-	if zitadelHost == "" {
-		missing = append(missing, "ZITADEL_HOST")
+	zitadelPrivateKeySSMPath = os.Getenv("ZITADEL_PRIVATE_KEY_SSM_PATH")
+	if zitadelPrivateKeySSMPath == "" {
+		missing = append(missing, "ZITADEL_PRIVATE_KEY_SSM_PATH")
 	}
 	if os.Getenv("INACTIVE_DAYS") == "" {
 		missing = append(missing, "INACTIVE_DAYS")
@@ -98,13 +95,6 @@ func init() {
 	}
 	inactiveDays = id
 
-	pl, err := parsePageLimit()
-	if err != nil {
-		initErr = err
-		return
-	}
-	pageLimit = pl
-
 	dr, err := parseDryRun()
 	if err != nil {
 		initErr = err
@@ -118,7 +108,37 @@ func init() {
 		return
 	}
 	ssmClient = ssm.NewFromConfig(cfg)
+
+	// Load private key from SSM
+	keyJSON, err := loadSSMParameter(context.Background(), zitadelPrivateKeySSMPath)
+	if err != nil {
+		initErr = fmt.Errorf("loading Zitadel private key from SSM: %w", err)
+		return
+	}
+	keyFile, err := client.ConfigFromKeyFileData([]byte(keyJSON))
+	if err != nil {
+		initErr = fmt.Errorf("parsing Zitadel private key: %w", err)
+		return
+	}
+
+	zitadelAPIClient, err = client.New(
+		context.Background(),
+		zitadel.New(zitadelURL),
+		client.WithAuth(client.AuthenticationJWTProfile(
+			keyFile,
+			oidc.ScopeOpenID,
+			client.ScopeZitadelAPI(),
+		)),
+	)
+	if err != nil {
+		initErr = fmt.Errorf("creating Zitadel client: %w", err)
+		return
+	}
 }
+
+// ---------------------------------------------------------------------------
+// Parsers
+// ---------------------------------------------------------------------------
 
 func parseInactiveDays() (int, error) {
 	v := os.Getenv("INACTIVE_DAYS")
@@ -128,21 +148,6 @@ func parseInactiveDays() (int, error) {
 	}
 	if i <= 0 {
 		return 0, fmt.Errorf("INACTIVE_DAYS must be greater than 0, got %d", i)
-	}
-	return i, nil
-}
-
-func parsePageLimit() (int, error) {
-	v := os.Getenv("PAGE_LIMIT")
-	if v == "" {
-		return defaultPageLimit, nil
-	}
-	i, err := strconv.Atoi(v)
-	if err != nil {
-		return 0, fmt.Errorf("PAGE_LIMIT must be an integer, got %q", v)
-	}
-	if i <= 0 || i > 1000 {
-		return 0, fmt.Errorf("PAGE_LIMIT must be between 1 and 1000, got %d", i)
 	}
 	return i, nil
 }
@@ -160,229 +165,94 @@ func parseDryRun() (bool, error) {
 }
 
 // ---------------------------------------------------------------------------
-// Time helpers
-// ---------------------------------------------------------------------------
-
-// formatTimestamp matches the precision the Zitadel API expects.
-func formatTimestamp(t time.Time) string {
-	return t.UTC().Format("2006-01-02T15:04:05.000000Z")
-}
-
-// parseZitadelTime parses an RFC 3339 timestamp returned by Zitadel. The API
-// is inconsistent about fractional-second precision so we try a few layouts.
-func parseZitadelTime(s string) (time.Time, error) {
-	if s == "" {
-		return time.Time{}, fmt.Errorf("empty timestamp")
-	}
-	if t, err := time.Parse(time.RFC3339Nano, s); err == nil {
-		return t.UTC(), nil
-	}
-	if t, err := time.Parse(time.RFC3339, s); err == nil {
-		return t.UTC(), nil
-	}
-	return time.Time{}, fmt.Errorf("parsing timestamp %q", s)
-}
-
-// ---------------------------------------------------------------------------
 // SSM
 // ---------------------------------------------------------------------------
 
-func loadBearerToken(ctx context.Context) (string, error) {
-	tokenMu.Lock()
-	defer tokenMu.Unlock()
-	if cachedToken != "" {
-		log.Println("Using cached Bearer token")
-		return cachedToken, nil
-	}
-	log.Printf("Loading Bearer token from SSM: %s", zitadelTokenSSMPath)
+func loadSSMParameter(ctx context.Context, path string) (string, error) {
 	out, err := ssmClient.GetParameter(ctx, &ssm.GetParameterInput{
-		Name:           aws.String(zitadelTokenSSMPath),
+		Name:           aws.String(path),
 		WithDecryption: aws.Bool(true),
 	})
 	if err != nil {
-		return "", fmt.Errorf("getting SSM parameter: %w", err)
+		return "", fmt.Errorf("getting SSM parameter %s: %w", path, err)
 	}
-	cachedToken = aws.ToString(out.Parameter.Value)
-	log.Println("Bearer token loaded successfully from SSM")
-	return cachedToken, nil
-}
-
-// ---------------------------------------------------------------------------
-// Zitadel API types
-// ---------------------------------------------------------------------------
-
-type userEmail struct {
-	IsVerified bool `json:"isVerified"`
-}
-
-type userHuman struct {
-	Email *userEmail `json:"email"`
-}
-
-type user struct {
-	UserID   string     `json:"userId"`
-	Username string     `json:"username"`
-	State    string     `json:"state"`
-	Human    *userHuman `json:"human"`
-	Details  struct {
-		CreationDate string `json:"creationDate"`
-	} `json:"details"`
-}
-
-type listUsersRequest struct {
-	Query   listUsersPageQuery `json:"query"`
-	Queries []any              `json:"queries"`
-}
-
-type listUsersPageQuery struct {
-	Offset string `json:"offset"`
-	Limit  int    `json:"limit"`
-	Asc    bool   `json:"asc"`
-}
-
-type listUsersResponse struct {
-	Details struct {
-		TotalResult string `json:"totalResult"`
-	} `json:"details"`
-	Result []user `json:"result"`
-}
-
-type authFactor struct {
-	State string `json:"state"`
-}
-
-type listAuthFactorsResponse struct {
-	Result []authFactor `json:"result"`
-}
-
-// ---------------------------------------------------------------------------
-// HTTP helpers
-// ---------------------------------------------------------------------------
-
-// doJSONRequest performs an HTTP request to the Zitadel API using the given
-// method. If body is nil the request is sent without a payload. If out is nil
-// the response body is discarded.
-func doJSONRequest(ctx context.Context, client *http.Client, baseURL, path, token, method string, body, out any) error {
-	url := strings.TrimRight(baseURL, "/") + path
-
-	var reader io.Reader
-	if body != nil {
-		b, err := json.Marshal(body)
-		if err != nil {
-			return fmt.Errorf("marshalling request body: %w", err)
-		}
-		reader = bytes.NewReader(b)
-	}
-
-	req, err := http.NewRequestWithContext(ctx, method, url, reader)
-	if err != nil {
-		return fmt.Errorf("building request: %w", err)
-	}
-	req.Header.Set("Authorization", "Bearer "+token)
-	req.Header.Set("Accept", "application/json")
-	if body != nil {
-		req.Header.Set("Content-Type", "application/json")
-	}
-	if zitadelHost != "" {
-		req.Host = zitadelHost
-	}
-
-	resp, err := client.Do(req)
-	if err != nil {
-		return fmt.Errorf("executing request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	respBytes, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return fmt.Errorf("reading response body: %w", err)
-	}
-
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return fmt.Errorf("HTTP %d from %s: %s", resp.StatusCode, path, respBytes)
-	}
-
-	if out != nil && len(respBytes) > 0 {
-		if err := json.Unmarshal(respBytes, out); err != nil {
-			return fmt.Errorf("parsing response: %w", err)
-		}
-	}
-	return nil
+	return aws.ToString(out.Parameter.Value), nil
 }
 
 // ---------------------------------------------------------------------------
 // Zitadel operations
 // ---------------------------------------------------------------------------
 
-// listActiveUsers fetches every human user in state USER_STATE_ACTIVE, paging
-// through the result set until fewer than `limit` records are returned.
-func listActiveUsers(ctx context.Context, client *http.Client, baseURL, token string, limit int) ([]user, error) {
-	var all []user
-	offset := 0
+// listActiveUsers fetches every active human user, paging through the result
+// set until fewer than limit records are returned.
+func listActiveUsers(ctx context.Context, svc userService, limit int) ([]*userv2.User, error) {
+	var all []*userv2.User
+	var offset uint64
+
 	for {
-		req := listUsersRequest{
-			Query: listUsersPageQuery{
-				Offset: strconv.Itoa(offset),
-				Limit:  limit,
+		log.Printf("Listing active users offset=%d limit=%d", offset, limit)
+		resp, err := svc.ListUsers(ctx, &userv2.ListUsersRequest{
+			Query: &objectv2.ListQuery{
+				Limit:  uint32(limit),
+				Offset: offset,
 				Asc:    true,
 			},
-			Queries: []any{
-				map[string]any{"stateQuery": map[string]any{"state": "USER_STATE_ACTIVE"}},
-				map[string]any{"typeQuery": map[string]any{"type": "TYPE_HUMAN"}},
+			Queries: []*userv2.SearchQuery{
+				{
+					Query: &userv2.SearchQuery_StateQuery{
+						StateQuery: &userv2.StateQuery{State: userv2.UserState_USER_STATE_ACTIVE},
+					},
+				},
+				{
+					Query: &userv2.SearchQuery_TypeQuery{
+						TypeQuery: &userv2.TypeQuery{Type: userv2.Type_TYPE_HUMAN},
+					},
+				},
 			},
-		}
-		var resp listUsersResponse
-		log.Printf("Listing active users offset=%d limit=%d", offset, limit)
-		if err := doJSONRequest(ctx, client, baseURL, "/v2/users", token, http.MethodPost, req, &resp); err != nil {
+		})
+		if err != nil {
 			return nil, fmt.Errorf("listing users: %w", err)
 		}
-		all = append(all, resp.Result...)
-		if len(resp.Result) < limit {
+		all = append(all, resp.GetResult()...)
+		if len(resp.GetResult()) < limit {
 			break
 		}
-		offset += len(resp.Result)
+		offset += uint64(len(resp.GetResult()))
 	}
 	log.Printf("Fetched %d active user(s)", len(all))
 	return all, nil
 }
 
-// isEmailVerified returns true if the user's email address has been verified.
-func isEmailVerified(u user) bool {
-	if u.Human == nil || u.Human.Email == nil {
-		return false
-	}
-	return u.Human.Email.IsVerified
+func isEmailVerified(u *userv2.User) bool {
+	return u.GetHuman().GetEmail().GetIsVerified()
 }
 
-// listAuthenticationFactors returns all authentication factors registered for
-// the given user.
-func listAuthenticationFactors(ctx context.Context, client *http.Client, baseURL, token, userID string) ([]authFactor, error) {
-	path := "/v2/users/" + userID + "/authentication_factors/_search"
-	var resp listAuthFactorsResponse
-	if err := doJSONRequest(ctx, client, baseURL, path, token, http.MethodPost, map[string]any{}, &resp); err != nil {
+func listAuthenticationFactors(ctx context.Context, svc userService, userID string) ([]*userv2.AuthFactor, error) {
+	resp, err := svc.ListAuthenticationFactors(ctx, &userv2.ListAuthenticationFactorsRequest{
+		UserId: userID,
+	})
+	if err != nil {
 		return nil, fmt.Errorf("listing authentication factors for user %s: %w", userID, err)
 	}
-	return resp.Result, nil
+	return resp.GetResult(), nil
 }
 
 // hasCompletedRegistration returns true when the user has both a verified email
-// address and at least one authentication factor registered. The auth-factors
-// check is skipped when the email is not yet verified.
-func hasCompletedRegistration(ctx context.Context, client *http.Client, baseURL, token string, u user) (bool, error) {
+// address and at least one authentication factor registered
+func hasCompletedRegistration(ctx context.Context, svc userService, u *userv2.User) (bool, error) {
 	if !isEmailVerified(u) {
 		return false, nil
 	}
-	factors, err := listAuthenticationFactors(ctx, client, baseURL, token, u.UserID)
+	factors, err := listAuthenticationFactors(ctx, svc, u.GetUserId())
 	if err != nil {
 		return false, err
 	}
 	return len(factors) > 0, nil
 }
 
-// deleteUser permanently deletes the user from Zitadel.
-func deleteUser(ctx context.Context, client *http.Client, baseURL, token, userID string) error {
-	path := "/v2/users/" + userID
-	if err := doJSONRequest(ctx, client, baseURL, path, token, http.MethodDelete, nil, nil); err != nil {
+func deleteUser(ctx context.Context, svc userService, userID string) error {
+	_, err := svc.DeleteUser(ctx, &userv2.DeleteUserRequest{UserId: userID})
+	if err != nil {
 		return fmt.Errorf("deleting user %s: %w", userID, err)
 	}
 	return nil
@@ -403,7 +273,7 @@ type response struct {
 	Threshold    string   `json:"threshold"`
 }
 
-func processUsers(ctx context.Context, client *http.Client, baseURL, token string, users []user, threshold time.Time, dryRun bool) (response, error) {
+func processUsers(ctx context.Context, svc userService, users []*userv2.User, threshold time.Time, dryRun bool) (response, error) {
 	resp := response{
 		StatusCode:   200,
 		UsersChecked: len(users),
@@ -413,42 +283,37 @@ func processUsers(ctx context.Context, client *http.Client, baseURL, token strin
 	}
 
 	for _, u := range users {
-		created, err := parseZitadelTime(u.Details.CreationDate)
-		if err != nil {
-			log.Printf("Skipping user %s (%s): unparseable creation date: %v", u.UserID, u.Username, err)
-			resp.UsersSkipped++
-			continue
-		}
+		created := u.GetDetails().GetCreationDate().AsTime().UTC()
 
 		if !created.Before(threshold) {
 			log.Printf("Keeping user %s (%s): account created %s is within the registration grace period",
-				u.UserID, u.Username, created.Format(time.RFC3339))
+				u.GetUserId(), u.GetUsername(), created.Format(time.RFC3339))
 			continue
 		}
 
-		completed, err := hasCompletedRegistration(ctx, client, baseURL, token, u)
+		completed, err := hasCompletedRegistration(ctx, svc, u)
 		if err != nil {
-			log.Printf("Skipping user %s (%s): %v", u.UserID, u.Username, err)
+			log.Printf("Skipping user %s (%s): %v", u.GetUserId(), u.GetUsername(), err)
 			resp.UsersSkipped++
 			continue
 		}
 
 		if completed {
-			log.Printf("Keeping user %s (%s): registration is complete", u.UserID, u.Username)
+			log.Printf("Keeping user %s (%s): registration is complete", u.GetUserId(), u.GetUsername())
 			continue
 		}
 
 		log.Printf("Deleting user %s (%s): registration incomplete and account created %s is older than threshold %s",
-			u.UserID, u.Username, created.Format(time.RFC3339), threshold.Format(time.RFC3339))
+			u.GetUserId(), u.GetUsername(), created.Format(time.RFC3339), threshold.Format(time.RFC3339))
 		if !dryRun {
-			if err := deleteUser(ctx, client, baseURL, token, u.UserID); err != nil {
-				log.Printf("Failed to delete user %s (%s): %v", u.UserID, u.Username, err)
+			if err := deleteUser(ctx, svc, u.GetUserId()); err != nil {
+				log.Printf("Failed to delete user %s (%s): %v", u.GetUserId(), u.GetUsername(), err)
 				resp.UsersSkipped++
 				continue
 			}
 		}
 		resp.UsersDeleted++
-		resp.DeletedUsers = append(resp.DeletedUsers, u.Username)
+		resp.DeletedUsers = append(resp.DeletedUsers, u.GetUsername())
 	}
 	return resp, nil
 }
@@ -463,17 +328,14 @@ func handler(ctx context.Context) (response, error) {
 	log.Printf("Starting incomplete registration sweep: inactive_days=%d threshold=%s dry_run=%t",
 		inactiveDays, threshold.Format(time.RFC3339), dryRun)
 
-	token, err := loadBearerToken(ctx)
-	if err != nil {
-		return response{}, fmt.Errorf("loading bearer token: %w", err)
-	}
+	svc := zitadelAPIClient.UserServiceV2()
 
-	users, err := listActiveUsers(ctx, http.DefaultClient, zitadelURL, token, pageLimit)
+	users, err := listActiveUsers(ctx, svc, pageLimit)
 	if err != nil {
 		return response{}, fmt.Errorf("listing active users: %w", err)
 	}
 
-	result, err := processUsers(ctx, http.DefaultClient, zitadelURL, token, users, threshold, dryRun)
+	result, err := processUsers(ctx, svc, users, threshold, dryRun)
 	if err != nil {
 		return response{}, err
 	}
