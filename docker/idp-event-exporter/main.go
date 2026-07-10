@@ -198,10 +198,10 @@ type eventEnvelope struct {
 	} `json:"type"`
 }
 
-// fetchEvents fetches all events from the Zitadel Admin API on or after
-// windowStart and returns them serialised as JSON.
+// fetchEvents fetches all events from the Zitadel Admin API between windowStart and
+// windowEnd and returns them serialised as JSON.
 func fetchEvents(ctx context.Context, svc adminService, windowStart, windowEnd time.Time) ([]json.RawMessage, error) {
-	log.Printf("Fetching events from Zitadel starting at %s", windowStart.Format(time.RFC3339))
+	log.Printf("Fetching events from Zitadel starting at %s and ending at %s", windowStart.Format(time.RFC3339), windowEnd.Format(time.RFC3339))
 
 	resp, err := svc.ListEvents(ctx, &adminpb.ListEventsRequest{
 		CreationDateFilter: &adminpb.ListEventsRequest_Range{
