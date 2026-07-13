@@ -26,7 +26,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/ssm"
 )
 
-const slackBodyMaxLen = 3001
+const slackBodyMaxLen = 3000
 const slackWaitBetweenMessages = 100 * time.Millisecond
 const slackWebhookParameterNameEnvVar = "SLACK_WEBHOOK_SSM_PARAMETER_NAME"
 
@@ -247,7 +247,7 @@ func formatSlackMessage(subscriptionFilters []string, logGroup string, logEvents
 			toAdd = "\n" + logMessage
 		}
 
-		if msgBuilder.Len()+len(toAdd) > slackBodyMaxLen {
+		if msgBuilder.Len() > 0 && msgBuilder.Len()+len(toAdd) > slackBodyMaxLen {
 			messages = append(messages, buildMessage(msgBuilder.String()))
 			msgBuilder.Reset()
 			msgBuilder.WriteString(logMessage)
@@ -264,6 +264,10 @@ func normalizeLogMessage(logMessage string) string {
 	message := strings.TrimSpace(logMessage)
 	if message == "" {
 		return "<empty log message>"
+	}
+
+	if len(message) >= slackBodyMaxLen {
+		message = message[:slackBodyMaxLen]
 	}
 
 	return message

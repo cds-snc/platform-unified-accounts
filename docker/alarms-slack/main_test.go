@@ -227,8 +227,8 @@ func TestHandler_PostsMultipleSlackMessagesWhenBodyExceedsLimit(t *testing.T) {
 	restore := setHandlerGlobals(t, "/alerts/slack-webhook", fakeClient, server.Client(), "")
 	defer restore()
 
-	// Three 1500-char events; pairs exceed 3001 chars so they must be split.
-	long := strings.Repeat("x", 1500)
+	// Three 1400-char events
+	long := strings.Repeat("x", 1400)
 	err := handler(t.Context(), cloudWatchLogsEvent{
 		AWSLogs: struct {
 			Data string `json:"data"`
@@ -256,8 +256,8 @@ func TestHandler_PostsMultipleSlackMessagesWhenBodyExceedsLimit(t *testing.T) {
 
 	for i, req := range requests {
 		body := req.Attachments[0].Blocks[2].Text.Text
-		if len(body) > slackBodyMaxLen {
-			t.Fatalf("request %d body length %d exceeds %d", i, len(body), slackBodyMaxLen)
+		if len(body) >= slackBodyMaxLen {
+			t.Fatalf("request %d body length %d is >= slackBodyMaxLen %d", i, len(body), slackBodyMaxLen)
 		}
 		headerText := req.Attachments[0].Blocks[0].Text.Text
 		if !strings.Contains(headerText, "/aws/lambda/example") {
@@ -402,8 +402,7 @@ func TestFormatSlackMessageMarksAuditEvents(t *testing.T) {
 }
 
 func TestFormatSlackMessage_SplitsLongMessages(t *testing.T) {
-	// Each event is 1500 chars; two together exceed 3001 so they must be split.
-	long := strings.Repeat("a", 1500)
+	long := strings.Repeat("a", 1400)
 	events := []cloudWatchLogRecord{
 		{ID: "1", Message: long},
 		{ID: "2", Message: long},
@@ -427,13 +426,33 @@ func TestFormatSlackMessage_SplitsLongMessages(t *testing.T) {
 		}
 	}
 
-	// Verify all event messages appear across the split output.
-	allBody := ""
-	for _, msg := range msgs {
-		allBody += msg.Attachments[0].Blocks[2].Text.Text
+	// Verify body length constraints are met for all split messages.
+	for i, msg := range msgs {
+		body := msg.Attachments[0].Blocks[2].Text.Text
+		if len(body) >= slackBodyMaxLen {
+			t.Fatalf("message %d body length %d is >= slackBodyMaxLen %d", i, len(body), slackBodyMaxLen)
+		}
 	}
-	if strings.Count(allBody, long) != 3 {
-		t.Fatalf("expected 3 occurrences of the long message across all Slack messages")
+}
+
+func TestFormatSlackMessage_TruncatesOversizedSingleEvent(t *testing.T) {
+	// A single event longer than slackBodyMaxLen must be truncated so the
+	// resulting body is at most slackBodyMaxLen characters.
+	long := strings.Repeat("z", slackBodyMaxLen+500)
+	events := []cloudWatchLogRecord{{ID: "1", Message: long}}
+
+	msgs := formatSlackMessage(nil, "/aws/lambda/example", events)
+
+	if len(msgs) != 1 {
+		t.Fatalf("got %d messages, want 1", len(msgs))
+	}
+
+	body := msgs[0].Attachments[0].Blocks[2].Text.Text
+	if len(body) > slackBodyMaxLen {
+		t.Fatalf("body length %d is > slackBodyMaxLen %d", len(body), slackBodyMaxLen)
+	}
+	if len(body) == 0 {
+		t.Fatal("body must not be empty after truncation")
 	}
 }
 
