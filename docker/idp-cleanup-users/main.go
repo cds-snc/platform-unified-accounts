@@ -58,9 +58,9 @@ var (
 )
 
 var (
-	ssmClient        *ssm.Client
-	zitadelAPIClient *zitadelclient.Client
-	initErr          error
+	ssmClient      *ssm.Client
+	zitadelKeyFile *zitadelclient.KeyFile
+	initErr        error
 )
 
 // userService is the subset of the Zitadel UserServiceV2 gRPC client used by
@@ -121,20 +121,7 @@ func init() {
 		initErr = fmt.Errorf("parsing Zitadel private key: %w", err)
 		return
 	}
-
-	zitadelAPIClient, err = zitadelclient.New(
-		context.Background(),
-		zitadel.New(zitadelURL),
-		zitadelclient.WithAuth(zitadelclient.AuthenticationJWTProfile(
-			keyFile,
-			oidc.ScopeOpenID,
-			zitadelclient.ScopeZitadelAPI(),
-		)),
-	)
-	if err != nil {
-		initErr = fmt.Errorf("creating Zitadel client: %w", err)
-		return
-	}
+	zitadelKeyFile = keyFile
 }
 
 // ---------------------------------------------------------------------------
@@ -323,6 +310,20 @@ func handler(ctx context.Context) (response, error) {
 	if initErr != nil {
 		return response{}, initErr
 	}
+
+	zitadelAPIClient, err := zitadelclient.New(
+		ctx,
+		zitadel.New(zitadelURL),
+		zitadelclient.WithAuth(zitadelclient.AuthenticationJWTProfile(
+			zitadelKeyFile,
+			oidc.ScopeOpenID,
+			zitadelclient.ScopeZitadelAPI(),
+		)),
+	)
+	if err != nil {
+		return response{}, fmt.Errorf("creating Zitadel client: %w", err)
+	}
+	defer zitadelAPIClient.Close()
 
 	// Fetch the token once so all gRPC calls reuse the same OIDC session
 	token, err := zitadelAPIClient.GetValidToken()
