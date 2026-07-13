@@ -145,7 +145,7 @@ module "idp_ecs" {
 
   # Task definition
   container_image                     = "${aws_ecr_repository.repo["idp"].repository_url}:latest"
-  container_command                   = ["start", "--masterkeyFromEnv", "--tlsMode", "external", "--config", "/app/config.yaml"]
+  container_command                   = ["start-from-setup", "--masterkeyFromEnv", "--tlsMode", "external", "--config", "/app/config.yaml"]
   container_host_port                 = 8080
   container_port                      = 8080
   container_environment               = local.idp_container_env
