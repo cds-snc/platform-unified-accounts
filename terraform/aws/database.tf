@@ -2,7 +2,7 @@
 # RDS Postgres cluster
 #
 module "idp_database" {
-  source = "github.com/cds-snc/terraform-modules//rds?ref=v11.4.1"
+  source = "github.com/cds-snc/terraform-modules//rds?ref=v11.4.4"
   name   = "idp-${var.env}"
 
   database_name           = var.idp_database
