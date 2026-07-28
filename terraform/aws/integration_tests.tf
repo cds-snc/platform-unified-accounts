@@ -6,13 +6,21 @@ locals {
 # Create the OIDC roles used by the GitHub workflows
 # 
 module "github_workflow_roles" {
-  source = "github.com/cds-snc/terraform-modules//gh_oidc_role?ref=v11.4.4"
+  source = "github.com/cds-snc/terraform-modules//gh_oidc_role?ref=v11.4.5"
 
   roles = [
     {
-      name      = local.integration_tests
-      repo_name = "platform-unified-accounts-user-portal"
-      claim     = "*"
+      name = local.integration_tests
+      claims = [
+        {
+          repo_name = "platform-unified-accounts-user-portal"
+          claim     = "ref:refs/heads/main"
+        },
+        {
+          repo_name = "platform-unified-accounts-user-portal"
+          claim     = "pull_request"
+        }
+      ]
     }
   ]
 
