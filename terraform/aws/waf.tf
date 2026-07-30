@@ -8,8 +8,9 @@ locals {
     "EC2MetaDataSSRF_BODY",          # Rule is blocking IdP OIDC app creation
     "EC2MetaDataSSRF_QUERYARGUMENTS" # Rule is blocking IdP OIDC login
   ]
-  rate_limit_all      = 1000
-  rate_limit_mutating = 500
+  rate_limit_all        = 1000
+  rate_limit_mutating   = 500
+  rate_limit_contact_us = 100 # Minimum AWS WAF rate limit; tighter than general mutating (500)
 }
 
 resource "aws_wafv2_web_acl" "idp" {
@@ -253,6 +254,164 @@ resource "aws_wafv2_web_acl" "idp" {
     visibility_config {
       cloudwatch_metrics_enabled = true
       metric_name                = "AllRequestLimitJA4"
+      sampled_requests_enabled   = true
+    }
+  }
+
+  rule {
+    name     = "ContactUsPostRateLimitIP"
+    priority = 65
+
+    action {
+      block {}
+    }
+
+    statement {
+      rate_based_statement {
+        limit              = local.rate_limit_contact_us
+        aggregate_key_type = "IP"
+
+        scope_down_statement {
+          and_statement {
+            statement {
+              byte_match_statement {
+                field_to_match {
+                  method {}
+                }
+                positional_constraint = "EXACTLY"
+                search_string         = "post"
+                text_transformation {
+                  priority = 1
+                  type     = "LOWERCASE"
+                }
+              }
+            }
+            statement {
+              byte_match_statement {
+                field_to_match {
+                  uri_path {}
+                }
+                positional_constraint = "STARTS_WITH"
+                search_string         = "/contact-us"
+                text_transformation {
+                  priority = 1
+                  type     = "LOWERCASE"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
+    visibility_config {
+      cloudwatch_metrics_enabled = true
+      metric_name                = "ContactUsPostRateLimitIP"
+      sampled_requests_enabled   = true
+    }
+  }
+
+  rule {
+    name     = "ContactUsPostChallenge"
+    priority = 67
+
+    action {
+      challenge {}
+    }
+
+    statement {
+      and_statement {
+        statement {
+          byte_match_statement {
+            field_to_match {
+              method {}
+            }
+            positional_constraint = "EXACTLY"
+            search_string         = "post"
+            text_transformation {
+              priority = 1
+              type     = "LOWERCASE"
+            }
+          }
+        }
+        statement {
+          byte_match_statement {
+            field_to_match {
+              uri_path {}
+            }
+            positional_constraint = "STARTS_WITH"
+            search_string         = "/contact-us"
+            text_transformation {
+              priority = 1
+              type     = "LOWERCASE"
+            }
+          }
+        }
+      }
+    }
+
+    visibility_config {
+      cloudwatch_metrics_enabled = true
+      metric_name                = "ContactUsPostChallenge"
+      sampled_requests_enabled   = true
+    }
+  }
+
+  rule {
+    name     = "ContactUsPostRateLimitJA4"
+    priority = 69
+
+    action {
+      challenge {}
+    }
+
+    statement {
+      rate_based_statement {
+        limit              = local.rate_limit_contact_us
+        aggregate_key_type = "CUSTOM_KEYS"
+
+        custom_key {
+          ja4_fingerprint {
+            fallback_behavior = "NO_MATCH"
+          }
+        }
+
+        scope_down_statement {
+          and_statement {
+            statement {
+              byte_match_statement {
+                field_to_match {
+                  method {}
+                }
+                positional_constraint = "EXACTLY"
+                search_string         = "post"
+                text_transformation {
+                  priority = 1
+                  type     = "LOWERCASE"
+                }
+              }
+            }
+            statement {
+              byte_match_statement {
+                field_to_match {
+                  uri_path {}
+                }
+                positional_constraint = "STARTS_WITH"
+                search_string         = "/contact-us"
+                text_transformation {
+                  priority = 1
+                  type     = "LOWERCASE"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
+    visibility_config {
+      cloudwatch_metrics_enabled = true
+      metric_name                = "ContactUsPostRateLimitJA4"
       sampled_requests_enabled   = true
     }
   }
