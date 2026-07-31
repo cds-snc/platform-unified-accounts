@@ -74,7 +74,7 @@ locals {
   login_container_env = [
     {
       "name"  = "ZITADEL_API_URL",
-      "value" = "https://idp:8080"
+      "value" = "http://idp:8080"
     },
     {
       "name"  = "NEXT_PUBLIC_BASE_PATH",
