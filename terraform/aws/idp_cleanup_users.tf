@@ -2,7 +2,7 @@
  * Lambda function to cleanup users
  */
 module "idp_cleanup_users_lambda" {
-  source = "github.com/cds-snc/terraform-modules//lambda_schedule?ref=v11.4.4"
+  source = "github.com/cds-snc/terraform-modules//lambda_schedule?ref=v11.4.5"
 
   lambda_name                = "idp-cleanup-users"
   lambda_schedule_expression = "cron(0 0 * * ? *)" # Run every day at midnight UTC
