@@ -82,6 +82,6 @@ jobs:
       run: |
         aws ssm put-parameter \
           --name "/ecs/${{ env.ECS_CLUSTER }}/${{ matrix.service.name }}/container-image" \
-          --value "${{ env.REGISTRY_PREFIX }}/${{ matrix.service.name }}:sha-${{ env.GITHUB_SHA }}" \
+          --value "$REGISTRY_PREFIX/${{ matrix.service.name }}:sha-$GITHUB_SHA" \
           --type "String" \
           --overwrite

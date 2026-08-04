@@ -15,12 +15,13 @@ env:
   REGISTRY_PREFIX: ${{ vars.STAGING_AWS_ACCOUNT_ID }}.dkr.ecr.ca-central-1.amazonaws.com
   GITHUB_SHA: ${{ github.sha }}
 
-permissions:
-  id-token: write
-  contents: write
+permissions: {}
   
 jobs:
   docker-push:
+    permissions:
+      id-token: write
+      contents: read
     runs-on: ubuntu-24.04-arm
     strategy:
       matrix:
@@ -76,11 +77,13 @@ jobs:
           --push \
           --provenance=false \
           --platform linux/arm64 \
-          --tag "${{ env.REGISTRY_PREFIX }}/${{ matrix.image }}:sha-$GITHUB_SHA" \
+          --tag "$REGISTRY_PREFIX/${{ matrix.image }}:sha-$GITHUB_SHA" \
           --file ./docker/${{ matrix.image }}/Dockerfile \
           ./docker/${{ matrix.image }}
 
   docker-deploy:
+    permissions:
+      id-token: write
     needs: docker-push
     uses: ./.github/workflows/docker-deploy-staging.yml
     secrets:
@@ -88,6 +91,8 @@ jobs:
       LOG_ANALYTICS_WORKSPACE_KEY: ${{ secrets.LOG_ANALYTICS_WORKSPACE_KEY }}
 
   docker-sbom:
+    permissions:
+      contents: write
     needs: docker-push
     uses: ./.github/workflows/docker-sbom-staging.yml
     secrets:
