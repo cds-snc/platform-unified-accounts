@@ -2,7 +2,7 @@
  * S3 bucket to store exported events
  */
 module "idp_event_exporter_s3" {
-  source            = "github.com/cds-snc/terraform-modules//S3?ref=v11.4.4"
+  source            = "github.com/cds-snc/terraform-modules//S3?ref=v11.4.5"
   bucket_name       = "idp-event-exporter-${var.env}"
   billing_tag_value = var.billing_tag_value
 
@@ -68,7 +68,7 @@ locals {
 }
 
 module "idp_event_exporter_lambda" {
-  source = "github.com/cds-snc/terraform-modules//lambda_schedule?ref=v11.4.4"
+  source = "github.com/cds-snc/terraform-modules//lambda_schedule?ref=v11.4.5"
 
   lambda_name                = "idp-event-exporter"
   lambda_schedule_expression = "cron(0/${local.event_window_minutes} * * * ? *)"
