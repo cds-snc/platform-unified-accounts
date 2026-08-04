@@ -70,6 +70,8 @@ github.com/aws/aws-sdk-go-v2/service/ssm v1.69.5 h1:fCaC9yP7sthItdHF8VBT3qR42jK1
 github.com/aws/aws-sdk-go-v2/service/ssm v1.69.5/go.mod h1:xabzRvdbMs3FG9kU5M6RUOuCW6wXDkpdIqoXXNzA1nQ=
 github.com/aws/aws-sdk-go-v2/service/ssm v1.72.0 h1:jl+7QcR+PEJVQXK1W5NSXw9EKd+w7Cu4Pwj/WvUIHb0=
 github.com/aws/aws-sdk-go-v2/service/ssm v1.72.0/go.mod h1:xabzRvdbMs3FG9kU5M6RUOuCW6wXDkpdIqoXXNzA1nQ=
+github.com/aws/aws-sdk-go-v2/service/ssm v1.73.0 h1:8AE9z5vMHNC7tQuaje8fSsNZyvj+0ttiQ2Ed/8rLBsc=
+github.com/aws/aws-sdk-go-v2/service/ssm v1.73.0/go.mod h1:004bP6yJs8vdEpZwBT3H25GzleBVJYgeT2pPXkU4t4g=
 github.com/aws/aws-sdk-go-v2/service/sso v1.31.3 h1:ey1XLTYXb9PcLt4535632o5kCGXNXEhNb620Dqwuylo=
 github.com/aws/aws-sdk-go-v2/service/sso v1.31.3/go.mod h1:Lk7PlmoTYryQmyBG0EXqj5BcUbj3whXdU2s3yGI3EAc=
 github.com/aws/aws-sdk-go-v2/service/sso v1.31.5 h1:xlK3Tdc8FO7Tq1k0+hL+otF33glj+dE+qeM5iINiDvU=
@@ -149,6 +151,8 @@ github.com/zitadel/oidc/v3 v3.47.7 h1:flC/XyHs6Ipv85SviBkNl6toTb5nncAmWUeV2HmMJQ
 github.com/zitadel/oidc/v3 v3.47.7/go.mod h1:NTejBboCz6SShga9FnZiFaFiMHBOQTbGqBIP16c05Ug=
 github.com/zitadel/oidc/v3 v3.47.9 h1:OnMUhwLuKfKL3EHmyc236uTdaw3BNz/U2GmJYEFGWas=
 github.com/zitadel/oidc/v3 v3.47.9/go.mod h1:NTejBboCz6SShga9FnZiFaFiMHBOQTbGqBIP16c05Ug=
+github.com/zitadel/oidc/v3 v3.48.1 h1:7uUWccuPbmwSLmmjFRFayWzqK7B8itjM8H8bBSTyr7Q=
+github.com/zitadel/oidc/v3 v3.48.1/go.mod h1:HwoguOGo0eem0RK5Gb+P6Q4aQLVinJ9LhomlVEA57ck=
 github.com/zitadel/schema v1.3.2 h1:gfJvt7dOMfTmxzhscZ9KkapKo3Nei3B6cAxjav+lyjI=
 github.com/zitadel/schema v1.3.2/go.mod h1:IZmdfF9Wu62Zu6tJJTH3UsArevs3Y4smfJIj3L8fzxw=
 github.com/zitadel/zitadel-go/v3 v3.29.1 h1:hdhZZSPcOLoTvUZ1Odm1vy9ilDpOACemkykN+gQ8Aws=
