@@ -33,12 +33,13 @@ env:
   TF_VAR_security_txt_content: ${{ vars.SECURITY_TXT_CDSSANDBOX_XYZ }}
   TF_VAR_waf_geo_restriction_bypass: ${{ secrets.STAGING_WAF_GEO_RESTRICTION_BYPASS }}
 
-permissions:
-  id-token: write
-  contents: read
+permissions: {}
 
 jobs:
   terraform-drift:
+    permissions:
+      id-token: write
+      contents: read
     runs-on: ubuntu-latest
     steps:
       - name: Audit DNS requests
