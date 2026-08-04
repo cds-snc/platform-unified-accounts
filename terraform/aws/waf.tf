@@ -259,6 +259,70 @@ resource "aws_wafv2_web_acl" "idp" {
   }
 
   rule {
+    name     = "ContactUsPostBlockOversizedBody"
+    priority = 63
+
+    action {
+      block {}
+    }
+
+    # The contact form's validated field limits sum to ~2.5 KB max (fullName: 250,
+    # email: 254, message: 2000 chars + encoding overhead). 4 KB is a safe ceiling
+    # that is meaningfully tighter than the 8 KB global BlockLargeRequests rule.
+    statement {
+      and_statement {
+        statement {
+          byte_match_statement {
+            field_to_match {
+              method {}
+            }
+            positional_constraint = "EXACTLY"
+            search_string         = "post"
+            text_transformation {
+              priority = 1
+              type     = "LOWERCASE"
+            }
+          }
+        }
+        statement {
+          byte_match_statement {
+            field_to_match {
+              uri_path {}
+            }
+            positional_constraint = "STARTS_WITH"
+            search_string         = "/contact-us"
+            text_transformation {
+              priority = 1
+              type     = "LOWERCASE"
+            }
+          }
+        }
+        statement {
+          size_constraint_statement {
+            field_to_match {
+              body {
+                oversize_handling = "MATCH"
+              }
+            }
+            comparison_operator = "GT"
+            size                = 4096
+            text_transformation {
+              priority = 0
+              type     = "NONE"
+            }
+          }
+        }
+      }
+    }
+
+    visibility_config {
+      cloudwatch_metrics_enabled = true
+      metric_name                = "ContactUsPostBlockOversizedBody"
+      sampled_requests_enabled   = true
+    }
+  }
+
+  rule {
     name     = "ContactUsPostRateLimitIP"
     priority = 65
 

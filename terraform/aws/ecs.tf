@@ -88,6 +88,10 @@ locals {
       "name"  = "HOSTNAME",
       "value" = "0.0.0.0"
     },
+    {
+      "name"  = "CONTACT_US_RATE_LIMIT_TABLE",
+      "value" = aws_dynamodb_table.contact_us_rate_limit.name
+    },
   ]
   login_container_secrets = [
     {
@@ -255,6 +259,7 @@ module "login_ecs" {
 
   task_role_policy_documents = [
     data.aws_iam_policy_document.efs_write.json,
+    data.aws_iam_policy_document.contact_us_rate_limit.json,
   ]
 
   enable_execute_command = false
