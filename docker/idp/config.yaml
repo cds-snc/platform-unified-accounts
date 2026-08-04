@@ -30,6 +30,12 @@ Database:
     MaxConnIdleTime: '5m'
 
 DefaultInstance:
+  PasswordComplexityPolicy:
+    MinLength: 12
+    HasLowercase: true
+    HasUppercase: true
+    HasNumber: true
+    HasSymbol: true
   LoginPolicy:
     AllowRegister: true
     ForceMFA: true
