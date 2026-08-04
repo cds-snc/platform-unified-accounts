@@ -17,7 +17,7 @@ resource "aws_wafv2_web_acl" "idp" {
   scope = "REGIONAL"
 
   default_action {
-    allow {}
+    block {}
   }
 
   rule {
@@ -89,45 +89,6 @@ resource "aws_wafv2_web_acl" "idp" {
     visibility_config {
       cloudwatch_metrics_enabled = true
       metric_name                = "BlockLargeRequests"
-      sampled_requests_enabled   = true
-    }
-  }
-
-  rule {
-    name     = "InvalidHost"
-    priority = 20
-
-    action {
-      block {}
-    }
-
-    statement {
-      not_statement {
-        statement {
-          byte_match_statement {
-            field_to_match {
-              single_header {
-                name = "host"
-              }
-            }
-            text_transformation {
-              priority = 1
-              type     = "COMPRESS_WHITE_SPACE"
-            }
-            text_transformation {
-              priority = 2
-              type     = "LOWERCASE"
-            }
-            positional_constraint = "EXACTLY"
-            search_string         = var.domain
-          }
-        }
-      }
-    }
-
-    visibility_config {
-      cloudwatch_metrics_enabled = true
-      metric_name                = "InvalidHost"
       sampled_requests_enabled   = true
     }
   }
@@ -476,6 +437,45 @@ resource "aws_wafv2_web_acl" "idp" {
     visibility_config {
       cloudwatch_metrics_enabled = true
       metric_name                = "AWSManagedRulesBotControlRuleSet"
+      sampled_requests_enabled   = true
+    }
+  }
+
+  #
+  # Allow actions must be last in the rule list as they are terminating rules and
+  # will prevent any subsequent rules from being evaluated.
+  #
+  rule {
+    name     = "ValidHost"
+    priority = 140
+
+    action {
+      allow {}
+    }
+
+    statement {
+      byte_match_statement {
+        field_to_match {
+          single_header {
+            name = "host"
+          }
+        }
+        text_transformation {
+          priority = 1
+          type     = "COMPRESS_WHITE_SPACE"
+        }
+        text_transformation {
+          priority = 2
+          type     = "LOWERCASE"
+        }
+        positional_constraint = "EXACTLY"
+        search_string         = var.domain
+      }
+    }
+
+    visibility_config {
+      cloudwatch_metrics_enabled = true
+      metric_name                = "ValidHost"
       sampled_requests_enabled   = true
     }
   }
