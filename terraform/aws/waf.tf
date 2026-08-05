@@ -18,7 +18,7 @@ resource "aws_wafv2_web_acl" "idp" {
   scope = "REGIONAL"
 
   default_action {
-    allow {}
+    block {}
   }
 
   rule {
@@ -95,7 +95,7 @@ resource "aws_wafv2_web_acl" "idp" {
   }
 
   rule {
-    name     = "InvalidHost"
+    name     = "ValidHost"
     priority = 20
 
     action {
@@ -128,7 +128,7 @@ resource "aws_wafv2_web_acl" "idp" {
 
     visibility_config {
       cloudwatch_metrics_enabled = true
-      metric_name                = "InvalidHost"
+      metric_name                = "ValidHost"
       sampled_requests_enabled   = true
     }
   }
