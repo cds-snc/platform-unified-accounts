@@ -8,8 +8,9 @@ locals {
     "EC2MetaDataSSRF_BODY",          # Rule is blocking IdP OIDC app creation
     "EC2MetaDataSSRF_QUERYARGUMENTS" # Rule is blocking IdP OIDC login
   ]
-  rate_limit_all      = 1000
-  rate_limit_mutating = 500
+  rate_limit_all        = 1000
+  rate_limit_mutating   = 500
+  rate_limit_contact_us = 100
 }
 
 resource "aws_wafv2_web_acl" "idp" {
@@ -17,7 +18,7 @@ resource "aws_wafv2_web_acl" "idp" {
   scope = "REGIONAL"
 
   default_action {
-    block {}
+    allow {}
   }
 
   rule {
@@ -89,6 +90,45 @@ resource "aws_wafv2_web_acl" "idp" {
     visibility_config {
       cloudwatch_metrics_enabled = true
       metric_name                = "BlockLargeRequests"
+      sampled_requests_enabled   = true
+    }
+  }
+
+  rule {
+    name     = "InvalidHost"
+    priority = 20
+
+    action {
+      block {}
+    }
+
+    statement {
+      not_statement {
+        statement {
+          byte_match_statement {
+            field_to_match {
+              single_header {
+                name = "host"
+              }
+            }
+            text_transformation {
+              priority = 1
+              type     = "COMPRESS_WHITE_SPACE"
+            }
+            text_transformation {
+              priority = 2
+              type     = "LOWERCASE"
+            }
+            positional_constraint = "EXACTLY"
+            search_string         = var.domain
+          }
+        }
+      }
+    }
+
+    visibility_config {
+      cloudwatch_metrics_enabled = true
+      metric_name                = "InvalidHost"
       sampled_requests_enabled   = true
     }
   }
@@ -214,6 +254,224 @@ resource "aws_wafv2_web_acl" "idp" {
     visibility_config {
       cloudwatch_metrics_enabled = true
       metric_name                = "AllRequestLimitJA4"
+      sampled_requests_enabled   = true
+    }
+  }
+
+  rule {
+    name     = "ContactUsPostBlockOversizedBody"
+    priority = 63
+
+    action {
+      block {}
+    }
+    statement {
+      and_statement {
+        statement {
+          byte_match_statement {
+            field_to_match {
+              method {}
+            }
+            positional_constraint = "EXACTLY"
+            search_string         = "post"
+            text_transformation {
+              priority = 1
+              type     = "LOWERCASE"
+            }
+          }
+        }
+        statement {
+          byte_match_statement {
+            field_to_match {
+              uri_path {}
+            }
+            positional_constraint = "STARTS_WITH"
+            search_string         = "/contact-us"
+            text_transformation {
+              priority = 1
+              type     = "LOWERCASE"
+            }
+          }
+        }
+        statement {
+          size_constraint_statement {
+            field_to_match {
+              body {
+                oversize_handling = "MATCH"
+              }
+            }
+            comparison_operator = "GT"
+            size                = 4096
+            text_transformation {
+              priority = 0
+              type     = "NONE"
+            }
+          }
+        }
+      }
+    }
+
+    visibility_config {
+      cloudwatch_metrics_enabled = true
+      metric_name                = "ContactUsPostBlockOversizedBody"
+      sampled_requests_enabled   = true
+    }
+  }
+
+  rule {
+    name     = "ContactUsPostRateLimitIP"
+    priority = 65
+
+    action {
+      block {}
+    }
+
+    statement {
+      rate_based_statement {
+        limit              = local.rate_limit_contact_us
+        aggregate_key_type = "IP"
+
+        scope_down_statement {
+          and_statement {
+            statement {
+              byte_match_statement {
+                field_to_match {
+                  method {}
+                }
+                positional_constraint = "EXACTLY"
+                search_string         = "post"
+                text_transformation {
+                  priority = 1
+                  type     = "LOWERCASE"
+                }
+              }
+            }
+            statement {
+              byte_match_statement {
+                field_to_match {
+                  uri_path {}
+                }
+                positional_constraint = "STARTS_WITH"
+                search_string         = "/contact-us"
+                text_transformation {
+                  priority = 1
+                  type     = "LOWERCASE"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
+    visibility_config {
+      cloudwatch_metrics_enabled = true
+      metric_name                = "ContactUsPostRateLimitIP"
+      sampled_requests_enabled   = true
+    }
+  }
+
+  rule {
+    name     = "ContactUsPostChallenge"
+    priority = 67
+
+    action {
+      challenge {}
+    }
+
+    statement {
+      and_statement {
+        statement {
+          byte_match_statement {
+            field_to_match {
+              method {}
+            }
+            positional_constraint = "EXACTLY"
+            search_string         = "post"
+            text_transformation {
+              priority = 1
+              type     = "LOWERCASE"
+            }
+          }
+        }
+        statement {
+          byte_match_statement {
+            field_to_match {
+              uri_path {}
+            }
+            positional_constraint = "STARTS_WITH"
+            search_string         = "/contact-us"
+            text_transformation {
+              priority = 1
+              type     = "LOWERCASE"
+            }
+          }
+        }
+      }
+    }
+
+    visibility_config {
+      cloudwatch_metrics_enabled = true
+      metric_name                = "ContactUsPostChallenge"
+      sampled_requests_enabled   = true
+    }
+  }
+
+  rule {
+    name     = "ContactUsPostRateLimitJA4"
+    priority = 69
+
+    action {
+      challenge {}
+    }
+
+    statement {
+      rate_based_statement {
+        limit              = local.rate_limit_contact_us
+        aggregate_key_type = "CUSTOM_KEYS"
+
+        custom_key {
+          ja4_fingerprint {
+            fallback_behavior = "NO_MATCH"
+          }
+        }
+
+        scope_down_statement {
+          and_statement {
+            statement {
+              byte_match_statement {
+                field_to_match {
+                  method {}
+                }
+                positional_constraint = "EXACTLY"
+                search_string         = "post"
+                text_transformation {
+                  priority = 1
+                  type     = "LOWERCASE"
+                }
+              }
+            }
+            statement {
+              byte_match_statement {
+                field_to_match {
+                  uri_path {}
+                }
+                positional_constraint = "STARTS_WITH"
+                search_string         = "/contact-us"
+                text_transformation {
+                  priority = 1
+                  type     = "LOWERCASE"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
+    visibility_config {
+      cloudwatch_metrics_enabled = true
+      metric_name                = "ContactUsPostRateLimitJA4"
       sampled_requests_enabled   = true
     }
   }
@@ -437,45 +695,6 @@ resource "aws_wafv2_web_acl" "idp" {
     visibility_config {
       cloudwatch_metrics_enabled = true
       metric_name                = "AWSManagedRulesBotControlRuleSet"
-      sampled_requests_enabled   = true
-    }
-  }
-
-  #
-  # Allow actions must be last in the rule list as they are terminating rules and
-  # will prevent any subsequent rules from being evaluated.
-  #
-  rule {
-    name     = "ValidHost"
-    priority = 140
-
-    action {
-      allow {}
-    }
-
-    statement {
-      byte_match_statement {
-        field_to_match {
-          single_header {
-            name = "host"
-          }
-        }
-        text_transformation {
-          priority = 1
-          type     = "COMPRESS_WHITE_SPACE"
-        }
-        text_transformation {
-          priority = 2
-          type     = "LOWERCASE"
-        }
-        positional_constraint = "EXACTLY"
-        search_string         = var.domain
-      }
-    }
-
-    visibility_config {
-      cloudwatch_metrics_enabled = true
-      metric_name                = "ValidHost"
       sampled_requests_enabled   = true
     }
   }
