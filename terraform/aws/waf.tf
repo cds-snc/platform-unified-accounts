@@ -285,7 +285,7 @@ resource "aws_wafv2_web_acl" "idp" {
             field_to_match {
               uri_path {}
             }
-            positional_constraint = "STARTS_WITH"
+            positional_constraint = "CONTAINS"
             search_string         = "/contact-us"
             text_transformation {
               priority = 1
@@ -351,7 +351,7 @@ resource "aws_wafv2_web_acl" "idp" {
                 field_to_match {
                   uri_path {}
                 }
-                positional_constraint = "STARTS_WITH"
+                positional_constraint = "CONTAINS"
                 search_string         = "/contact-us"
                 text_transformation {
                   priority = 1
@@ -399,7 +399,7 @@ resource "aws_wafv2_web_acl" "idp" {
             field_to_match {
               uri_path {}
             }
-            positional_constraint = "STARTS_WITH"
+            positional_constraint = "CONTAINS"
             search_string         = "/contact-us"
             text_transformation {
               priority = 1
@@ -456,7 +456,7 @@ resource "aws_wafv2_web_acl" "idp" {
                 field_to_match {
                   uri_path {}
                 }
-                positional_constraint = "STARTS_WITH"
+                positional_constraint = "CONTAINS"
                 search_string         = "/contact-us"
                 text_transformation {
                   priority = 1
