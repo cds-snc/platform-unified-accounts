@@ -659,7 +659,10 @@ resource "aws_wafv2_web_acl" "idp" {
       sampled_requests_enabled   = true
     }
   }
-
+  #
+  # Allow actions must be last in the rule list as they are terminating rules and
+  # will prevent any subsequent rules from being evaluated.
+  #
   rule {
     name     = "ValidHost"
     priority = 140
