@@ -333,6 +333,64 @@ resource "aws_security_group_rule" "idp_login_lb_egress_ecs" {
   source_security_group_id = aws_security_group.idp_login_ecs.id
 }
 
+# Internal load balancer (admin) ==============================================
+resource "aws_security_group" "idp_admin_lb" {
+  name        = "idp_admin_lb"
+  description = "NSG for idp internal admin load balancer"
+  vpc_id      = module.idp_vpc.vpc_id
+  tags        = local.core_tags
+}
+
+resource "aws_security_group_rule" "idp_admin_lb_ingress_vpn" {
+  description       = "Ingress from VPN clients to internal admin load balancer"
+  type              = "ingress"
+  from_port         = 443
+  to_port           = 443
+  protocol          = "tcp"
+  security_group_id = aws_security_group.idp_admin_lb.id
+  cidr_blocks       = [var.vpn_client_cidr_block]
+}
+
+resource "aws_security_group_rule" "idp_admin_lb_ingress_cleanup_users" {
+  description              = "Ingress from idp cleanup users to internal admin load balancer"
+  type                     = "ingress"
+  from_port                = 443
+  to_port                  = 443
+  protocol                 = "tcp"
+  security_group_id        = aws_security_group.idp_admin_lb.id
+  source_security_group_id = aws_security_group.idp_cleanup_users.id
+}
+
+resource "aws_security_group_rule" "idp_admin_lb_ingress_event_exporter" {
+  description              = "Ingress from idp event exporter to internal admin load balancer"
+  type                     = "ingress"
+  from_port                = 443
+  to_port                  = 443
+  protocol                 = "tcp"
+  security_group_id        = aws_security_group.idp_admin_lb.id
+  source_security_group_id = aws_security_group.idp_event_exporter.id
+}
+
+resource "aws_security_group_rule" "idp_admin_lb_egress_ecs" {
+  description              = "Egress from internal admin load balancer to idp ECS task"
+  type                     = "egress"
+  from_port                = 8080
+  to_port                  = 8080
+  protocol                 = "tcp"
+  security_group_id        = aws_security_group.idp_admin_lb.id
+  source_security_group_id = aws_security_group.idp_ecs.id
+}
+
+resource "aws_security_group_rule" "idp_ecs_ingress_admin_lb" {
+  description              = "Ingress from internal admin load balancer to idp ECS task"
+  type                     = "ingress"
+  from_port                = 8080
+  to_port                  = 8080
+  protocol                 = "tcp"
+  security_group_id        = aws_security_group.idp_ecs.id
+  source_security_group_id = aws_security_group.idp_admin_lb.id
+}
+
 # Database ====================================================================
 resource "aws_security_group" "idp_db" {
   name        = "idp_db"

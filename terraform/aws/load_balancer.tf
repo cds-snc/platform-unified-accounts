@@ -209,3 +209,120 @@ resource "aws_alb_listener_rule" "security_txt" {
 
   tags = local.core_tags
 }
+
+#
+# Internal ALB — admin APIs (VPN-only)
+#
+
+resource "random_string" "alb_idp_admin_tg_suffix" {
+  length  = 3
+  special = false
+  upper   = false
+  keepers = {
+    port     = 8080
+    protocol = "HTTPS"
+    path     = "/debug/healthz"
+  }
+}
+
+resource "aws_lb_target_group" "idp_admin" {
+  for_each = local.protocol_versions
+
+  name                 = "idp-admin-tg-${each.value}-${random_string.alb_idp_admin_tg_suffix.result}"
+  port                 = 8080
+  protocol             = "HTTPS"
+  protocol_version     = each.value
+  target_type          = "ip"
+  deregistration_delay = 30
+  vpc_id               = module.idp_vpc.vpc_id
+
+  health_check {
+    enabled  = true
+    protocol = "HTTPS"
+    path     = "/debug/healthz"
+    matcher  = "200"
+  }
+
+  stickiness {
+    type = "lb_cookie"
+  }
+
+  tags = local.core_tags
+
+  lifecycle {
+    create_before_destroy = true
+    ignore_changes = [
+      stickiness[0].cookie_name
+    ]
+  }
+}
+
+resource "aws_lb" "idp_admin" {
+  name               = "idp-admin-${var.env}"
+  internal           = true
+  load_balancer_type = "application"
+
+  drop_invalid_header_fields = true
+  enable_deletion_protection = true
+  idle_timeout               = 60
+
+  access_logs {
+    bucket  = var.cbs_satellite_bucket_name
+    prefix  = "lb_logs_admin"
+    enabled = true
+  }
+
+  security_groups = [aws_security_group.idp_admin_lb.id]
+  subnets         = module.idp_vpc.private_subnet_ids
+
+  tags = local.core_tags
+}
+
+resource "aws_lb_listener" "idp_admin" {
+  load_balancer_arn = aws_lb.idp_admin.arn
+  port              = "443"
+  protocol          = "HTTPS"
+  ssl_policy        = "ELBSecurityPolicy-TLS13-1-3-2021-06"
+  certificate_arn   = aws_acm_certificate.idp.arn
+
+  # Default: forward to HTTP/2 target group (gRPC and v2 REST APIs)
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.idp_admin["HTTP2"].arn
+  }
+
+  depends_on = [
+    aws_acm_certificate_validation.idp,
+  ]
+
+  tags = local.core_tags
+}
+
+# Route legacy v1 REST and the management console to the HTTP/1 target group.
+# gRPC services and v2 REST are handled by the HTTP/2 default action above.
+resource "aws_alb_listener_rule" "idp_admin_http1" {
+  listener_arn = aws_lb_listener.idp_admin.arn
+  priority     = 100
+
+  action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.idp_admin["HTTP1"].arn
+  }
+
+  condition {
+    path_pattern {
+      values = [
+        "/management/v1/*",
+        "/admin/v1/*",
+        "/auth/v1/*",
+        "/system/v1/*",
+        "/assets/v1/*",
+        "/ui/console",
+        "/ui/console/",
+        "/ui/console/*",
+      ]
+    }
+  }
+
+  tags = local.core_tags
+}

@@ -15,6 +15,19 @@ resource "aws_route53_record" "idp_A" {
   }
 }
 
+# Admin subdomain — resolves to the internal ALB, reachable only via VPN
+resource "aws_route53_record" "idp_admin_A" {
+  zone_id = aws_route53_zone.idp.zone_id
+  name    = "admin.${var.domain}"
+  type    = "A"
+
+  alias {
+    name                   = aws_lb.idp_admin.dns_name
+    zone_id                = aws_lb.idp_admin.zone_id
+    evaluate_target_health = true
+  }
+}
+
 # SES verification
 resource "aws_route53_record" "idp_verification_TXT" {
   zone_id = aws_route53_zone.idp.zone_id
