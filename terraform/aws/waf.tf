@@ -95,6 +95,34 @@ resource "aws_wafv2_web_acl" "idp" {
   }
 
   rule {
+    name     = "BlockAdminPaths"
+    priority = 20
+
+    action {
+      block {}
+    }
+
+    statement {
+      regex_match_statement {
+        field_to_match {
+          uri_path {}
+        }
+        regex_string = "^/(v2/|v2beta/|zitadel\\.|management/v1/|admin/v1/|auth/v1/|system/v1/|assets/v1/|ui/console)"
+        text_transformation {
+          priority = 0
+          type     = "NONE"
+        }
+      }
+    }
+
+    visibility_config {
+      cloudwatch_metrics_enabled = true
+      metric_name                = "BlockAdminPaths"
+      sampled_requests_enabled   = true
+    }
+  }
+
+  rule {
     name     = "CanadaOnlyGeoRestriction"
     priority = 30
 
