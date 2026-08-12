@@ -243,3 +243,18 @@ variable "waf_geo_restriction_bypass" {
   type        = string
   sensitive   = true
 }
+
+variable "vpn_client_cidr_block" {
+  description = "The client CIDR block for the AWS Client VPN endpoint. Must be at least /22 and must not overlap with the VPC CIDR."
+  type        = string
+}
+
+variable "vpn_saml_provider_arn" {
+  description = "The ARN of the IAM SAML identity provider used for Client VPN federated authentication."
+  type        = string
+}
+
+variable "vpn_server_cert_arn" {
+  description = "The ARN of the ACM certificate used as the Client VPN server certificate."
+  type        = string
+}

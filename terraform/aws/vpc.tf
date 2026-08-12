@@ -532,3 +532,72 @@ resource "aws_security_group_rule" "idp_event_exporter_egress_vpc_endpoint" {
   security_group_id        = aws_security_group.idp_event_exporter.id
   source_security_group_id = aws_security_group.vpc_endpoint.id
 }
+
+#
+# Client VPN
+#
+
+data "aws_vpc" "idp" {
+  id = module.idp_vpc.vpc_id
+}
+
+resource "aws_cloudwatch_log_group" "idp_client_vpn" {
+  name              = "/idp/client-vpn"
+  retention_in_days = 90
+  tags              = local.core_tags
+}
+
+# Client VPN security group — controls what VPN-connected clients can reach
+resource "aws_security_group" "idp_client_vpn" {
+  name        = "idp_client_vpn"
+  description = "NSG for Client VPN endpoint"
+  vpc_id      = module.idp_vpc.vpc_id
+  tags        = local.core_tags
+}
+
+resource "aws_security_group_rule" "idp_client_vpn_egress_vpc" {
+  description       = "Egress from VPN clients to VPC (HTTPS)"
+  type              = "egress"
+  from_port         = 443
+  to_port           = 443
+  protocol          = "tcp"
+  security_group_id = aws_security_group.idp_client_vpn.id
+  cidr_blocks       = [data.aws_vpc.idp.cidr_block]
+}
+
+resource "aws_ec2_client_vpn_endpoint" "idp" {
+  description            = "IdP admin VPN"
+  server_certificate_arn = var.vpn_server_cert_arn
+  client_cidr_block      = var.vpn_client_cidr_block
+  split_tunnel           = true
+  transport_protocol     = "udp"
+  vpn_port               = 443
+  vpc_id                 = module.idp_vpc.vpc_id
+  security_group_ids     = [aws_security_group.idp_client_vpn.id]
+  dns_servers            = [cidrhost(data.aws_vpc.idp.cidr_block, 2)]
+
+  authentication_options {
+    type              = "federated-authentication"
+    saml_provider_arn = var.vpn_saml_provider_arn
+  }
+
+  connection_log_options {
+    enabled              = true
+    cloudwatch_log_group = aws_cloudwatch_log_group.idp_client_vpn.name
+  }
+
+  tags = local.core_tags
+}
+
+resource "aws_ec2_client_vpn_network_association" "idp" {
+  for_each               = toset(module.idp_vpc.private_subnet_ids)
+  client_vpn_endpoint_id = aws_ec2_client_vpn_endpoint.idp.id
+  subnet_id              = each.value
+}
+
+resource "aws_ec2_client_vpn_authorization_rule" "idp_vpc" {
+  client_vpn_endpoint_id = aws_ec2_client_vpn_endpoint.idp.id
+  target_network_cidr    = data.aws_vpc.idp.cidr_block
+  authorize_all_groups   = true
+  description            = "Allow VPN clients to access the VPC"
+}

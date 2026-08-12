@@ -20,6 +20,7 @@ inputs = {
   idp_task_desired_count        = 1
   idp_task_min_capacity         = 1
   idp_task_max_capacity         = 4
+  vpn_client_cidr_block = "10.100.0.0/22"
 }
 
 include {
