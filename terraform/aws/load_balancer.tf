@@ -298,8 +298,6 @@ resource "aws_lb_listener" "idp_admin" {
   tags = local.core_tags
 }
 
-# Route legacy v1 REST and the management console to the HTTP/1 target group.
-# gRPC services and v2 REST are handled by the HTTP/2 default action above.
 resource "aws_alb_listener_rule" "idp_admin_http1" {
   listener_arn = aws_lb_listener.idp_admin.arn
   priority     = 100
