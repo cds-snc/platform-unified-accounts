@@ -71,6 +71,21 @@ data "aws_iam_policy_document" "kms_cloudwatch" {
       identifiers = ["events.amazonaws.com"]
     }
   }
+
+  statement {
+    sid    = "AllowLambdaForSQS"
+    effect = "Allow"
+    actions = [
+      "kms:Decrypt",
+      "kms:GenerateDataKey",
+    ]
+    resources = ["*"]
+
+    principals {
+      type        = "Service"
+      identifiers = ["lambda.amazonaws.com"]
+    }
+  }
 }
 
 #
