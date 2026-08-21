@@ -148,8 +148,8 @@ resource "aws_athena_named_query" "idp_event_exporter_select_by_type" {
 
 
 resource "aws_lambda_function_event_invoke_config" "idp_event_exporter" {
-  function_name = module.idp_event_exporter_lambda.lambda_function_name
-  maximum_retry_attempts = 0
+  function_name                = module.idp_event_exporter_lambda.lambda_function_name
+  maximum_retry_attempts       = 0
   maximum_event_age_in_seconds = 60
   destination_config {
     on_failure {
@@ -160,8 +160,8 @@ resource "aws_lambda_function_event_invoke_config" "idp_event_exporter" {
 
 data "aws_iam_policy_document" "idp_event_exporter_sqs" {
   statement {
-    effect = "Allow"
-    actions = ["sqs:SendMessage"]
+    effect    = "Allow"
+    actions   = ["sqs:SendMessage"]
     resources = [aws_sqs_queue.idp_event_exporter_queue.arn]
   }
 }
