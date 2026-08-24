@@ -1,6 +1,6 @@
 resource "aws_sqs_queue" "idp_event_exporter_queue" {
   name                      = "idp-event-exporter-queue"
-  kms_master_key_id         = aws_kms_key.cloudwatch_alerts.arn
+  kms_master_key_id         = aws_kms_key.sqs_dlq.arn
   message_retention_seconds = 1209600 # 14 days
 
   tags = local.core_tags
@@ -8,7 +8,7 @@ resource "aws_sqs_queue" "idp_event_exporter_queue" {
 
 resource "aws_sqs_queue" "idp_event_cleanup_users_queue" {
   name                      = "idp-event-cleanup-users-queue"
-  kms_master_key_id         = aws_kms_key.cloudwatch_alerts.arn
+  kms_master_key_id         = aws_kms_key.sqs_dlq.arn
   message_retention_seconds = 1209600 # 14 days
 
   tags = local.core_tags

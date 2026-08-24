@@ -72,6 +72,32 @@ data "aws_iam_policy_document" "kms_cloudwatch" {
     }
   }
 
+}
+
+#
+# Encrypt messages sent to the SQS dead letter queues
+#
+resource "aws_kms_key" "sqs_dlq" {
+  description         = "KMS key for SQS dead letter queues"
+  enable_key_rotation = true
+  policy              = data.aws_iam_policy_document.kms_sqs_dlq.json
+
+  tags = local.core_tags
+}
+
+data "aws_iam_policy_document" "kms_sqs_dlq" {
+  statement {
+    sid       = "Enable IAM User Permissions"
+    effect    = "Allow"
+    actions   = ["kms:*"]
+    resources = ["*"]
+
+    principals {
+      type        = "AWS"
+      identifiers = ["arn:aws:iam::${var.account_id}:root"]
+    }
+  }
+
   statement {
     sid    = "AllowLambdaForSQS"
     effect = "Allow"
