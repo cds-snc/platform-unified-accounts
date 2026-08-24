@@ -78,7 +78,8 @@ module "idp_event_exporter_lambda" {
   lambda_image_uri           = aws_ecr_repository.repo["idp-event-exporter"].repository_url
 
   lambda_policies = [
-    data.aws_iam_policy_document.idp_event_exporter_get_ssm_parameters.json
+    data.aws_iam_policy_document.idp_event_exporter_get_ssm_parameters.json,
+    data.aws_iam_policy_document.idp_event_exporter_sqs.json
   ]
 
   lambda_environment_variables = {
@@ -143,4 +144,24 @@ resource "aws_athena_named_query" "idp_event_exporter_select_by_type" {
       database_name = module.athena_access_logs.athena_database_name
     }
   )
+}
+
+
+resource "aws_lambda_function_event_invoke_config" "idp_event_exporter" {
+  function_name                = module.idp_event_exporter_lambda.lambda_function_name
+  maximum_retry_attempts       = 0
+  maximum_event_age_in_seconds = 60
+  destination_config {
+    on_failure {
+      destination = aws_sqs_queue.idp_event_exporter_queue.arn
+    }
+  }
+}
+
+data "aws_iam_policy_document" "idp_event_exporter_sqs" {
+  statement {
+    effect    = "Allow"
+    actions   = ["sqs:SendMessage"]
+    resources = [aws_sqs_queue.idp_event_exporter_queue.arn]
+  }
 }

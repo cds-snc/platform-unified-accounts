@@ -461,3 +461,48 @@ resource "aws_ssm_parameter" "cloudwatch_slack_webhook_url" {
   value = var.cloudwatch_slack_webhook_url
   tags  = local.core_tags
 }
+
+resource "aws_cloudwatch_metric_alarm" "idp_event_exporter_dlq_messages" {
+  alarm_name          = "idp-event-exporter-dlq-messages"
+  alarm_description   = "There are messages in the idp-event-exporter SQS dead letter queue."
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = "1"
+  metric_name         = "ApproximateNumberOfMessagesVisible"
+  namespace           = "AWS/SQS"
+  period              = "60"
+  statistic           = "Maximum"
+  threshold           = "0"
+  treat_missing_data  = "notBreaching"
+
+  alarm_actions = [aws_sns_topic.cloudwatch_alert_warning.arn]
+  ok_actions    = [aws_sns_topic.cloudwatch_alert_ok.arn]
+
+  dimensions = {
+    QueueName = aws_sqs_queue.idp_event_exporter_queue.name
+
+  }
+
+  tags = local.core_tags
+}
+
+resource "aws_cloudwatch_metric_alarm" "idp_cleanup_users_dlq_messages" {
+  alarm_name          = "idp-cleanup-users-dlq-messages"
+  alarm_description   = "There are messages in the idp-cleanup-users SQS dead letter queue."
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = "1"
+  metric_name         = "ApproximateNumberOfMessagesVisible"
+  namespace           = "AWS/SQS"
+  period              = "60"
+  statistic           = "Maximum"
+  threshold           = "0"
+  treat_missing_data  = "notBreaching"
+
+  alarm_actions = [aws_sns_topic.cloudwatch_alert_warning.arn]
+  ok_actions    = [aws_sns_topic.cloudwatch_alert_ok.arn]
+
+  dimensions = {
+    QueueName = aws_sqs_queue.idp_event_cleanup_users_queue.name
+  }
+
+  tags = local.core_tags
+}
