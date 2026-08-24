@@ -209,3 +209,40 @@ resource "aws_alb_listener_rule" "security_txt" {
 
   tags = local.core_tags
 }
+
+resource "aws_lb" "idp_internal" {
+  name               = "idp-internal-${var.env}"
+  internal           = true
+  load_balancer_type = "application"
+
+  drop_invalid_header_fields = true
+  enable_deletion_protection = true
+  idle_timeout               = 60
+
+  security_groups = [
+    aws_security_group.idp_lb.id
+  ]
+  subnets = module.idp_vpc.private_subnet_ids
+
+  tags = local.core_tags
+}
+
+resource "aws_lb_listener" "idp_internal" {
+  load_balancer_arn = aws_lb.idp_internal.arn
+  port              = "443"
+  protocol          = "HTTPS"
+  ssl_policy        = "ELBSecurityPolicy-TLS13-1-3-2021-06"
+  certificate_arn   = aws_acm_certificate.idp.arn
+
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.idp["HTTP2"].arn
+  }
+
+  depends_on = [
+    aws_acm_certificate_validation.idp,
+    aws_route53_record.idp_validation,
+  ]
+
+  tags = local.core_tags
+}
