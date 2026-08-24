@@ -220,7 +220,7 @@ resource "aws_lb" "idp_internal" {
   idle_timeout               = 60
 
   security_groups = [
-    aws_security_group.idp_lb.id
+    aws_security_group.idp_internal_lb.id
   ]
   subnets = module.idp_vpc.private_subnet_ids
 
