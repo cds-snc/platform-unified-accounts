@@ -89,3 +89,25 @@ resource "aws_route53_hosted_zone_dnssec" "idp" {
   count          = var.env == "staging" ? 1 : 0
   hosted_zone_id = aws_route53_key_signing_key.idp[0].hosted_zone_id
 }
+
+resource "aws_route53_zone" "idp_private" {
+  name = var.domain
+
+  vpc {
+    vpc_id = module.idp_vpc.vpc_id
+  }
+
+  tags = local.common_tags
+}
+
+resource "aws_route53_record" "idp_private_A" {
+  zone_id = aws_route53_zone.idp_private.zone_id
+  name    = var.domain
+  type    = "A"
+
+  alias {
+    name                   = aws_lb.idp_internal.dns_name
+    zone_id                = aws_lb.idp_internal.zone_id
+    evaluate_target_health = true
+  }
+}
