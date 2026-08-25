@@ -109,17 +109,12 @@ resource "aws_lb_listener" "idp" {
   port              = "443"
   protocol          = "HTTPS"
   ssl_policy        = "ELBSecurityPolicy-TLS13-1-3-2021-06"
-  certificate_arn   = aws_acm_certificate.idp.arn
+  certificate_arn   = aws_acm_certificate_validation.idp.certificate_arn
 
   default_action {
     type             = "forward"
     target_group_arn = aws_lb_target_group.idp["HTTP2"].arn
   }
-
-  depends_on = [
-    aws_acm_certificate_validation.idp,
-    aws_route53_record.idp_validation,
-  ]
 
   tags = local.core_tags
 }
@@ -232,17 +227,12 @@ resource "aws_lb_listener" "idp_internal" {
   port              = "443"
   protocol          = "HTTPS"
   ssl_policy        = "ELBSecurityPolicy-TLS13-1-3-2021-06"
-  certificate_arn   = aws_acm_certificate.idp.arn
+  certificate_arn   = aws_acm_certificate_validation.idp.certificate_arn
 
   default_action {
     type             = "forward"
     target_group_arn = aws_lb_target_group.idp["HTTP2"].arn
   }
-
-  depends_on = [
-    aws_acm_certificate_validation.idp,
-    aws_route53_record.idp_validation,
-  ]
 
   tags = local.core_tags
 }
