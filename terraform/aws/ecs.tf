@@ -188,13 +188,20 @@ module "idp_ecs" {
     }
   }]
 
-  lb_target_group_arns = [
-    for protocol_version in local.protocol_versions : {
-      target_group_arn = aws_lb_target_group.idp[protocol_version].arn
+  lb_target_group_arns = concat(
+    [
+      for protocol_version in local.protocol_versions : {
+        target_group_arn = aws_lb_target_group.idp[protocol_version].arn
+        container_name   = "idp"
+        container_port   = 8080
+      }
+    ],
+    [{
+      target_group_arn = aws_lb_target_group.idp_internal.arn
       container_name   = "idp"
       container_port   = 8080
-    }
-  ]
+    }]
+  )
   subnet_ids         = module.idp_vpc.private_subnet_ids
   security_group_ids = [aws_security_group.idp_ecs.id]
 

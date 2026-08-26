@@ -43,6 +43,17 @@ resource "random_string" "alb_idp_login_tg_suffix" {
   }
 }
 
+resource "random_string" "alb_idp_internal_tg_suffix" {
+  length  = 3
+  special = false
+  upper   = false
+  keepers = {
+    port     = 8080
+    protocol = "HTTPS"
+    path     = "/debug/healthz"
+  }
+}
+
 resource "aws_lb_target_group" "idp" {
   for_each = local.protocol_versions
 
@@ -104,22 +115,47 @@ resource "aws_lb_target_group" "idp_login" {
   }
 }
 
+resource "aws_lb_target_group" "idp_internal" {
+  name                 = "idp-internal-tg-${random_string.alb_idp_internal_tg_suffix.result}"
+  port                 = 8080
+  protocol             = "HTTPS"
+  protocol_version     = "HTTP2"
+  target_type          = "ip"
+  deregistration_delay = 30
+  vpc_id               = module.idp_vpc.vpc_id
+
+  health_check {
+    enabled  = true
+    protocol = "HTTPS"
+    path     = "/debug/healthz"
+    matcher  = "200"
+  }
+
+  stickiness {
+    type = "lb_cookie"
+  }
+
+  tags = local.core_tags
+
+  lifecycle {
+    create_before_destroy = true
+    ignore_changes = [
+      stickiness[0].cookie_name
+    ]
+  }
+}
+
 resource "aws_lb_listener" "idp" {
   load_balancer_arn = aws_lb.idp.arn
   port              = "443"
   protocol          = "HTTPS"
   ssl_policy        = "ELBSecurityPolicy-TLS13-1-3-2021-06"
-  certificate_arn   = aws_acm_certificate.idp.arn
+  certificate_arn   = aws_acm_certificate_validation.idp.certificate_arn
 
   default_action {
     type             = "forward"
     target_group_arn = aws_lb_target_group.idp["HTTP2"].arn
   }
-
-  depends_on = [
-    aws_acm_certificate_validation.idp,
-    aws_route53_record.idp_validation,
-  ]
 
   tags = local.core_tags
 }
@@ -205,6 +241,44 @@ resource "aws_alb_listener_rule" "security_txt" {
     path_pattern {
       values = ["/.well-known/security.txt"]
     }
+  }
+
+  tags = local.core_tags
+}
+
+resource "aws_lb" "idp_internal" {
+  name               = "idp-internal-${var.env}"
+  internal           = true
+  load_balancer_type = "application"
+
+  drop_invalid_header_fields = true
+  enable_deletion_protection = true
+  idle_timeout               = 60
+
+  access_logs {
+    bucket  = var.cbs_satellite_bucket_name
+    prefix  = "lb_internal_logs"
+    enabled = true
+  }
+
+  security_groups = [
+    aws_security_group.idp_internal_lb.id
+  ]
+  subnets = module.idp_vpc.private_subnet_ids
+
+  tags = local.core_tags
+}
+
+resource "aws_lb_listener" "idp_internal" {
+  load_balancer_arn = aws_lb.idp_internal.arn
+  port              = "443"
+  protocol          = "HTTPS"
+  ssl_policy        = "ELBSecurityPolicy-TLS13-1-3-2021-06"
+  certificate_arn   = aws_acm_certificate_validation.idp.certificate_arn
+
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.idp_internal.arn
   }
 
   tags = local.core_tags

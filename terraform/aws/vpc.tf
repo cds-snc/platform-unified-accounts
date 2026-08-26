@@ -465,14 +465,14 @@ resource "aws_security_group" "idp_cleanup_users" {
   tags        = local.core_tags
 }
 
-resource "aws_security_group_rule" "idp_cleanup_users_egress_idp_ecs" {
-  description       = "Egress from idp cleanup users to the internet"
-  type              = "egress"
-  to_port           = 443
-  from_port         = 443
-  protocol          = "tcp"
-  security_group_id = aws_security_group.idp_cleanup_users.id
-  cidr_blocks       = ["0.0.0.0/0"]
+resource "aws_security_group_rule" "idp_cleanup_users_egress_internal_lb" {
+  description              = "Egress from idp cleanup users to idp internal load balancer"
+  type                     = "egress"
+  to_port                  = 443
+  from_port                = 443
+  protocol                 = "tcp"
+  security_group_id        = aws_security_group.idp_cleanup_users.id
+  source_security_group_id = aws_security_group.idp_internal_lb.id
 }
 
 resource "aws_security_group_rule" "idp_cleanup_users_egress_s3" {
@@ -503,14 +503,14 @@ resource "aws_security_group" "idp_event_exporter" {
   tags        = local.core_tags
 }
 
-resource "aws_security_group_rule" "idp_event_exporter_egress_idp_ecs" {
-  description       = "Egress from idp event exporter to the internet"
-  type              = "egress"
-  to_port           = 443
-  from_port         = 443
-  protocol          = "tcp"
-  security_group_id = aws_security_group.idp_event_exporter.id
-  cidr_blocks       = ["0.0.0.0/0"]
+resource "aws_security_group_rule" "idp_event_exporter_egress_internal_lb" {
+  description              = "Egress from idp event exporter to idp internal load balancer"
+  type                     = "egress"
+  to_port                  = 443
+  from_port                = 443
+  protocol                 = "tcp"
+  security_group_id        = aws_security_group.idp_event_exporter.id
+  source_security_group_id = aws_security_group.idp_internal_lb.id
 }
 
 resource "aws_security_group_rule" "idp_event_exporter_egress_s3" {
@@ -532,3 +532,51 @@ resource "aws_security_group_rule" "idp_event_exporter_egress_vpc_endpoint" {
   security_group_id        = aws_security_group.idp_event_exporter.id
   source_security_group_id = aws_security_group.vpc_endpoint.id
 }
+
+resource "aws_security_group" "idp_internal_lb" {
+  description = "NSG for idp internal load balancer"
+  name        = "idp_internal_lb"
+  vpc_id      = module.idp_vpc.vpc_id
+  tags        = local.core_tags
+}
+
+resource "aws_security_group_rule" "idp_internal_lb_ingress_idp_cleanup_users" {
+  description              = "Ingress from idp cleanup users Lambda to idp internal load balancer"
+  type                     = "ingress"
+  from_port                = 443
+  to_port                  = 443
+  protocol                 = "tcp"
+  security_group_id        = aws_security_group.idp_internal_lb.id
+  source_security_group_id = aws_security_group.idp_cleanup_users.id
+}
+
+resource "aws_security_group_rule" "idp_internal_lb_ingress_idp_event_exporter" {
+  description              = "Ingress from idp event exporter Lambda to idp internal load balancer"
+  type                     = "ingress"
+  from_port                = 443
+  to_port                  = 443
+  protocol                 = "tcp"
+  security_group_id        = aws_security_group.idp_internal_lb.id
+  source_security_group_id = aws_security_group.idp_event_exporter.id
+}
+
+resource "aws_security_group_rule" "idp_internal_lb_egress_idp_ecs" {
+  description              = "Egress from idp internal load balancer to idp ECS task"
+  type                     = "egress"
+  from_port                = 8080
+  to_port                  = 8080
+  protocol                 = "tcp"
+  security_group_id        = aws_security_group.idp_internal_lb.id
+  source_security_group_id = aws_security_group.idp_ecs.id
+}
+
+resource "aws_security_group_rule" "idp_ecs_ingress_internal_lb" {
+  description              = "Ingress from idp internal load balancer to idp ECS task"
+  type                     = "ingress"
+  from_port                = 8080
+  to_port                  = 8080
+  protocol                 = "tcp"
+  security_group_id        = aws_security_group.idp_ecs.id
+  source_security_group_id = aws_security_group.idp_internal_lb.id
+}
+
