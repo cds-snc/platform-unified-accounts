@@ -149,8 +149,8 @@ resource "aws_athena_named_query" "idp_event_exporter_select_by_type" {
 
 resource "aws_lambda_function_event_invoke_config" "idp_event_exporter" {
   function_name                = module.idp_event_exporter_lambda.lambda_function_name
-  maximum_retry_attempts       = 0
-  maximum_event_age_in_seconds = 60
+  maximum_retry_attempts       = 2 # Maximum retry attempts for the Lambda function invocation
+  maximum_event_age_in_seconds = 300 # Maximum age of the event before it is discarded (in seconds)
   destination_config {
     on_failure {
       destination = aws_sqs_queue.idp_event_exporter_queue.arn
