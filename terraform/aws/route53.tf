@@ -63,6 +63,7 @@ module "resolver_dns" {
 
   allowed_domains = [
     "${var.domain}.",
+    "internal.${var.domain}.",
     "*.amazonaws.com.",
     "api.notification.canada.ca.",
     "idp.ecs.local."

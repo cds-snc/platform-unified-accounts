@@ -214,6 +214,12 @@ resource "aws_lb" "idp_internal" {
   enable_deletion_protection = true
   idle_timeout               = 60
 
+  access_logs {
+    bucket  = var.cbs_satellite_bucket_name
+    prefix  = "lb_internal_logs"
+    enabled = true
+  }
+
   security_groups = [
     aws_security_group.idp_internal_lb.id
   ]

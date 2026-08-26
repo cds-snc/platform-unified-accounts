@@ -560,16 +560,6 @@ resource "aws_security_group_rule" "idp_internal_lb_ingress_idp_event_exporter" 
   source_security_group_id = aws_security_group.idp_event_exporter.id
 }
 
-resource "aws_security_group_rule" "idp_internal_lb_ingress_idp_login_ecs" {
-  description              = "Ingress from idp login ECS task to idp internal load balancer"
-  type                     = "ingress"
-  from_port                = 443
-  to_port                  = 443
-  protocol                 = "tcp"
-  security_group_id        = aws_security_group.idp_internal_lb.id
-  source_security_group_id = aws_security_group.idp_login_ecs.id
-}
-
 resource "aws_security_group_rule" "idp_internal_lb_egress_idp_ecs" {
   description              = "Egress from idp internal load balancer to idp ECS task"
   type                     = "egress"
