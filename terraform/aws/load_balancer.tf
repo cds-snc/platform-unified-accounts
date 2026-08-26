@@ -43,6 +43,17 @@ resource "random_string" "alb_idp_login_tg_suffix" {
   }
 }
 
+resource "random_string" "alb_idp_internal_tg_suffix" {
+  length  = 3
+  special = false
+  upper   = false
+  keepers = {
+    port     = 8080
+    protocol = "HTTPS"
+    path     = "/debug/healthz"
+  }
+}
+
 resource "aws_lb_target_group" "idp" {
   for_each = local.protocol_versions
 
@@ -87,6 +98,36 @@ resource "aws_lb_target_group" "idp_login" {
     enabled  = true
     protocol = "HTTPS"
     path     = "/ui/v2/healthy"
+    matcher  = "200"
+  }
+
+  stickiness {
+    type = "lb_cookie"
+  }
+
+  tags = local.core_tags
+
+  lifecycle {
+    create_before_destroy = true
+    ignore_changes = [
+      stickiness[0].cookie_name
+    ]
+  }
+}
+
+resource "aws_lb_target_group" "idp_internal" {
+  name                 = "idp-internal-tg-${random_string.alb_idp_internal_tg_suffix.result}"
+  port                 = 8080
+  protocol             = "HTTPS"
+  protocol_version     = "HTTP2"
+  target_type          = "ip"
+  deregistration_delay = 30
+  vpc_id               = module.idp_vpc.vpc_id
+
+  health_check {
+    enabled  = true
+    protocol = "HTTPS"
+    path     = "/debug/healthz"
     matcher  = "200"
   }
 
@@ -237,7 +278,7 @@ resource "aws_lb_listener" "idp_internal" {
 
   default_action {
     type             = "forward"
-    target_group_arn = aws_lb_target_group.idp["HTTP2"].arn
+    target_group_arn = aws_lb_target_group.idp_internal.arn
   }
 
   tags = local.core_tags
