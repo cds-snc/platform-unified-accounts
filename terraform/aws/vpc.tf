@@ -588,7 +588,7 @@ resource "aws_security_group_rule" "idp_internal_lb_ingress_clientvpn" {
   to_port                  = 443
   protocol                 = "tcp"
   security_group_id        = aws_security_group.idp_internal_lb.id
-  source_security_group_id = module.client_vpn.security_group_id
+  source_security_group_id = module.client_vpn.client_vpn_security_group_id
 }
 
 resource "aws_security_group_rule" "idp_internal_lb_egress_idp_ecs" {
