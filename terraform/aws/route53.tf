@@ -95,7 +95,7 @@ resource "aws_route53_hosted_zone_dnssec" "idp" {
 # Internal ALB subdomain
 #
 resource "aws_route53_record" "idp_internal_A" {
-  zone_id = aws_route53_zone.idp.zone_id       # <-- revert back to public zone
+  zone_id = aws_route53_zone.idp.zone_id
   name    = "internal.${var.domain}"
   type    = "A"
 
@@ -119,7 +119,7 @@ resource "aws_route53_zone" "idp_internal" {
 }
 
 resource "aws_route53_record" "idp_internal_A_private" {
-  zone_id = aws_route53_zone.idp_internal.zone_id  # <-- private zone
+  zone_id = aws_route53_zone.idp_internal.zone_id
   name    = "internal.${var.domain}"
   type    = "A"
 
