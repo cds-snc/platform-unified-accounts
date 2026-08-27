@@ -55,8 +55,8 @@ resource "aws_ssm_parameter" "idp_cleanup_users_key_json" {
 
 resource "aws_lambda_function_event_invoke_config" "idp_cleanup_users_event_invoke_config" {
   function_name                = module.idp_cleanup_users_lambda.lambda_function_name
-  maximum_retry_attempts       = 0
-  maximum_event_age_in_seconds = 60
+  maximum_retry_attempts       = 2   # Maximum retry attempts for the Lambda function invocation
+  maximum_event_age_in_seconds = 300 # Maximum age of the event before it is discarded (in seconds)
   destination_config {
     on_failure {
       destination = aws_sqs_queue.idp_event_cleanup_users_queue.arn
@@ -69,5 +69,11 @@ data "aws_iam_policy_document" "idp_cleanup_users_sqs" {
     effect    = "Allow"
     actions   = ["sqs:SendMessage"]
     resources = [aws_sqs_queue.idp_event_cleanup_users_queue.arn]
+  }
+
+  statement {
+    effect    = "Allow"
+    actions   = ["kms:GenerateDataKey", "kms:Decrypt"]
+    resources = [aws_kms_key.sqs_dlq.arn]
   }
 }
