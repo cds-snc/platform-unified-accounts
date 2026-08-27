@@ -13,6 +13,25 @@ variable "cbs_satellite_bucket_name" {
   type        = string
 }
 
+variable "client_vpn_access_group_id" {
+  description = "The ID of the access group for the Client VPN."
+  type        = string
+  sensitive   = true
+}
+
+variable "client_vpn_saml_metadata" {
+  description = "The SAML metadata document for the Client VPN."
+  type        = string
+  sensitive   = true
+}
+
+variable "client_vpn_self_service_saml_metadata" {
+  description = "The SAML metadata document for the Client VPN self-service portal."
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
 variable "cloudwatch_slack_webhook_url" {
   description = "The Slack webhook URL for CloudWatch alerts."
   type        = string
