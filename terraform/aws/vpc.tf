@@ -475,16 +475,6 @@ resource "aws_security_group_rule" "idp_cleanup_users_egress_internal_lb" {
   source_security_group_id = aws_security_group.idp_internal_lb.id
 }
 
-resource "aws_security_group_rule" "idp_cleanup_users_egress_internet" {
-  description       = "Egress from idp cleanup users to internet"
-  type              = "egress"
-  to_port           = 443
-  from_port         = 443
-  protocol          = "tcp"
-  security_group_id = aws_security_group.idp_cleanup_users.id
-  cidr_blocks       = ["0.0.0.0/0"]
-}
-
 resource "aws_security_group_rule" "idp_cleanup_users_egress_s3" {
   description       = "Egress from idp cleanup users to S3"
   type              = "egress"
@@ -521,16 +511,6 @@ resource "aws_security_group_rule" "idp_event_exporter_egress_internal_lb" {
   protocol                 = "tcp"
   security_group_id        = aws_security_group.idp_event_exporter.id
   source_security_group_id = aws_security_group.idp_internal_lb.id
-}
-
-resource "aws_security_group_rule" "idp_event_exporter_egress_internet" {
-  description       = "Egress from idp event exporter to internet"
-  type              = "egress"
-  to_port           = 443
-  from_port         = 443
-  protocol          = "tcp"
-  security_group_id = aws_security_group.idp_event_exporter.id
-  cidr_blocks       = ["0.0.0.0/0"]
 }
 
 resource "aws_security_group_rule" "idp_event_exporter_egress_s3" {
