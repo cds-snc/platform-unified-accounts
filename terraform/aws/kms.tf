@@ -97,21 +97,6 @@ data "aws_iam_policy_document" "kms_sqs_dlq" {
       identifiers = ["arn:aws:iam::${var.account_id}:root"]
     }
   }
-
-  statement {
-    sid    = "AllowLambdaForSQS"
-    effect = "Allow"
-    actions = [
-      "kms:Decrypt",
-      "kms:GenerateDataKey",
-    ]
-    resources = ["*"]
-
-    principals {
-      type        = "Service"
-      identifiers = ["lambda.amazonaws.com"]
-    }
-  }
 }
 
 #
