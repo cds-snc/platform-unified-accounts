@@ -109,7 +109,6 @@ resource "aws_route53_record" "idp_internal_A" {
 # Private zone for internal ALB
 resource "aws_route53_zone" "idp_internal" {
   name    = "internal.${var.domain}"
-  comment = "Private zone for internal ALB - VPC access only"
 
   vpc {
     vpc_id = module.idp_vpc.vpc_id
