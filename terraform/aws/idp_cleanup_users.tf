@@ -19,7 +19,7 @@ module "idp_cleanup_users_lambda" {
   lambda_environment_variables = {
     INACTIVE_DAYS                = 30
     ZITADEL_PRIVATE_KEY_SSM_PATH = aws_ssm_parameter.idp_cleanup_users_key_json.name
-    ZITADEL_URL                  = "internal.${var.domain}"
+    ZITADEL_URL                  = var.domain
     DRY_RUN                      = "false"
   }
 

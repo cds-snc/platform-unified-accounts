@@ -85,7 +85,7 @@ module "idp_event_exporter_lambda" {
   lambda_environment_variables = {
     S3_BUCKET                    = module.idp_event_exporter_s3.s3_bucket_id
     ZITADEL_PRIVATE_KEY_SSM_PATH = aws_ssm_parameter.idp_event_exporter_key_json.name
-    ZITADEL_URL                  = "internal.${var.domain}"
+    ZITADEL_URL                  = var.domain
     WINDOW_MINUTES               = local.event_window_minutes
   }
 
