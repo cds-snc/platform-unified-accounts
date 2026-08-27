@@ -95,7 +95,7 @@ resource "aws_route53_hosted_zone_dnssec" "idp" {
 # Internal ALB subdomain
 #
 resource "aws_route53_record" "idp_internal_A" {
-  zone_id = aws_route53_zone.idp_internal.zone_id
+  zone_id = aws_route53_zone.idp.zone_id       # <-- revert back to public zone
   name    = "internal.${var.domain}"
   type    = "A"
 
@@ -106,13 +106,26 @@ resource "aws_route53_record" "idp_internal_A" {
   }
 }
 
+# Private zone for internal ALB
 resource "aws_route53_zone" "idp_internal" {
   name    = "internal.${var.domain}"
-  comment = "Private zone for internal ALB — VPC access only"
+  comment = "Private zone for internal ALB - VPC access only"
 
   vpc {
     vpc_id = module.idp_vpc.vpc_id
   }
 
   tags = local.common_tags
+}
+
+resource "aws_route53_record" "idp_internal_A_private" {
+  zone_id = aws_route53_zone.idp_internal.zone_id  # <-- private zone
+  name    = "internal.${var.domain}"
+  type    = "A"
+
+  alias {
+    name                   = aws_lb.idp_internal.dns_name
+    zone_id                = aws_lb.idp_internal.zone_id
+    evaluate_target_health = true
+  }
 }
