@@ -292,7 +292,23 @@ type response struct {
 	WindowEnd   string `json:"window_end"`
 }
 
-func handler(ctx context.Context) (response, error) {
+type scheduledEvent struct {
+    Time time.Time `json:"time"`
+}
+
+type sqsRedriveRecord struct {
+    Body string `json:"body"`
+}
+
+type sqsRedriveEvent struct {
+    Records []sqsRedriveRecord `json:"Records"`
+}
+
+type lambdaFailureRecord struct {
+    RequestPayload json.RawMessage `json:"requestPayload"`
+}
+
+func handler(ctx context.Context, payload json.RawMessage) (response, error) {
 	if initErr != nil {
 		return response{}, initErr
 	}
