@@ -218,6 +218,49 @@ func TestEventEnvelope_ExtractsNestedType(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
+// extractTriggerTime
+// ---------------------------------------------------------------------------
+
+func TestExtractTriggerTime_ScheduledEvent(t *testing.T) {
+    payload := json.RawMessage(`{"version":"0","source":"aws.events","time":"2026-08-28T14:20:00Z"}`)
+    got := extractTriggerTime(payload)
+    want := time.Date(2026, 8, 28, 14, 20, 0, 0, time.UTC)
+    if !got.Equal(want) {
+        t.Errorf("got %v, want %v", got, want)
+    }
+}
+
+func TestExtractTriggerTime_SQSRedrive(t *testing.T) {
+    // The requestPayload is double-encoded as it would be in a real SQS failure record.
+    requestPayload := `{"version":"0","source":"aws.events","time":"2026-08-28T14:20:00Z"}`
+    body, _ := json.Marshal(map[string]interface{}{
+        "requestContext": map[string]string{"condition": "RetriesExhausted"},
+        "requestPayload": json.RawMessage(requestPayload),
+    })
+    sqsPayload, _ := json.Marshal(map[string]interface{}{
+        "Records": []map[string]string{
+            {"body": string(body)},
+        },
+    })
+
+    got := extractTriggerTime(sqsPayload)
+    want := time.Date(2026, 8, 28, 14, 20, 0, 0, time.UTC)
+    if !got.Equal(want) {
+        t.Errorf("got %v, want %v", got, want)
+    }
+}
+
+func TestExtractTriggerTime_EmptyPayload_FallsBackToNow(t *testing.T) {
+    before := time.Now().UTC()
+    got := extractTriggerTime(json.RawMessage(`{}`))
+    after := time.Now().UTC()
+
+    if got.Before(before) || got.After(after) {
+        t.Errorf("expected time close to now, got %v", got)
+    }
+}
+
+// ---------------------------------------------------------------------------
 // silence logs in test output
 // ---------------------------------------------------------------------------
 
