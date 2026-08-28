@@ -264,7 +264,7 @@ resource "aws_lb" "idp_internal" {
   security_groups = [
     aws_security_group.idp_internal_lb.id
   ]
-  subnets = local.vpn_private_subnet_association_ids
+  subnets = module.idp_vpc.private_subnet_ids
 
   tags = local.core_tags
 }
