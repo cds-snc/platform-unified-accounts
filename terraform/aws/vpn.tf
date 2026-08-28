@@ -13,7 +13,7 @@ module "client_vpn" {
   vpc_id              = module.idp_vpc.vpc_id
   vpc_cidr_block      = module.idp_vpc.cidr_block
   subnet_cidr_blocks  = module.idp_vpc.private_subnet_cidr_blocks
-  subnet_ids          = [tolist(module.idp_vpc.private_subnet_ids)[0]]
+  subnet_ids          = local.vpn_private_subnet_association_ids
   acm_certificate_arn = aws_acm_certificate.client_vpn.arn
 
   # Only create a self-service portal in prod  
