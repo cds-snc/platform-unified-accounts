@@ -394,7 +394,7 @@ func main() {
 	isLocal := os.Getenv("LOCAL") == "true"
 	if isLocal {
 		log.Println("Running locally, invoking handler directly")
-		response, err := handler(context.Background())
+		response, err := handler(context.Background(), json.RawMessage(`{}`))
 		if err != nil {
 			log.Fatalf("Handler error: %v", err)
 		}
