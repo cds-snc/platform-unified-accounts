@@ -22,7 +22,7 @@ resource "aws_wafv2_web_acl" "idp" {
   }
 
   rule {
-    name     = "InvalidHost"
+    name     = "BlockConsoleAccess"
     priority = 1
 
     action {
@@ -30,32 +30,22 @@ resource "aws_wafv2_web_acl" "idp" {
     }
 
     statement {
-      not_statement {
-        statement {
-          byte_match_statement {
-            field_to_match {
-              single_header {
-                name = "host"
-              }
-            }
-            text_transformation {
-              priority = 1
-              type     = "COMPRESS_WHITE_SPACE"
-            }
-            text_transformation {
-              priority = 2
-              type     = "LOWERCASE"
-            }
-            positional_constraint = "EXACTLY"
-            search_string         = var.domain
-          }
+      byte_match_statement {
+        field_to_match {
+          uri_path {}
+        }
+        positional_constraint = "CONTAINS"
+        search_string         = "/ui/console"
+        text_transformation {
+          priority = 1
+          type     = "LOWERCASE"
         }
       }
     }
 
     visibility_config {
       cloudwatch_metrics_enabled = true
-      metric_name                = "InvalidHost"
+      metric_name                = "BlockConsoleAccess"
       sampled_requests_enabled   = true
     }
   }
@@ -703,7 +693,7 @@ resource "aws_wafv2_web_acl" "idp" {
   # will prevent any subsequent rules from being evaluated.
   #
   rule {
-    name     = "AllowedPath"
+    name     = "ValidHost"
     priority = 140
 
     action {
@@ -713,20 +703,26 @@ resource "aws_wafv2_web_acl" "idp" {
     statement {
       byte_match_statement {
         field_to_match {
-          uri_path {}
+          single_header {
+            name = "host"
+          }
         }
         text_transformation {
           priority = 1
+          type     = "COMPRESS_WHITE_SPACE"
+        }
+        text_transformation {
+          priority = 2
           type     = "LOWERCASE"
         }
-        positional_constraint = "STARTS_WITH"
-        search_string         = "/ui/v2"
+        positional_constraint = "EXACTLY"
+        search_string         = var.domain
       }
     }
 
     visibility_config {
       cloudwatch_metrics_enabled = true
-      metric_name                = "AllowedPath"
+      metric_name                = "ValidHost"
       sampled_requests_enabled   = true
     }
   }
