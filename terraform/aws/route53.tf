@@ -105,3 +105,26 @@ resource "aws_route53_record" "idp_internal_A" {
     evaluate_target_health = true
   }
 }
+
+# Private zone for internal ALB
+resource "aws_route53_zone" "idp_internal" {
+  name = "internal.${var.domain}"
+
+  vpc {
+    vpc_id = module.idp_vpc.vpc_id
+  }
+
+  tags = local.common_tags
+}
+
+resource "aws_route53_record" "idp_internal_A_private" {
+  zone_id = aws_route53_zone.idp_internal.zone_id
+  name    = "internal.${var.domain}"
+  type    = "A"
+
+  alias {
+    name                   = aws_lb.idp_internal.dns_name
+    zone_id                = aws_lb.idp_internal.zone_id
+    evaluate_target_health = true
+  }
+}
