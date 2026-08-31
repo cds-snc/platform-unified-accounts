@@ -34,11 +34,11 @@ services:
       # Activate the login v2 on an installation from scratch.
       # To activate the login v2 on an existing installation, read the "What's next" section.
       ZITADEL_DEFAULTINSTANCE_FEATURES_LOGINV2_REQUIRED: true # To use the login v1, set this to false.
-      ZITADEL_DEFAULTINSTANCE_FEATURES_LOGINV2_BASEURI: http://localhost:3000/ui/v2/login
+      ZITADEL_DEFAULTINSTANCE_FEATURES_LOGINV2_BASEURI: http://localhost:3000/login
       # Configure the redirection paths to the login v2.
-      ZITADEL_OIDC_DEFAULTLOGINURLV2: http://localhost:3000/ui/v2/login/login?authRequest=
-      ZITADEL_OIDC_DEFAULTLOGOUTURLV2: http://localhost:3000/ui/v2/login/logout?post_logout_redirect=
-      ZITADEL_SAML_DEFAULTLOGINURLV2: http://localhost:3000/ui/v2/login/login?samlRequest=
+      ZITADEL_OIDC_DEFAULTLOGINURLV2: http://localhost:3000/login/login?authRequest=
+      ZITADEL_OIDC_DEFAULTLOGOUTURLV2: http://localhost:3000/login/logout?post_logout_redirect=
+      ZITADEL_SAML_DEFAULTLOGINURLV2: http://localhost:3000/login/login?samlRequest=
 
       # By configuring a machine, the setup job creates a user of type machine with the role IAM_OWNER.
       # It writes a personal access token (PAT) to the path specified in ZITADEL_FIRSTINSTANCE_PATPATH.
@@ -93,7 +93,7 @@ services:
       dockerfile: ./Dockerfile  
     environment:
       - ZITADEL_API_URL=http://localhost:8080
-      - NEXT_PUBLIC_BASE_PATH=/ui/v2/login
+      - NEXT_PUBLIC_BASE_PATH=/login
       - ZITADEL_SERVICE_USER_TOKEN_FILE=/current-dir/login-client.pat
     network_mode: service:zitadel
     user: "0"

@@ -6,23 +6,23 @@ locals {
     },
     {
       "name"  = "ZITADEL_DEFAULTINSTANCE_FEATURES_LOGINV2_BASEURI"
-      "value" = "https://${var.domain}/ui/v2"
+      "value" = "https://${var.domain}"
     },
     {
       "name"  = "ZITADEL_DEFAULTINSTANCE_LOGINPOLICY_DEFAULTREDIRECTURI"
-      "value" = "https://${var.domain}/ui/v2/account"
+      "value" = "https://${var.domain}/account"
     },
     {
       "name"  = "ZITADEL_OIDC_DEFAULTLOGINURLV2"
-      "value" = "https://${var.domain}/ui/v2/login?authRequest="
+      "value" = "https://${var.domain}/login?authRequest="
     },
     {
       "name"  = "ZITADEL_OIDC_DEFAULTLOGOUTURLV2"
-      "value" = "https://${var.domain}/ui/v2/logout?post_logout_redirect="
+      "value" = "https://${var.domain}/logout?post_logout_redirect="
     },
     {
       "name"  = "ZITADEL_SAML_DEFAULTLOGINURLV2"
-      "value" = "https://${var.domain}/ui/v2/login?samlRequest="
+      "value" = "https://${var.domain}/login?samlRequest="
     },
     {
       "name"  = "ZITADEL_SYSTEMDEFAULTS_MULTIFACTORS_OTP_ISSUER"
@@ -78,11 +78,11 @@ locals {
     },
     {
       "name"  = "NEXT_PUBLIC_BASE_PATH",
-      "value" = "/ui/v2"
+      "value" = ""
     },
     {
       "name"  = "CUSTOM_REQUEST_HEADERS",
-      "value" = "Host:${var.domain}"
+      "value" = "Host:internal.${var.domain}"
     },
     {
       "name"  = "HOSTNAME",
@@ -188,20 +188,13 @@ module "idp_ecs" {
     }
   }]
 
-  lb_target_group_arns = concat(
-    [
-      for protocol_version in local.protocol_versions : {
-        target_group_arn = aws_lb_target_group.idp[protocol_version].arn
-        container_name   = "idp"
-        container_port   = 8080
-      }
-    ],
-    [{
-      target_group_arn = aws_lb_target_group.idp_internal.arn
+  lb_target_group_arns = [
+    for protocol_version in local.protocol_versions : {
+      target_group_arn = aws_lb_target_group.idp_internal[protocol_version].arn
       container_name   = "idp"
       container_port   = 8080
-    }]
-  )
+    }
+  ]
   subnet_ids         = module.idp_vpc.private_subnet_ids
   security_group_ids = [aws_security_group.idp_ecs.id]
 
