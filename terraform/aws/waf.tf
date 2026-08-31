@@ -22,35 +22,6 @@ resource "aws_wafv2_web_acl" "idp" {
   }
 
   rule {
-    name     = "BlockConsoleAccess"
-    priority = 1
-
-    action {
-      block {}
-    }
-
-    statement {
-      byte_match_statement {
-        field_to_match {
-          uri_path {}
-        }
-        positional_constraint = "CONTAINS"
-        search_string         = "/ui/console"
-        text_transformation {
-          priority = 1
-          type     = "LOWERCASE"
-        }
-      }
-    }
-
-    visibility_config {
-      cloudwatch_metrics_enabled = true
-      metric_name                = "BlockConsoleAccess"
-      sampled_requests_enabled   = true
-    }
-  }
-
-  rule {
     name     = "BlockLargeRequests"
     priority = 10
 

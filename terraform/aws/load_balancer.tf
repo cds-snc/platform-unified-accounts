@@ -1,3 +1,6 @@
+#
+# Public ALB for SSO portal
+#
 resource "aws_lb" "idp" {
   name               = "idp-${var.env}"
   internal           = false
@@ -21,17 +24,6 @@ resource "aws_lb" "idp" {
   tags = local.core_tags
 }
 
-resource "random_string" "alb_idp_tg_suffix" {
-  length  = 3
-  special = false
-  upper   = false
-  keepers = {
-    port     = 8080
-    protocol = "HTTPS"
-    path     = "/debug/healthz"
-  }
-}
-
 resource "random_string" "alb_idp_login_tg_suffix" {
   length  = 3
   special = false
@@ -39,50 +31,7 @@ resource "random_string" "alb_idp_login_tg_suffix" {
   keepers = {
     port     = 3000
     protocol = "HTTPS"
-    path     = "/ui/v2/healthy"
-  }
-}
-
-resource "random_string" "alb_idp_internal_tg_suffix" {
-  length  = 3
-  special = false
-  upper   = false
-  keepers = {
-    port     = 8080
-    protocol = "HTTPS"
-    path     = "/debug/healthz"
-  }
-}
-
-resource "aws_lb_target_group" "idp" {
-  for_each = local.protocol_versions
-
-  name                 = "idp-tg-${each.value}-${random_string.alb_idp_tg_suffix.result}"
-  port                 = 8080
-  protocol             = "HTTPS"
-  protocol_version     = each.value
-  target_type          = "ip"
-  deregistration_delay = 30
-  vpc_id               = module.idp_vpc.vpc_id
-
-  health_check {
-    enabled  = true
-    protocol = "HTTPS"
-    path     = "/debug/healthz"
-    matcher  = "200"
-  }
-
-  stickiness {
-    type = "lb_cookie"
-  }
-
-  tags = local.core_tags
-
-  lifecycle {
-    create_before_destroy = true
-    ignore_changes = [
-      stickiness[0].cookie_name
-    ]
+    path     = "/healthy"
   }
 }
 
@@ -97,37 +46,7 @@ resource "aws_lb_target_group" "idp_login" {
   health_check {
     enabled  = true
     protocol = "HTTPS"
-    path     = "/ui/v2/healthy"
-    matcher  = "200"
-  }
-
-  stickiness {
-    type = "lb_cookie"
-  }
-
-  tags = local.core_tags
-
-  lifecycle {
-    create_before_destroy = true
-    ignore_changes = [
-      stickiness[0].cookie_name
-    ]
-  }
-}
-
-resource "aws_lb_target_group" "idp_internal" {
-  name                 = "idp-internal-tg-${random_string.alb_idp_internal_tg_suffix.result}"
-  port                 = 8080
-  protocol             = "HTTPS"
-  protocol_version     = "HTTP2"
-  target_type          = "ip"
-  deregistration_delay = 30
-  vpc_id               = module.idp_vpc.vpc_id
-
-  health_check {
-    enabled  = true
-    protocol = "HTTPS"
-    path     = "/debug/healthz"
+    path     = "/healthy"
     matcher  = "200"
   }
 
@@ -154,7 +73,7 @@ resource "aws_lb_listener" "idp" {
 
   default_action {
     type             = "forward"
-    target_group_arn = aws_lb_target_group.idp["HTTP2"].arn
+    target_group_arn = aws_lb_target_group.idp_login.arn
   }
 
   tags = local.core_tags
@@ -172,50 +91,6 @@ resource "aws_lb_listener" "idp_http_redirect" {
       port        = "443"
       protocol    = "HTTPS"
       status_code = "HTTP_301"
-    }
-  }
-
-  tags = local.core_tags
-}
-
-# Forward requests to the login UI
-resource "aws_alb_listener_rule" "idp_login" {
-  listener_arn = aws_lb_listener.idp.arn
-  priority     = 50
-
-  action {
-    type             = "forward"
-    target_group_arn = aws_lb_target_group.idp_login.arn
-  }
-
-  condition {
-    path_pattern {
-      values = ["/ui/v2", "/ui/v2/", "/ui/v2/*"]
-    }
-  }
-
-  tags = local.core_tags
-}
-
-# Send REST API endpoint requests to the HTTP1 target group
-# All other requests are sent to the HTTP2 target group
-resource "aws_alb_listener_rule" "idp_protocol_version" {
-  listener_arn = aws_lb_listener.idp.arn
-  priority     = 100
-
-  action {
-    type             = "forward"
-    target_group_arn = aws_lb_target_group.idp["HTTP1"].arn
-  }
-
-  condition {
-    path_pattern {
-      values = [
-        "/oidc/v1/userinfo",
-        "/oauth/v2/keys",
-        "/oauth/v2/token",
-        "/.well-known/openid-configuration"
-      ]
     }
   }
 
@@ -246,6 +121,9 @@ resource "aws_alb_listener_rule" "security_txt" {
   tags = local.core_tags
 }
 
+#
+# Internal ALB for IdP
+#
 resource "aws_lb" "idp_internal" {
   name               = "idp-internal-${var.env}"
   internal           = true
@@ -278,7 +156,75 @@ resource "aws_lb_listener" "idp_internal" {
 
   default_action {
     type             = "forward"
-    target_group_arn = aws_lb_target_group.idp_internal.arn
+    target_group_arn = aws_lb_target_group.idp_internal["HTTP2"].arn
+  }
+
+  tags = local.core_tags
+}
+
+resource "random_string" "alb_idp_internal_tg_suffix" {
+  length  = 3
+  special = false
+  upper   = false
+  keepers = {
+    port     = 8080
+    protocol = "HTTPS"
+    path     = "/debug/healthz"
+  }
+}
+
+resource "aws_lb_target_group" "idp_internal" {
+  for_each = local.protocol_versions
+
+  name                 = "idp-internal-tg-${each.value}-${random_string.alb_idp_internal_tg_suffix.result}"
+  port                 = 8080
+  protocol             = "HTTPS"
+  protocol_version     = each.value
+  target_type          = "ip"
+  deregistration_delay = 30
+  vpc_id               = module.idp_vpc.vpc_id
+
+  health_check {
+    enabled  = true
+    protocol = "HTTPS"
+    path     = "/debug/healthz"
+    matcher  = "200"
+  }
+
+  stickiness {
+    type = "lb_cookie"
+  }
+
+  tags = local.core_tags
+
+  lifecycle {
+    create_before_destroy = true
+    ignore_changes = [
+      stickiness[0].cookie_name
+    ]
+  }
+}
+
+# Send REST API endpoint requests to the HTTP1 target group
+# All other requests are sent to the HTTP2 target group
+resource "aws_alb_listener_rule" "idp_internal_protocol_version" {
+  listener_arn = aws_lb_listener.idp_internal.arn
+  priority     = 100
+
+  action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.idp_internal["HTTP1"].arn
+  }
+
+  condition {
+    path_pattern {
+      values = [
+        "/oidc/v1/userinfo",
+        "/oauth/v2/keys",
+        "/oauth/v2/token",
+        "/.well-known/openid-configuration"
+      ]
+    }
   }
 
   tags = local.core_tags
