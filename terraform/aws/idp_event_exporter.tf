@@ -166,8 +166,24 @@ data "aws_iam_policy_document" "idp_event_exporter_sqs" {
   }
 
   statement {
+    effect = "Allow"
+    actions = [
+      "sqs:ReceiveMessage",
+      "sqs:DeleteMessage",
+      "sqs:GetQueueAttributes",
+    ]
+    resources = [aws_sqs_queue.idp_event_exporter_queue.arn]
+  }
+
+  statement {
     effect    = "Allow"
     actions   = ["kms:GenerateDataKey", "kms:Decrypt"]
     resources = [aws_kms_key.sqs_dlq.arn]
   }
+}
+
+resource "aws_lambda_event_source_mapping" "idp_event_exporter_redrive" {
+  event_source_arn = aws_sqs_queue.idp_event_exporter_queue.arn
+  function_name    = module.idp_event_exporter_lambda.lambda_function_arn
+  batch_size       = 1
 }
