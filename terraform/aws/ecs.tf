@@ -77,10 +77,6 @@ locals {
       "value" = "http://idp:8080"
     },
     {
-      "name"  = "NEXT_PUBLIC_BASE_PATH",
-      "value" = ""
-    },
-    {
       "name"  = "CUSTOM_REQUEST_HEADERS",
       "value" = "Host:internal.${var.domain}"
     },
