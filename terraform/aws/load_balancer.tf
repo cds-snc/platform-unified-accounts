@@ -213,7 +213,7 @@ resource "aws_alb_listener_rule" "idp_internal_protocol_version" {
 
   action {
     type             = "forward"
-    target_group_arn = aws_lb_target_group.idp["HTTP1"].arn
+    target_group_arn = aws_lb_target_group.idp_internal["HTTP1"].arn
   }
 
   condition {
