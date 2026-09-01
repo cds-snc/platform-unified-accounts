@@ -26,7 +26,7 @@ locals {
     },
     {
       "name"  = "ZITADEL_SYSTEMDEFAULTS_MULTIFACTORS_OTP_ISSUER"
-      "value" = "CDS-SNC"
+      "value" = "GC Platform - Platforme GC"
     }
   ]
   idp_container_secrets = [
