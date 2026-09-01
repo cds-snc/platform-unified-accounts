@@ -411,29 +411,6 @@ resource "aws_security_group_rule" "lambda_pr_review_egress_internet" {
   cidr_blocks       = ["0.0.0.0/0"]
 }
 
-resource "aws_security_group_rule" "lambda_pr_review_egress_idp_ecs" {
-  count = var.env == "staging" ? 1 : 0
-
-  description              = "Egress from lambda PR review env to idp ECS task"
-  type                     = "egress"
-  to_port                  = 8080
-  from_port                = 8080
-  protocol                 = "tcp"
-  security_group_id        = aws_security_group.lambda_pr_review[0].id
-  source_security_group_id = aws_security_group.idp_ecs.id
-}
-
-resource "aws_security_group_rule" "idp_ecs_ingress_lambda_pr_review" {
-  count = var.env == "staging" ? 1 : 0
-
-  description              = "Ingress to idp ECS task from lambda PR review env"
-  type                     = "ingress"
-  to_port                  = 8080
-  from_port                = 8080
-  protocol                 = "tcp"
-  security_group_id        = aws_security_group.idp_ecs.id
-  source_security_group_id = aws_security_group.lambda_pr_review[0].id
-}
 
 # IdP load test =======================================================
 resource "aws_security_group" "idp_load_test_ecs" {
@@ -569,6 +546,18 @@ resource "aws_security_group_rule" "idp_internal_lb_ingress_clientvpn" {
   protocol                 = "tcp"
   security_group_id        = aws_security_group.idp_internal_lb.id
   source_security_group_id = module.client_vpn.client_vpn_security_group_id
+}
+
+resource "aws_security_group_rule" "idp_internal_lb_ingress_lambda_pr_review" {
+  count = var.env == "staging" ? 1 : 0
+
+  description              = "Ingress from PR review Lambda to idp internal load balancer"
+  type                     = "ingress"
+  from_port                = 443
+  to_port                  = 443
+  protocol                 = "tcp"
+  security_group_id        = aws_security_group.idp_internal_lb.id
+  source_security_group_id = aws_security_group.lambda_pr_review[0].id
 }
 
 resource "aws_security_group_rule" "idp_internal_lb_egress_idp_ecs" {
