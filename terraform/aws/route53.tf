@@ -63,6 +63,7 @@ module "resolver_dns" {
 
   allowed_domains = [
     "${var.domain}.",
+    "idp.${var.domain}.",
     "internal.${var.domain}.",
     "*.amazonaws.com.",
     "api.notification.canada.ca.",
@@ -120,6 +121,28 @@ resource "aws_route53_zone" "idp_internal" {
 resource "aws_route53_record" "idp_internal_A_private" {
   zone_id = aws_route53_zone.idp_internal.zone_id
   name    = "internal.${var.domain}"
+  type    = "A"
+
+  alias {
+    name                   = aws_lb.idp_internal.dns_name
+    zone_id                = aws_lb.idp_internal.zone_id
+    evaluate_target_health = true
+  }
+}
+
+resource "aws_route53_zone" "idp_private" {
+  name = "idp.${var.domain}"
+
+  vpc {
+    vpc_id = module.idp_vpc.vpc_id
+  }
+
+  tags = local.common_tags
+}
+
+resource "aws_route53_record" "idp_private_A" {
+  zone_id = aws_route53_zone.idp_private.zone_id
+  name    = "idp.${var.domain}"
   type    = "A"
 
   alias {
