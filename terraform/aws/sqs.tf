@@ -7,7 +7,7 @@ resource "aws_sqs_queue" "idp_event_exporter_queue" {
 }
 
 resource "aws_sqs_queue" "idp_event_cleanup_users_dlq_queue" {
-  name                      = "idp-event-cleanup-users-queue"
+  name                      = "idp-event-cleanup-dlq"
   kms_master_key_id         = aws_kms_key.sqs_dlq.arn
   message_retention_seconds = 1209600 # 14 days
 
