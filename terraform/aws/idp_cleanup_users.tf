@@ -59,7 +59,7 @@ resource "aws_lambda_function_event_invoke_config" "idp_cleanup_users_event_invo
   maximum_event_age_in_seconds = 300 # Maximum age of the event before it is discarded (in seconds)
   destination_config {
     on_failure {
-      destination = aws_sqs_queue.idp_event_cleanup_users_queue.arn
+      destination = aws_sqs_queue.idp_event_cleanup_users_dlq_queue.arn
     }
   }
 }
@@ -68,7 +68,7 @@ data "aws_iam_policy_document" "idp_cleanup_users_sqs" {
   statement {
     effect    = "Allow"
     actions   = ["sqs:SendMessage"]
-    resources = [aws_sqs_queue.idp_event_cleanup_users_queue.arn]
+    resources = [aws_sqs_queue.idp_event_cleanup_users_dlq_queue.arn]
   }
 
   statement {
@@ -88,7 +88,7 @@ resource "aws_sqs_queue" "idp_event_cleanup_users_dlq" {
 resource "aws_sqs_queue_redrive_policy" "idp_event_cleanup_users_dlq" {
   queue_url = aws_sqs_queue.idp_event_cleanup_users_dlq.id
   redrive_policy = jsonencode({
-    deadLetterTargetArn = aws_sqs_queue.idp_event_cleanup_users_queue.arn
+    deadLetterTargetArn = aws_sqs_queue.idp_event_cleanup_users_dlq_queue.arn
     maxReceiveCount     = 3
   })
 }
