@@ -93,7 +93,7 @@ resource "aws_sqs_queue_redrive_policy" "idp_event_cleanup_users_dlq" {
   })
 }
 
-data "aws_iam_policy_document" "idp_event_cleanup_users_dlq_policy" {
+data "aws_iam_policy_document" "idp_event_cleanup_users_dlq" {
   statement {
     effect = "Allow"
     principals {
@@ -111,9 +111,9 @@ data "aws_iam_policy_document" "idp_event_cleanup_users_dlq_policy" {
   }
 }
 
-resource "aws_sqs_queue_policy" "idp_event_cleanup_users_dlq_policy" {
+resource "aws_sqs_queue_policy" "idp_event_cleanup_users_dlq" {
   queue_url = aws_sqs_queue.idp_event_cleanup_users_dlq.id
-  policy    = data.aws_iam_policy_document.idp_event_cleanup_users_dlq_policy.json
+  policy    = data.aws_iam_policy_document.idp_event_cleanup_users_dlq.json
 }
 
 resource "aws_cloudwatch_event_rule" "idp_cleanup_users_sqs" {
