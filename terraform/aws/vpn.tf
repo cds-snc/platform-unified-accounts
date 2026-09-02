@@ -1,6 +1,6 @@
 #
 # Client VPN that will allow users in the specified IAM Identity Center group
-# access to Zitadel console and other resources in the private subnets of the VPC.
+# access to Zitadel console and API through the internal ALB.
 #
 module "client_vpn" {
   source = "github.com/cds-snc/terraform-modules//client_vpn?ref=v11.4.6"
