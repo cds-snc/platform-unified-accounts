@@ -77,7 +77,7 @@ data "aws_iam_policy_document" "idp_cleanup_users_sqs" {
     resources = [aws_kms_key.sqs_dlq.arn]
   }
 }
-resource "aws_sqs_queue" "idp_cleanup_users_event_queue" {
+resource "aws_sqs_queue" "idp_event_cleanup_users_dlq" {
   name                      = "idp-cleanup-users-event-queue"
   kms_master_key_id         = aws_kms_key.sqs_dlq.arn
   message_retention_seconds = 1209600 # 14 days
@@ -85,15 +85,15 @@ resource "aws_sqs_queue" "idp_cleanup_users_event_queue" {
   tags = local.core_tags
 }
 
-resource "aws_sqs_queue_redrive_policy" "idp_cleanup_users_event_queue" {
-  queue_url = aws_sqs_queue.idp_cleanup_users_event_queue.id
+resource "aws_sqs_queue_redrive_policy" "idp_event_cleanup_users_dlq" {
+  queue_url = aws_sqs_queue.idp_event_cleanup_users_dlq.id
   redrive_policy = jsonencode({
     deadLetterTargetArn = aws_sqs_queue.idp_event_cleanup_users_queue.arn
     maxReceiveCount     = 3
   })
 }
 
-data "aws_iam_policy_document" "idp_cleanup_users_event_queue_policy" {
+data "aws_iam_policy_document" "idp_event_cleanup_users_dlq_policy" {
   statement {
     effect = "Allow"
     principals {
@@ -101,7 +101,7 @@ data "aws_iam_policy_document" "idp_cleanup_users_event_queue_policy" {
       identifiers = ["events.amazonaws.com"]
     }
     actions   = ["sqs:SendMessage"]
-    resources = [aws_sqs_queue.idp_cleanup_users_event_queue.arn]
+    resources = [aws_sqs_queue.idp_event_cleanup_users_dlq.arn]
 
     condition {
       test     = "ArnEquals"
@@ -111,9 +111,9 @@ data "aws_iam_policy_document" "idp_cleanup_users_event_queue_policy" {
   }
 }
 
-resource "aws_sqs_queue_policy" "idp_cleanup_users_event_queue_policy" {
-  queue_url = aws_sqs_queue.idp_cleanup_users_event_queue.id
-  policy    = data.aws_iam_policy_document.idp_cleanup_users_event_queue_policy.json
+resource "aws_sqs_queue_policy" "idp_event_cleanup_users_dlq_policy" {
+  queue_url = aws_sqs_queue.idp_event_cleanup_users_dlq.id
+  policy    = data.aws_iam_policy_document.idp_event_cleanup_users_dlq_policy.json
 }
 
 resource "aws_cloudwatch_event_rule" "idp_cleanup_users_sqs" {
@@ -127,5 +127,5 @@ resource "aws_cloudwatch_event_rule" "idp_cleanup_users_sqs" {
 resource "aws_cloudwatch_event_target" "idp_cleanup_users_sqs" {
   rule      = aws_cloudwatch_event_rule.idp_cleanup_users_sqs.name
   target_id = "idp-cleanup-users-sqs"
-  arn       = aws_sqs_queue.idp_cleanup_users_event_queue.arn
+  arn       = aws_sqs_queue.idp_event_cleanup_users_dlq.arn
 }
