@@ -1,7 +1,7 @@
 # System Architecture — Platform Unified Accounts (SSO/IdP)
 
 - **Owner:** Canadian Digital Service — Platform Core Services  
-- **Last updated:** 2026-07-02
+- **Last updated:** 2026-09-02
 
 ---
 
@@ -110,7 +110,9 @@ All infrastructure is defined as Terraform in `terraform/aws/`. Environments are
 
 | Resource | Purpose |
 |---|---|
-| **ALB** | Internet-facing entry point; routes to Zitadel and User Portal |
+| **ALB** | Internet-facing entry point; routes to the User Portal |
+| **ALB (internal)** | Internal VPC access to Zitadel; used by VPC resources and VPN connected users |
+| **Client VPN** | Provides the support team access to the Zitadel console and API |
 | **ECS Fargate** | Serverless container runtime for Zitadel and the User Portal |
 | **Aurora PostgreSQL 17** | Serverless v2; Zitadel data store |
 | **EFS** | Encrypted file system for User Portal personal access token |
@@ -138,12 +140,15 @@ All infrastructure is defined as Terraform in `terraform/aws/`. Environments are
 
 All ECS tasks and the Lambda run in **private subnets** with no direct internet access. Egress to AWS services (ECR, SSM, CloudWatch, RDS, S3) uses **VPC endpoints**, avoiding NAT traversal.
 
+Only the User Portal is exposed to internet traffic through the public ALB. Direct human access to the Zitadel API and console requires the Client VPN. Internal workloads access Zitadel through the internal ALB. OAuth authentication requests are proxied through the User Portal to Zitadel.
+
 ### Ports & Protocols
 
 | Port | Protocol | Service | Direction | Internet-routable |
 |---|---|---|---|---|
-| 443 | HTTPS / TLS 1.3 | ALB | Ingress | Yes |
-| 80 | HTTP | ALB (redirect) | Ingress | Yes |
+| 443 | HTTPS / TLS 1.3 | Public ALB | Ingress | Yes |
+| 80 | HTTP | Public ALB (redirect) | Ingress | Yes |
+| 443 | HTTPS / TLS 1.3 | Internal ALB | Internal / VPN ingress | No |
 | 8080 | HTTP | Zitadel IdP | Internal | No |
 | 3000 | HTTP | User Portal | Internal | No |
 | 5432 | PostgreSQL / TLS | Aurora | Egress (private) | No |
@@ -162,7 +167,7 @@ sequenceDiagram
     autonumber
     participant B as User Browser
     participant RP as Relying Party App
-    participant ALB as ALB (TLS 1.3)
+    participant ALB as Public ALB (TLS 1.3)
     participant UP as User Portal<br/>(port 3000)
     participant IDP as Zitadel IdP<br/>(port 8080)
     participant DB as Aurora PostgreSQL
@@ -171,21 +176,25 @@ sequenceDiagram
     RP->>RP: Generate code_verifier + code_challenge (S256)
     RP->>B: 302 redirect → /authorize?response_type=code<br/>&client_id=…&code_challenge=…&code_challenge_method=S256
     B->>ALB: GET /authorize (HTTPS / TLS 1.3)
-    ALB->>UP: Forward request (HTTP, Service Connect)
-    UP->>IDP: Initiate OIDC auth flow (HTTP, Service Connect)
+    ALB->>UP: Forward request (HTTPS)
+    UP->>IDP: Initiate OIDC auth flow (HTTPS, Service Connect)
     IDP->>DB: Load user record / session (TLS)
     B->>UP: Submit credentials (username + password)
-    UP->>IDP: Validate credentials (HTTP, Service Connect)
+    UP->>IDP: Validate credentials (HTTPS, Service Connect)
     IDP->>DB: Verify credential hash (TLS)
     B->>UP: Submit MFA factor (TOTP / WebAuthn)
-    UP->>IDP: Verify MFA factor (HTTP, Service Connect)
+    UP->>IDP: Verify MFA factor (HTTPS, Service Connect)
     Note over UP,IDP: MFA verified — OIDC session complete
     IDP->>UP: Issue authorization code
     UP->>B: 302 redirect → RP callback?code=…&state=…
     B->>RP: GET /callback?code=…&state=…
-    RP->>IDP: POST /token — code + code_verifier (back-channel, TLS)
+    RP->>ALB: POST /oauth/v2/token — code + code_verifier (back-channel, TLS)
+    ALB->>UP: Forward token request (HTTPS)
+    UP->>IDP: Proxy token request (HTTPS, Service Connect)
     IDP->>IDP: Verify SHA-256(code_verifier) == code_challenge
-    IDP->>RP: id_token + access_token + refresh_token
+    IDP->>UP: id_token + access_token + refresh_token
+    UP->>ALB: Proxy token response
+    ALB->>RP: Return token response (TLS)
     RP->>B: Session established — serve protected resource
 ```
 
@@ -194,7 +203,7 @@ sequenceDiagram
 ### 5.2 Audit Event Flow
 
 ```
-1. Lambda (every 5 min)   ──►  Zitadel Admin API (internal)
+1. Lambda (every 5 min)   ──►  Internal ALB (HTTPS)  ──►  Zitadel Admin API
 2. Lambda                 ──►  S3: idp-event-exporter-{env}  (JSON records)
 3. Lambda CloudWatch logs ──►  Subscription filter
 4. Subscription filter    ──►  alarms-slack Lambda  ──►  Slack
@@ -205,8 +214,8 @@ Security-relevant events (admin membership changes, `user.locked`) trigger Slack
 ### 5.3 Privileged / Administrative Flow
 
 ```
-1. Admin  ──►  ALB / User Portal (same path as end users, phishing-resistant MFA required)
-2. Admin  ──►  Zitadel Admin Console (via browser, organisation-admin PAT)
+1. Admin  ──►  Public ALB / User Portal (same path as end users, phishing-resistant MFA required)
+2. Admin  ──►  Client VPN (federated authentication)  ──►  Internal ALB  ──►  Zitadel console / API
 3. CI/CD  ──►  GitHub Actions OIDC role  ──►  Terraform / ECR / ECS
 ```
 
@@ -244,7 +253,7 @@ No static AWS credentials are used in CI/CD. All infrastructure changes flow thr
 
 | Area | Mechanism |
 |---|---|
-| Network perimeter | AWS Shield Advanced, WAFv2 (Bot Control, rate limiting, geo restriction), Security Groups, NACLs |
+| Network perimeter | AWS Shield Advanced, WAFv2 (Bot Control, rate limiting, geo restriction), Security Groups, NACL, Client VPN |
 | Authentication | Phishing-resistant MFA required for all human users (TOTP + WebAuthn/FIDO2) |
 | Authorisation | Zitadel OIDC protocol; User Portal route guards; AWS IAM least-privilege task roles |
 | Secrets management | SSM Parameter Store (KMS SecureString); no secrets in environment variables or source code |

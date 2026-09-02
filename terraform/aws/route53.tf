@@ -15,6 +15,18 @@ resource "aws_route53_record" "idp_A" {
   }
 }
 
+resource "aws_route53_record" "idp_internal_A" {
+  zone_id = aws_route53_zone.idp.zone_id
+  name    = "idp.${var.domain}"
+  type    = "A"
+
+  alias {
+    name                   = aws_lb.idp_internal.dns_name
+    zone_id                = aws_lb.idp_internal.zone_id
+    evaluate_target_health = true
+  }
+}
+
 # SES verification
 resource "aws_route53_record" "idp_verification_TXT" {
   zone_id = aws_route53_zone.idp.zone_id
@@ -64,7 +76,6 @@ module "resolver_dns" {
   allowed_domains = [
     "${var.domain}.",
     "idp.${var.domain}.",
-    "internal.${var.domain}.",
     "*.amazonaws.com.",
     "api.notification.canada.ca.",
     "idp.ecs.local."
@@ -90,44 +101,6 @@ resource "aws_route53_hosted_zone_dnssec" "idp" {
 
   count          = var.env == "staging" ? 1 : 0
   hosted_zone_id = aws_route53_key_signing_key.idp[0].hosted_zone_id
-}
-
-#
-# Internal ALB subdomain
-#
-resource "aws_route53_record" "idp_internal_A" {
-  zone_id = aws_route53_zone.idp.zone_id
-  name    = "internal.${var.domain}"
-  type    = "A"
-
-  alias {
-    name                   = aws_lb.idp_internal.dns_name
-    zone_id                = aws_lb.idp_internal.zone_id
-    evaluate_target_health = true
-  }
-}
-
-# Private zone for internal ALB
-resource "aws_route53_zone" "idp_internal" {
-  name = "internal.${var.domain}"
-
-  vpc {
-    vpc_id = module.idp_vpc.vpc_id
-  }
-
-  tags = local.common_tags
-}
-
-resource "aws_route53_record" "idp_internal_A_private" {
-  zone_id = aws_route53_zone.idp_internal.zone_id
-  name    = "internal.${var.domain}"
-  type    = "A"
-
-  alias {
-    name                   = aws_lb.idp_internal.dns_name
-    zone_id                = aws_lb.idp_internal.zone_id
-    evaluate_target_health = true
-  }
 }
 
 resource "aws_route53_zone" "idp_private" {
