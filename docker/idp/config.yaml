@@ -67,7 +67,3 @@ Restrictions:
 
 ServicePing:
   Enabled: false
-
-SystemAPIUsers:
-  - system-user:
-      Path: /app/users/system-user.pub
