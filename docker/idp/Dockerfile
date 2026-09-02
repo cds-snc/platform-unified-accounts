@@ -4,6 +4,3 @@ FROM ghcr.io/zitadel/zitadel:v4.17.1@sha256:3ac6910685d48f32481f01f45e3e6215efe5
 
 # Add custom configuration
 COPY --chown=zitadel:zitadel ./*.yaml /app/
-
-# Add system user public key
-COPY --chown=zitadel:zitadel ./system-user.pub /app/users/system-user.pub
