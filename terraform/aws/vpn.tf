@@ -3,7 +3,7 @@
 # access to Zitadel console and other resources in the private subnets of the VPC.
 #
 module "client_vpn" {
-  source = "github.com/cds-snc/terraform-modules//client_vpn?ref=v11.4.5"
+  source = "github.com/cds-snc/terraform-modules//client_vpn?ref=v11.4.6"
 
   endpoint_name         = "private-subnets"
   access_group_id       = var.client_vpn_access_group_id
@@ -15,6 +15,7 @@ module "client_vpn" {
   subnet_cidr_blocks  = module.idp_vpc.private_subnet_cidr_blocks
   subnet_ids          = module.idp_vpc.private_subnet_ids
   acm_certificate_arn = aws_acm_certificate.client_vpn.arn
+  add_dns_servers     = false
 
   # Only create a self-service portal in prod  
   # The client config can still be downloaded from the AWS console
