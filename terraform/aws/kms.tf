@@ -97,6 +97,29 @@ data "aws_iam_policy_document" "kms_sqs_dlq" {
       identifiers = ["arn:aws:iam::${var.account_id}:root"]
     }
   }
+
+  statement {
+    sid    = "AllowEventBridgeToUseTheKey"
+    effect = "Allow"
+    actions = [
+      "kms:GenerateDataKey",
+      "kms:Decrypt",
+    ]
+    resources = ["*"]
+
+    principals {
+      type        = "Service"
+      identifiers = ["events.amazonaws.com"]
+    }
+
+    condition {
+      test     = "ArnEquals"
+      variable = "aws:SourceArn"
+      values = [
+        aws_cloudwatch_event_rule.idp_cleanup_users_sqs.arn,
+      ]
+    }
+  }
 }
 
 #
