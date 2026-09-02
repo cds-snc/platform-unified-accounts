@@ -82,12 +82,15 @@ resource "aws_sqs_queue" "idp_cleanup_users_event_queue" {
   kms_master_key_id         = aws_kms_key.sqs_dlq.arn
   message_retention_seconds = 1209600 # 14 days
 
+  tags = local.core_tags
+}
+
+resource "aws_sqs_queue_redrive_policy" "idp_cleanup_users_event_queue" {
+  queue_url = aws_sqs_queue.idp_cleanup_users_event_queue.id
   redrive_policy = jsonencode({
     deadLetterTargetArn = aws_sqs_queue.idp_event_cleanup_users_queue.arn
     maxReceiveCount     = 3
   })
-
-  tags = local.core_tags
 }
 
 data "aws_iam_policy_document" "idp_cleanup_users_event_queue_policy" {
