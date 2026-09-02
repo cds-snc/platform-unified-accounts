@@ -77,3 +77,52 @@ data "aws_iam_policy_document" "idp_cleanup_users_sqs" {
     resources = [aws_kms_key.sqs_dlq.arn]
   }
 }
+resource "aws_sqs_queue" "idp_cleanup_users_event_queue" {
+  name                      = "idp-cleanup-users-event-queue"
+  kms_master_key_id         = aws_kms_key.sqs_dlq.arn
+  message_retention_seconds = 1209600 # 14 days
+
+  redrive_policy = jsonencode({
+    deadLetterTargetArn = aws_sqs_queue.idp_event_cleanup_users_queue.arn
+    maxReceiveCount     = 3
+  })
+
+  tags = local.core_tags
+}
+
+data "aws_iam_policy_document" "idp_cleanup_users_event_queue_policy" {
+  statement {
+    effect = "Allow"
+    principals {
+      type        = "Service"
+      identifiers = ["events.amazonaws.com"]
+    }
+    actions   = ["sqs:SendMessage"]
+    resources = [aws_sqs_queue.idp_cleanup_users_event_queue.arn]
+
+    condition {
+      test     = "ArnEquals"
+      variable = "aws:SourceArn"
+      values   = [aws_cloudwatch_event_rule.idp_cleanup_users_sqs.arn]
+    }
+  }
+}
+
+resource "aws_sqs_queue_policy" "idp_cleanup_users_event_queue_policy" {
+  queue_url = aws_sqs_queue.idp_cleanup_users_event_queue.id
+  policy    = data.aws_iam_policy_document.idp_cleanup_users_event_queue_policy.json
+}
+
+resource "aws_cloudwatch_event_rule" "idp_cleanup_users_sqs" {
+  name                = "idp-cleanup-users-sqs-schedule"
+  description         = "Triggers the idp-cleanup-users event queue on a schedule"
+  schedule_expression = "cron(0 0 * * ? *)"
+  state               = "DISABLED"
+  tags                = local.core_tags
+}
+
+resource "aws_cloudwatch_event_target" "idp_cleanup_users_sqs" {
+  rule      = aws_cloudwatch_event_rule.idp_cleanup_users_sqs.name
+  target_id = "idp-cleanup-users-sqs"
+  arn       = aws_sqs_queue.idp_cleanup_users_event_queue.arn
+}
