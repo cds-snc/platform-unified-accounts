@@ -130,10 +130,10 @@ resource "aws_cloudwatch_event_target" "idp_cleanup_users_sqs" {
   arn       = aws_sqs_queue.idp_event_cleanup_users.arn
 }
 
-module "idp_cleanup_users_worker_lambda" {
+module "idp_cleanup_users" {
   source = "github.com/cds-snc/terraform-modules//lambda?ref=v11.4.5"
 
-  name      = "idp-cleanup-users-worker"
+  name      = "idp-cleanup-users-lambda"
   image_uri = "${aws_ecr_repository.repo["idp-cleanup-users"].repository_url}:latest"
   ecr_arn   = aws_ecr_repository.repo["idp-cleanup-users"].arn
 
@@ -155,13 +155,13 @@ module "idp_cleanup_users_worker_lambda" {
 
   policies = [
     data.aws_iam_policy_document.idp_cleanup_users_get_ssm_parameters.json,
-    data.aws_iam_policy_document.idp_cleanup_users_worker_sqs.json
+    data.aws_iam_policy_document.idp_cleanup_users_worker.json
   ]
 
   billing_tag_value = var.billing_tag_value
 }
 
-data "aws_iam_policy_document" "idp_cleanup_users_worker_sqs" {
+data "aws_iam_policy_document" "idp_cleanup_users_worker" {
   statement {
     effect = "Allow"
     actions = [
@@ -179,8 +179,8 @@ data "aws_iam_policy_document" "idp_cleanup_users_worker_sqs" {
   }
 }
 
-resource "aws_lambda_event_source_mapping" "idp_cleanup_users_worker" {
+resource "aws_lambda_event_source_mapping" "idp_cleanup_users" {
   event_source_arn = aws_sqs_queue.idp_event_cleanup_users.arn
-  function_name    = module.idp_cleanup_users_worker_lambda.function_name
+  function_name    = module.idp_cleanup_users.lambda_function_name
   batch_size       = 1
 }
