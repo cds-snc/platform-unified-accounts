@@ -75,6 +75,10 @@ resource "aws_cloudwatch_event_target" "idp_cleanup_users_sqs" {
   arn       = aws_sqs_queue.idp_event_cleanup_users.arn
 }
 
+locals {
+  idp_cleanup_users_lambda_log_group_name = "/aws/lambda/${module.idp_cleanup_users.function_name}"
+}
+
 module "idp_cleanup_users" {
   source = "github.com/cds-snc/terraform-modules//lambda?ref=v11.4.5"
 

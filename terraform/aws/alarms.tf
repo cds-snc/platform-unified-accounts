@@ -87,7 +87,7 @@ locals {
     idp_cleanup_users = {
       error_filters  = local.idp_cleanup_users_error_filters
       pattern        = local.idp_cleanup_users_error_metric_pattern
-      log_group_name = module.idp_cleanup_users_lambda.lambda_function_cloudwatch_log_group_name
+      log_group_name = local.idp_cleanup_users_lambda_log_group_name
     }
     idp_event_exporter = {
       error_filters  = local.idp_event_exporter_error_filters
@@ -101,7 +101,7 @@ locals {
       name = module.alarms_slack.function_name
     }
     idp_cleanup_users = {
-      name = module.idp_cleanup_users_lambda.lambda_function_name
+      name = module.idp_cleanup_users.function_name
     }
     idp_event_exporter = {
       name = module.idp_event_exporter_lambda.lambda_function_name
