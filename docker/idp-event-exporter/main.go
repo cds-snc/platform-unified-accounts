@@ -292,7 +292,44 @@ type response struct {
 	WindowEnd   string `json:"window_end"`
 }
 
-func handler(ctx context.Context) (response, error) {
+type scheduledEvent struct {
+    Time time.Time `json:"time"`
+}
+
+type sqsRedriveRecord struct {
+    Body string `json:"body"`
+}
+
+type sqsRedriveEvent struct {
+    Records []sqsRedriveRecord `json:"Records"`
+}
+
+type lambdaFailureRecord struct {
+    RequestPayload json.RawMessage `json:"requestPayload"`
+}
+
+func extractTriggerTime(payload json.RawMessage) time.Time {
+    var sqsEvent sqsRedriveEvent
+    if err := json.Unmarshal(payload, &sqsEvent); err == nil && len(sqsEvent.Records) > 0 {
+        var record lambdaFailureRecord
+        if err := json.Unmarshal([]byte(sqsEvent.Records[0].Body), &record); err == nil {
+            var scheduled scheduledEvent
+            if err := json.Unmarshal(record.RequestPayload, &scheduled); err == nil && !scheduled.Time.IsZero() {
+                log.Printf("SQS redrive: using original trigger time %s", scheduled.Time.Format(time.RFC3339))
+                return scheduled.Time.UTC()
+            }
+        }
+    }
+
+    var scheduled scheduledEvent
+    if err := json.Unmarshal(payload, &scheduled); err == nil && !scheduled.Time.IsZero() {
+        return scheduled.Time.UTC()
+    }
+
+    return time.Now().UTC()
+}
+
+func handler(ctx context.Context, payload json.RawMessage) (response, error) {
 	if initErr != nil {
 		return response{}, initErr
 	}
@@ -318,8 +355,7 @@ func handler(ctx context.Context) (response, error) {
 	}
 	ctx = zitadelclient.BearerTokenCtx(ctx, token)
 
-	now := time.Now().UTC()
-	windowStart, windowEnd := computeWindow(now, windowMinutes)
+	windowStart, windowEnd := computeWindow(extractTriggerTime(payload), windowMinutes)
 	log.Printf("Starting event export: window=[%s, %s) window_minutes=%d",
 		windowStart.Format(time.RFC3339), windowEnd.Format(time.RFC3339), windowMinutes)
 
@@ -358,7 +394,7 @@ func main() {
 	isLocal := os.Getenv("LOCAL") == "true"
 	if isLocal {
 		log.Println("Running locally, invoking handler directly")
-		response, err := handler(context.Background())
+		response, err := handler(context.Background(), json.RawMessage(`{}`))
 		if err != nil {
 			log.Fatalf("Handler error: %v", err)
 		}
