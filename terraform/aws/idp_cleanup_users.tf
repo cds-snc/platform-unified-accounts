@@ -130,11 +130,6 @@ resource "aws_cloudwatch_event_target" "idp_cleanup_users_sqs" {
   arn       = aws_sqs_queue.idp_event_cleanup_users.arn
 }
 
-/*
- * Lambda function that consumes cleanup-users events from the SQS event queue.
- * Runs alongside the existing scheduled Lambda (idp_cleanup_users_lambda) for now;
- * the CloudWatch event rule that feeds the queue is currently DISABLED.
- */
 module "idp_cleanup_users_worker_lambda" {
   source = "github.com/cds-snc/terraform-modules//lambda?ref=v11.4.5"
 
