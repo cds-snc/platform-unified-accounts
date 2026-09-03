@@ -252,17 +252,10 @@ func deleteUser(ctx context.Context, svc userService, userID string) error {
 // Lambda entry point
 // ---------------------------------------------------------------------------
 
-// eventBridgeEvent is the subset of an EventBridge scheduled event delivered
-// as the body of each SQS message consumed by this function.
 type eventBridgeEvent struct {
 	Time time.Time `json:"time"`
 }
 
-// eventTime extracts the reference time to use as "now" for this invocation
-// from the SQS event: the time the triggering EventBridge scheduled event
-// was generated. Using the event's own timestamp instead of the Lambda's
-// wall-clock execution time keeps the inactivity threshold stable regardless
-// of invocation or SQS retry delays.
 func eventTime(sqsEvent events.SQSEvent) (time.Time, error) {
 	if len(sqsEvent.Records) == 0 {
 		return time.Time{}, fmt.Errorf("no SQS records in event")
