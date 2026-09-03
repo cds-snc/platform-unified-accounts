@@ -181,6 +181,6 @@ data "aws_iam_policy_document" "idp_cleanup_users_worker" {
 
 resource "aws_lambda_event_source_mapping" "idp_cleanup_users" {
   event_source_arn = aws_sqs_queue.idp_event_cleanup_users.arn
-  function_name    = module.idp_cleanup_users.lambda_function_name
+  function_name    = module.idp_cleanup_users.function_name
   batch_size       = 1
 }
