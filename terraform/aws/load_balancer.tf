@@ -219,9 +219,8 @@ resource "aws_alb_listener_rule" "idp_internal_protocol_version" {
   condition {
     path_pattern {
       values = [
-        "/oidc/v1/userinfo",
-        "/oauth/v2/keys",
-        "/oauth/v2/token",
+        "/oidc/*",
+        "/oauth/*",
         "/.well-known/openid-configuration"
       ]
     }
