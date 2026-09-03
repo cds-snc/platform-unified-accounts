@@ -65,7 +65,7 @@ resource "aws_cloudwatch_event_rule" "idp_cleanup_users_sqs" {
   name                = "idp-cleanup-users-sqs-schedule"
   description         = "Triggers the idp-cleanup-users event queue on a schedule"
   schedule_expression = "cron(0 0 * * ? *)"
-  state               = "DISABLED"
+  state               = "ENABLED"
   tags                = local.core_tags
 }
 
