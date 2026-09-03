@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"log"
@@ -10,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aws/aws-lambda-go/events"
 	objectv2 "github.com/zitadel/zitadel-go/v3/pkg/client/zitadel/object/v2"
 	userv2 "github.com/zitadel/zitadel-go/v3/pkg/client/zitadel/user/v2"
 	"google.golang.org/grpc"
@@ -527,6 +529,73 @@ func TestProcessUsers_ExactlyAtThresholdIsKept(t *testing.T) {
 	}
 	if resp.UsersDeleted != 0 {
 		t.Errorf("deleted: got %d, want 0 (exactly at threshold should be kept)", resp.UsersDeleted)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// eventTime
+// ---------------------------------------------------------------------------
+
+func sqsEventWithBody(body string) events.SQSEvent {
+	return events.SQSEvent{Records: []events.SQSMessage{{Body: body}}}
+}
+
+func TestEventTime_Valid(t *testing.T) {
+	want := time.Date(2026, 9, 3, 0, 0, 0, 0, time.UTC)
+	body, err := json.Marshal(eventBridgeEvent{Time: want})
+	if err != nil {
+		t.Fatalf("failed to marshal test event: %v", err)
+	}
+
+	got, err := eventTime(sqsEventWithBody(string(body)))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !got.Equal(want) {
+		t.Errorf("got %s, want %s", got, want)
+	}
+}
+
+func TestEventTime_MultipleRecords_UsesFirst(t *testing.T) {
+	want := time.Date(2026, 9, 3, 12, 0, 0, 0, time.UTC)
+	firstBody, err := json.Marshal(eventBridgeEvent{Time: want})
+	if err != nil {
+		t.Fatalf("failed to marshal test event: %v", err)
+	}
+	secondBody, err := json.Marshal(eventBridgeEvent{Time: want.Add(time.Hour)})
+	if err != nil {
+		t.Fatalf("failed to marshal test event: %v", err)
+	}
+
+	event := events.SQSEvent{Records: []events.SQSMessage{
+		{Body: string(firstBody)},
+		{Body: string(secondBody)},
+	}}
+
+	got, err := eventTime(event)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !got.Equal(want) {
+		t.Errorf("got %s, want %s (should use first record)", got, want)
+	}
+}
+
+func TestEventTime_NoRecords(t *testing.T) {
+	if _, err := eventTime(events.SQSEvent{}); err == nil {
+		t.Fatal("expected error for empty event, got nil")
+	}
+}
+
+func TestEventTime_InvalidJSON(t *testing.T) {
+	if _, err := eventTime(sqsEventWithBody("not-json")); err == nil {
+		t.Fatal("expected error for invalid JSON body, got nil")
+	}
+}
+
+func TestEventTime_MissingTime(t *testing.T) {
+	if _, err := eventTime(sqsEventWithBody("{}")); err == nil {
+		t.Fatal("expected error for missing time field, got nil")
 	}
 }
 

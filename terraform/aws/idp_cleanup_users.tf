@@ -80,7 +80,7 @@ locals {
 }
 
 module "idp_cleanup_users" {
-  source = "github.com/cds-snc/terraform-modules//lambda?ref=v11.4.5"
+  source = "github.com/cds-snc/terraform-modules//lambda?ref=v11.4.7"
 
   name      = "idp-cleanup-users"
   image_uri = "${aws_ecr_repository.repo["idp-cleanup-users"].repository_url}:latest"

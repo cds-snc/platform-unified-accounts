@@ -23,6 +23,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -30,6 +31,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -250,6 +252,35 @@ func deleteUser(ctx context.Context, svc userService, userID string) error {
 // Lambda entry point
 // ---------------------------------------------------------------------------
 
+// eventBridgeEvent is the subset of an EventBridge scheduled event delivered
+// as the body of each SQS message consumed by this function.
+type eventBridgeEvent struct {
+	Time time.Time `json:"time"`
+}
+
+// eventTime extracts the reference time to use as "now" for this invocation
+// from the SQS event: the time the triggering EventBridge scheduled event
+// was generated. Using the event's own timestamp instead of the Lambda's
+// wall-clock execution time keeps the inactivity threshold stable regardless
+// of invocation or SQS retry delays.
+func eventTime(sqsEvent events.SQSEvent) (time.Time, error) {
+	if len(sqsEvent.Records) == 0 {
+		return time.Time{}, fmt.Errorf("no SQS records in event")
+	}
+	if len(sqsEvent.Records) > 1 {
+		log.Printf("Received %d SQS records, expected 1; using the first", len(sqsEvent.Records))
+	}
+
+	var eb eventBridgeEvent
+	if err := json.Unmarshal([]byte(sqsEvent.Records[0].Body), &eb); err != nil {
+		return time.Time{}, fmt.Errorf("parsing EventBridge event from SQS message body: %w", err)
+	}
+	if eb.Time.IsZero() {
+		return time.Time{}, fmt.Errorf("EventBridge event missing time field")
+	}
+	return eb.Time.UTC(), nil
+}
+
 type response struct {
 	StatusCode   int      `json:"statusCode"`
 	UsersChecked int      `json:"users_checked"`
@@ -258,6 +289,7 @@ type response struct {
 	DeletedUsers []string `json:"deleted_users,omitempty"`
 	InactiveDays int      `json:"inactive_days"`
 	DryRun       bool     `json:"dry_run"`
+	EventTime    string   `json:"event_time"`
 	Threshold    string   `json:"threshold"`
 }
 
@@ -306,9 +338,14 @@ func processUsers(ctx context.Context, svc userService, users []*userv2.User, th
 	return resp, nil
 }
 
-func handler(ctx context.Context) (response, error) {
+func handler(ctx context.Context, sqsEvent events.SQSEvent) (response, error) {
 	if initErr != nil {
 		return response{}, initErr
+	}
+
+	now, err := eventTime(sqsEvent)
+	if err != nil {
+		return response{}, fmt.Errorf("determining event time: %w", err)
 	}
 
 	zitadelAPIClient, err := zitadelclient.New(
@@ -332,10 +369,9 @@ func handler(ctx context.Context) (response, error) {
 	}
 	ctx = zitadelclient.BearerTokenCtx(ctx, token)
 
-	now := time.Now().UTC()
 	threshold := now.AddDate(0, 0, -inactiveDays)
-	log.Printf("Starting incomplete registration sweep: inactive_days=%d threshold=%s dry_run=%t",
-		inactiveDays, threshold.Format(time.RFC3339), dryRun)
+	log.Printf("Starting incomplete registration sweep: inactive_days=%d event_time=%s threshold=%s dry_run=%t",
+		inactiveDays, now.Format(time.RFC3339), threshold.Format(time.RFC3339), dryRun)
 
 	svc := zitadelAPIClient.UserServiceV2()
 
@@ -348,6 +384,7 @@ func handler(ctx context.Context) (response, error) {
 	if err != nil {
 		return response{}, err
 	}
+	result.EventTime = now.Format(time.RFC3339)
 	log.Printf("Incomplete registration sweep finished: checked=%d deleted=%d skipped=%d dry_run=%t",
 		result.UsersChecked, result.UsersDeleted, result.UsersSkipped, result.DryRun)
 	return result, nil
@@ -357,7 +394,12 @@ func main() {
 	isLocal := os.Getenv("LOCAL") == "true"
 	if isLocal {
 		log.Println("Running locally, invoking handler directly")
-		response, err := handler(context.Background())
+		body, err := json.Marshal(eventBridgeEvent{Time: time.Now().UTC()})
+		if err != nil {
+			log.Fatalf("Failed to build local invocation event: %v", err)
+		}
+		event := events.SQSEvent{Records: []events.SQSMessage{{Body: string(body)}}}
+		response, err := handler(context.Background(), event)
 		if err != nil {
 			log.Fatalf("Handler error: %v", err)
 		}
