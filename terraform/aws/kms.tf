@@ -117,6 +117,7 @@ data "aws_iam_policy_document" "kms_sqs_dlq" {
       variable = "aws:SourceArn"
       values = [
         aws_cloudwatch_event_rule.idp_cleanup_users_sqs.arn,
+        aws_cloudwatch_event_rule.idp_event_exporter_sqs.arn,
       ]
     }
   }

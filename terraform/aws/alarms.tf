@@ -478,7 +478,7 @@ resource "aws_cloudwatch_metric_alarm" "idp_event_exporter_dlq_messages" {
   ok_actions    = [aws_sns_topic.cloudwatch_alert_ok.arn]
 
   dimensions = {
-    QueueName = aws_sqs_queue.idp_event_exporter_queue.name
+    QueueName = aws_sqs_queue.idp_event_exporter_dlq_queue.name
 
   }
 

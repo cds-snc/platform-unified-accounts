@@ -153,7 +153,7 @@ resource "aws_lambda_function_event_invoke_config" "idp_event_exporter" {
   maximum_event_age_in_seconds = 300 # Maximum age of the event before it is discarded (in seconds)
   destination_config {
     on_failure {
-      destination = aws_sqs_queue.idp_event_exporter_queue.arn
+      destination = aws_sqs_queue.idp_event_exporter_dlq_queue.arn
     }
   }
 }
@@ -162,7 +162,7 @@ data "aws_iam_policy_document" "idp_event_exporter_sqs" {
   statement {
     effect    = "Allow"
     actions   = ["sqs:SendMessage"]
-    resources = [aws_sqs_queue.idp_event_exporter_queue.arn]
+    resources = [aws_sqs_queue.idp_event_exporter_dlq_queue.arn]
   }
 
   statement {
@@ -170,4 +170,57 @@ data "aws_iam_policy_document" "idp_event_exporter_sqs" {
     actions   = ["kms:GenerateDataKey", "kms:Decrypt"]
     resources = [aws_kms_key.sqs_dlq.arn]
   }
+}
+
+resource "aws_sqs_queue" "idp_event_exporter" {
+  name                      = "idp-event-exporter"
+  kms_master_key_id         = aws_kms_key.sqs_dlq.arn
+  message_retention_seconds = 1209600 # 14 days
+
+  tags = local.core_tags
+}
+
+resource "aws_sqs_queue_redrive_policy" "idp_event_exporter" {
+  queue_url = aws_sqs_queue.idp_event_exporter.id
+  redrive_policy = jsonencode({
+    deadLetterTargetArn = aws_sqs_queue.idp_event_exporter_dlq_queue.arn
+    maxReceiveCount     = 3
+  })
+}
+
+data "aws_iam_policy_document" "idp_event_exporter" {
+  statement {
+    effect = "Allow"
+    principals {
+      type        = "Service"
+      identifiers = ["events.amazonaws.com"]
+    }
+    actions   = ["sqs:SendMessage"]
+    resources = [aws_sqs_queue.idp_event_exporter.arn]
+
+    condition {
+      test     = "ArnEquals"
+      variable = "aws:SourceArn"
+      values   = [aws_cloudwatch_event_rule.idp_event_exporter_sqs.arn]
+    }
+  }
+}
+
+resource "aws_sqs_queue_policy" "idp_event_exporter" {
+  queue_url = aws_sqs_queue.idp_event_exporter.id
+  policy    = data.aws_iam_policy_document.idp_event_exporter.json
+}
+
+resource "aws_cloudwatch_event_rule" "idp_event_exporter_sqs" {
+  name                = "idp-event-exporter-sqs-schedule"
+  description         = "Triggers the idp-event-exporter event queue on a schedule"
+  schedule_expression = "cron(0/${local.event_window_minutes} * * * ? *)"
+  state               = "DISABLED"
+  tags                = local.core_tags
+}
+
+resource "aws_cloudwatch_event_target" "idp_event_exporter_sqs" {
+  rule      = aws_cloudwatch_event_rule.idp_event_exporter_sqs.name
+  target_id = "idp-event-exporter-sqs"
+  arn       = aws_sqs_queue.idp_event_exporter.arn
 }
