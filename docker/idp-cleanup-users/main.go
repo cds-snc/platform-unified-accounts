@@ -23,6 +23,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -30,6 +31,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -250,6 +252,21 @@ func deleteUser(ctx context.Context, svc userService, userID string) error {
 // Lambda entry point
 // ---------------------------------------------------------------------------
 
+type eventBridgeEvent struct {
+	Time time.Time `json:"time"`
+}
+
+func recordEventTime(record events.SQSMessage) (time.Time, error) {
+	var eb eventBridgeEvent
+	if err := json.Unmarshal([]byte(record.Body), &eb); err != nil {
+		return time.Time{}, fmt.Errorf("parsing EventBridge event from SQS message body: %w", err)
+	}
+	if eb.Time.IsZero() {
+		return time.Time{}, fmt.Errorf("EventBridge event missing time field")
+	}
+	return eb.Time.UTC(), nil
+}
+
 type response struct {
 	StatusCode   int      `json:"statusCode"`
 	UsersChecked int      `json:"users_checked"`
@@ -258,6 +275,7 @@ type response struct {
 	DeletedUsers []string `json:"deleted_users,omitempty"`
 	InactiveDays int      `json:"inactive_days"`
 	DryRun       bool     `json:"dry_run"`
+	EventTime    string   `json:"event_time"`
 	Threshold    string   `json:"threshold"`
 }
 
@@ -306,9 +324,12 @@ func processUsers(ctx context.Context, svc userService, users []*userv2.User, th
 	return resp, nil
 }
 
-func handler(ctx context.Context) (response, error) {
+func handler(ctx context.Context, sqsEvent events.SQSEvent) (response, error) {
 	if initErr != nil {
 		return response{}, initErr
+	}
+	if len(sqsEvent.Records) == 0 {
+		return response{}, fmt.Errorf("no SQS records in event")
 	}
 
 	zitadelAPIClient, err := zitadelclient.New(
@@ -332,11 +353,6 @@ func handler(ctx context.Context) (response, error) {
 	}
 	ctx = zitadelclient.BearerTokenCtx(ctx, token)
 
-	now := time.Now().UTC()
-	threshold := now.AddDate(0, 0, -inactiveDays)
-	log.Printf("Starting incomplete registration sweep: inactive_days=%d threshold=%s dry_run=%t",
-		inactiveDays, threshold.Format(time.RFC3339), dryRun)
-
 	svc := zitadelAPIClient.UserServiceV2()
 
 	users, err := listActiveUsers(ctx, svc, pageLimit)
@@ -344,10 +360,37 @@ func handler(ctx context.Context) (response, error) {
 		return response{}, fmt.Errorf("listing active users: %w", err)
 	}
 
-	result, err := processUsers(ctx, svc, users, threshold, dryRun)
-	if err != nil {
-		return response{}, err
+	// SQS may deliver more than one message per invocation (e.g. several
+	// messages redriven from the DLQ at once). Each message carries its own
+	// EventBridge timestamp, so every record is processed with its own
+	// threshold rather than assuming a single record per invocation.
+	result := response{
+		StatusCode:   200,
+		InactiveDays: inactiveDays,
+		DryRun:       dryRun,
 	}
+	for i, record := range sqsEvent.Records {
+		now, err := recordEventTime(record)
+		if err != nil {
+			return response{}, fmt.Errorf("determining event time for SQS record %d: %w", i, err)
+		}
+
+		threshold := now.AddDate(0, 0, -inactiveDays)
+		log.Printf("Starting incomplete registration sweep for SQS record %d/%d: inactive_days=%d event_time=%s threshold=%s dry_run=%t",
+			i+1, len(sqsEvent.Records), inactiveDays, now.Format(time.RFC3339), threshold.Format(time.RFC3339), dryRun)
+
+		recordResult, err := processUsers(ctx, svc, users, threshold, dryRun)
+		if err != nil {
+			return response{}, err
+		}
+		result.UsersChecked += recordResult.UsersChecked
+		result.UsersDeleted += recordResult.UsersDeleted
+		result.UsersSkipped += recordResult.UsersSkipped
+		result.DeletedUsers = append(result.DeletedUsers, recordResult.DeletedUsers...)
+		result.EventTime = now.Format(time.RFC3339)
+		result.Threshold = threshold.Format(time.RFC3339)
+	}
+
 	log.Printf("Incomplete registration sweep finished: checked=%d deleted=%d skipped=%d dry_run=%t",
 		result.UsersChecked, result.UsersDeleted, result.UsersSkipped, result.DryRun)
 	return result, nil
@@ -357,7 +400,12 @@ func main() {
 	isLocal := os.Getenv("LOCAL") == "true"
 	if isLocal {
 		log.Println("Running locally, invoking handler directly")
-		response, err := handler(context.Background())
+		body, err := json.Marshal(eventBridgeEvent{Time: time.Now().UTC()})
+		if err != nil {
+			log.Fatalf("Failed to build local invocation event: %v", err)
+		}
+		event := events.SQSEvent{Records: []events.SQSMessage{{Body: string(body)}}}
+		response, err := handler(context.Background(), event)
 		if err != nil {
 			log.Fatalf("Handler error: %v", err)
 		}
