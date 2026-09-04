@@ -87,7 +87,7 @@ locals {
     idp_cleanup_users = {
       error_filters  = local.idp_cleanup_users_error_filters
       pattern        = local.idp_cleanup_users_error_metric_pattern
-      log_group_name = local.idp_cleanup_users_lambda_log_group_name
+      log_group_name = module.idp_cleanup_users.cloudwatch_log_group_name
     }
     idp_event_exporter = {
       error_filters  = local.idp_event_exporter_error_filters

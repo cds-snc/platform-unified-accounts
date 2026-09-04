@@ -533,21 +533,21 @@ func TestProcessUsers_ExactlyAtThresholdIsKept(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// eventTime
+// recordEventTime
 // ---------------------------------------------------------------------------
 
-func sqsEventWithBody(body string) events.SQSEvent {
-	return events.SQSEvent{Records: []events.SQSMessage{{Body: body}}}
+func sqsMessageWithBody(body string) events.SQSMessage {
+	return events.SQSMessage{Body: body}
 }
 
-func TestEventTime_Valid(t *testing.T) {
+func TestRecordEventTime_Valid(t *testing.T) {
 	want := time.Date(2026, 9, 3, 0, 0, 0, 0, time.UTC)
 	body, err := json.Marshal(eventBridgeEvent{Time: want})
 	if err != nil {
 		t.Fatalf("failed to marshal test event: %v", err)
 	}
 
-	got, err := eventTime(sqsEventWithBody(string(body)))
+	got, err := recordEventTime(sqsMessageWithBody(string(body)))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -556,13 +556,15 @@ func TestEventTime_Valid(t *testing.T) {
 	}
 }
 
-func TestEventTime_MultipleRecords_UsesFirst(t *testing.T) {
-	want := time.Date(2026, 9, 3, 12, 0, 0, 0, time.UTC)
-	firstBody, err := json.Marshal(eventBridgeEvent{Time: want})
+func TestRecordEventTime_MultipleRecords_ExtractsEach(t *testing.T) {
+	first := time.Date(2026, 9, 3, 12, 0, 0, 0, time.UTC)
+	second := first.Add(time.Hour)
+
+	firstBody, err := json.Marshal(eventBridgeEvent{Time: first})
 	if err != nil {
 		t.Fatalf("failed to marshal test event: %v", err)
 	}
-	secondBody, err := json.Marshal(eventBridgeEvent{Time: want.Add(time.Hour)})
+	secondBody, err := json.Marshal(eventBridgeEvent{Time: second})
 	if err != nil {
 		t.Fatalf("failed to marshal test event: %v", err)
 	}
@@ -572,29 +574,25 @@ func TestEventTime_MultipleRecords_UsesFirst(t *testing.T) {
 		{Body: string(secondBody)},
 	}}
 
-	got, err := eventTime(event)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if !got.Equal(want) {
-		t.Errorf("got %s, want %s (should use first record)", got, want)
-	}
-}
-
-func TestEventTime_NoRecords(t *testing.T) {
-	if _, err := eventTime(events.SQSEvent{}); err == nil {
-		t.Fatal("expected error for empty event, got nil")
+	for i, want := range []time.Time{first, second} {
+		got, err := recordEventTime(event.Records[i])
+		if err != nil {
+			t.Fatalf("unexpected error for record %d: %v", i, err)
+		}
+		if !got.Equal(want) {
+			t.Errorf("record %d: got %s, want %s", i, got, want)
+		}
 	}
 }
 
-func TestEventTime_InvalidJSON(t *testing.T) {
-	if _, err := eventTime(sqsEventWithBody("not-json")); err == nil {
+func TestRecordEventTime_InvalidJSON(t *testing.T) {
+	if _, err := recordEventTime(sqsMessageWithBody("not-json")); err == nil {
 		t.Fatal("expected error for invalid JSON body, got nil")
 	}
 }
 
-func TestEventTime_MissingTime(t *testing.T) {
-	if _, err := eventTime(sqsEventWithBody("{}")); err == nil {
+func TestRecordEventTime_MissingTime(t *testing.T) {
+	if _, err := recordEventTime(sqsMessageWithBody("{}")); err == nil {
 		t.Fatal("expected error for missing time field, got nil")
 	}
 }
