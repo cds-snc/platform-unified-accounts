@@ -138,6 +138,18 @@ variable "idp_event_exporter_key_json" {
   sensitive   = true
 }
 
+variable "idp_hcaptcha_secret" {
+  description = "The hCAPTCHA secret for the IdP login app."
+  type        = string
+  sensitive   = true
+}
+
+variable "idp_hcaptcha_site_key" {
+  description = "The hCAPTCHA site key for the IdP login app."
+  type        = string
+  sensitive   = true
+}
+
 variable "idp_load_test_client_id" {
   description = "The Zitadel client ID for the IdP load test."
   type        = string
