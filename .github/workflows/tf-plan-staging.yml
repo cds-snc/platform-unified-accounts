@@ -26,6 +26,8 @@ env:
   TF_VAR_idp_database_admin_username: ${{ secrets.STAGING_IDP_DATABASE_ADMIN_USERNAME }}
   TF_VAR_idp_database_admin_password: ${{ secrets.STAGING_IDP_DATABASE_ADMIN_PASSWORD }}
   TF_VAR_idp_event_exporter_key_json: ${{ secrets.STAGING_IDP_EVENT_EXPORTER_KEY_JSON }}
+  TF_VAR_idp_hcaptcha_secret: ${{ secrets.STAGING_IDP_HCAPTCHA_SECRET }}
+  TF_VAR_idp_hcaptcha_site_key: ${{ secrets.STAGING_IDP_HCAPTCHA_SITE_KEY }}
   TF_VAR_idp_load_test_client_id: ${{ secrets.STAGING_IDP_LOAD_TEST_CLIENT_ID }}
   TF_VAR_idp_load_test_password: ${{ secrets.STAGING_IDP_LOAD_TEST_PASSWORD }}
   TF_VAR_idp_load_test_totp_secret: ${{ secrets.STAGING_IDP_LOAD_TEST_TOTP_SECRET }}
