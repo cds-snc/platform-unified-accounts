@@ -79,7 +79,7 @@ module "idp_cleanup_users" {
   source = "github.com/cds-snc/terraform-modules//lambda?ref=v11.4.7"
 
   name      = "idp-cleanup-users"
-  image_uri = "${aws_ecr_repository.repo["idp-cleanup-users"].repository_url}:latest"
+  image_uri = "${aws_ecr_repository.repo["idp-cleanup-users"].repository_url}:sha-e84bf885e465bca50d60c7697116eebe04f47dca"
   ecr_arn   = aws_ecr_repository.repo["idp-cleanup-users"].arn
 
   timeout       = 60
