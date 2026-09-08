@@ -11,6 +11,8 @@ module "pr_review" {
     aws_ssm_parameter.idp_zitadel_org.arn,
     aws_ssm_parameter.idp_notify_api_key.arn,
     aws_ssm_parameter.idp_notify_template_id.arn,
+    aws_ssm_parameter.idp_hcaptcha_secret.arn,
+    aws_ssm_parameter.idp_hcaptcha_site_key.arn,
   ]
 
   ecr_policy        = data.aws_ecr_lifecycle_policy_document.repo.json
