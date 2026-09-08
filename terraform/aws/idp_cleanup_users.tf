@@ -23,9 +23,10 @@ resource "aws_ssm_parameter" "idp_cleanup_users_key_json" {
 }
 
 resource "aws_sqs_queue" "idp_event_cleanup_users" {
-  name                      = "idp-cleanup-users"
-  kms_master_key_id         = aws_kms_key.sqs_dlq.arn
-  message_retention_seconds = 1209600 # 14 days
+  name                       = "idp-cleanup-users"
+  kms_master_key_id          = aws_kms_key.sqs_dlq.arn
+  message_retention_seconds  = 1209600 # 14 days
+  visibility_timeout_seconds = 360
 
   tags = local.core_tags
 }
