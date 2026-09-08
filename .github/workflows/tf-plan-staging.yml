@@ -26,6 +26,8 @@ env:
   TF_VAR_idp_database_admin_username: ${{ secrets.STAGING_IDP_DATABASE_ADMIN_USERNAME }}
   TF_VAR_idp_database_admin_password: ${{ secrets.STAGING_IDP_DATABASE_ADMIN_PASSWORD }}
   TF_VAR_idp_event_exporter_key_json: ${{ secrets.STAGING_IDP_EVENT_EXPORTER_KEY_JSON }}
+  TF_VAR_idp_hcaptcha_secret: ${{ secrets.STAGING_IDP_HCAPTCHA_SECRET }}
+  TF_VAR_idp_hcaptcha_site_key: ${{ secrets.STAGING_IDP_HCAPTCHA_SITE_KEY }}
   TF_VAR_idp_load_test_client_id: ${{ secrets.STAGING_IDP_LOAD_TEST_CLIENT_ID }}
   TF_VAR_idp_load_test_password: ${{ secrets.STAGING_IDP_LOAD_TEST_PASSWORD }}
   TF_VAR_idp_load_test_totp_secret: ${{ secrets.STAGING_IDP_LOAD_TEST_TOTP_SECRET }}
@@ -78,7 +80,7 @@ jobs:
           TRUFFLEHOG_CHECKSUM: 318fd1e8af68b54f4465437208582003a5948293ea401c5c67bb55f17e4e2102
 
       - name: Configure aws credentials using OIDC
-        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
+        uses: aws-actions/configure-aws-credentials@cbe3b392738ccf3f987d68400dafcf4b0624a56c # v6.2.4
         with:
           role-to-assume: arn:aws:iam::${{ vars.STAGING_AWS_ACCOUNT_ID }}:role/platform-unified-accounts-plan 
           role-session-name: TFPlan
