@@ -370,14 +370,14 @@ func handler(ctx context.Context, sqsEvent events.SQSEvent) (response, error) {
 		DryRun:       dryRun,
 	}
 	for i, record := range sqsEvent.Records {
-		now, err := recordEventTime(record)
+		eventTime, err := recordEventTime(record)
 		if err != nil {
 			return response{}, fmt.Errorf("determining event time for SQS record %d: %w", i, err)
 		}
 
-		threshold := now.AddDate(0, 0, -inactiveDays)
+		threshold := eventTime.AddDate(0, 0, -inactiveDays)
 		log.Printf("Starting incomplete registration sweep for SQS record %d/%d: inactive_days=%d event_time=%s threshold=%s dry_run=%t",
-			i+1, len(sqsEvent.Records), inactiveDays, now.Format(time.RFC3339), threshold.Format(time.RFC3339), dryRun)
+			i+1, len(sqsEvent.Records), inactiveDays, eventTime.Format(time.RFC3339), threshold.Format(time.RFC3339), dryRun)
 
 		recordResult, err := processUsers(ctx, svc, users, threshold, dryRun)
 		if err != nil {
@@ -387,7 +387,7 @@ func handler(ctx context.Context, sqsEvent events.SQSEvent) (response, error) {
 		result.UsersDeleted += recordResult.UsersDeleted
 		result.UsersSkipped += recordResult.UsersSkipped
 		result.DeletedUsers = append(result.DeletedUsers, recordResult.DeletedUsers...)
-		result.EventTime = now.Format(time.RFC3339)
+		result.EventTime = eventTime.Format(time.RFC3339)
 		result.Threshold = threshold.Format(time.RFC3339)
 	}
 
