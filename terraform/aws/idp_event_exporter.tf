@@ -173,9 +173,9 @@ data "aws_iam_policy_document" "idp_event_exporter_sqs" {
 }
 
 resource "aws_sqs_queue" "idp_event_exporter" {
-  name                      = "idp-event-exporter"
-  kms_master_key_id         = aws_kms_key.sqs_dlq.arn
-  message_retention_seconds = 1209600 # 14 days
+  name                       = "idp-event-exporter"
+  kms_master_key_id          = aws_kms_key.sqs_dlq.arn
+  message_retention_seconds  = 1209600 # 14 days
   visibility_timeout_seconds = 360
 
   tags = local.core_tags
