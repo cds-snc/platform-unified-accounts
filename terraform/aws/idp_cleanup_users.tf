@@ -88,7 +88,7 @@ module "idp_cleanup_users" {
   architectures = ["arm64"]
 
   environment_variables = {
-    INACTIVE_DAYS                = 30
+    INACTIVE_DAYS                = 1
     ZITADEL_PRIVATE_KEY_SSM_PATH = aws_ssm_parameter.idp_cleanup_users_key_json.name
     ZITADEL_URL                  = "idp.${var.domain}"
     DRY_RUN                      = "false"
