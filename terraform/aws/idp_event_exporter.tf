@@ -67,36 +67,35 @@ locals {
   event_window_minutes = 5
 }
 
-module "idp_event_exporter_lambda" {
-  source = "github.com/cds-snc/terraform-modules//lambda_schedule?ref=v11.4.5"
+module "idp_event_exporter" {
+  source = "github.com/cds-snc/terraform-modules//lambda?ref=v11.4.7"
 
-  lambda_name                = "idp-event-exporter"
-  lambda_schedule_expression = "cron(0/${local.event_window_minutes} * * * ? *)"
-  lambda_timeout             = "60"
-  lambda_architectures       = ["arm64"]
-  lambda_ecr_arn             = aws_ecr_repository.repo["idp-event-exporter"].arn
-  lambda_image_uri           = aws_ecr_repository.repo["idp-event-exporter"].repository_url
+  name      = "idp-event-exporter"
+  image_uri = "${aws_ecr_repository.repo["idp-event-exporter"].repository_url}:latest"
+  ecr_arn   = aws_ecr_repository.repo["idp-event-exporter"].arn
 
-  lambda_policies = [
-    data.aws_iam_policy_document.idp_event_exporter_get_ssm_parameters.json,
-    data.aws_iam_policy_document.idp_event_exporter_sqs.json
-  ]
+  timeout       = 60
+  memory        = 1024
+  architectures = ["arm64"]
 
-  lambda_environment_variables = {
+  environment_variables = {
     S3_BUCKET                    = module.idp_event_exporter_s3.s3_bucket_id
     ZITADEL_PRIVATE_KEY_SSM_PATH = aws_ssm_parameter.idp_event_exporter_key_json.name
     ZITADEL_URL                  = "idp.${var.domain}"
     WINDOW_MINUTES               = local.event_window_minutes
   }
 
-  lambda_vpc_config = {
+  vpc = {
     subnet_ids         = module.idp_vpc.private_subnet_ids
     security_group_ids = [aws_security_group.idp_event_exporter.id]
   }
 
-  create_ecr_repository = false
-  s3_arn_write_path     = "${module.idp_event_exporter_s3.s3_bucket_arn}/*"
-  billing_tag_value     = var.billing_tag_value
+  policies = [
+    data.aws_iam_policy_document.idp_event_exporter_get_ssm_parameters.json,
+    data.aws_iam_policy_document.idp_event_exporter_worker.json
+  ]
+
+  billing_tag_value = var.billing_tag_value
 }
 
 data "aws_iam_policy_document" "idp_event_exporter_get_ssm_parameters" {
@@ -147,31 +146,6 @@ resource "aws_athena_named_query" "idp_event_exporter_select_by_type" {
 }
 
 
-resource "aws_lambda_function_event_invoke_config" "idp_event_exporter" {
-  function_name                = module.idp_event_exporter_lambda.lambda_function_name
-  maximum_retry_attempts       = 2   # Maximum retry attempts for the Lambda function invocation
-  maximum_event_age_in_seconds = 300 # Maximum age of the event before it is discarded (in seconds)
-  destination_config {
-    on_failure {
-      destination = aws_sqs_queue.idp_event_exporter_dlq_queue.arn
-    }
-  }
-}
-
-data "aws_iam_policy_document" "idp_event_exporter_sqs" {
-  statement {
-    effect    = "Allow"
-    actions   = ["sqs:SendMessage"]
-    resources = [aws_sqs_queue.idp_event_exporter_dlq_queue.arn]
-  }
-
-  statement {
-    effect    = "Allow"
-    actions   = ["kms:GenerateDataKey", "kms:Decrypt"]
-    resources = [aws_kms_key.sqs_dlq.arn]
-  }
-}
-
 resource "aws_sqs_queue" "idp_event_exporter" {
   name                       = "idp-event-exporter"
   kms_master_key_id          = aws_kms_key.sqs_dlq.arn
@@ -216,7 +190,7 @@ resource "aws_cloudwatch_event_rule" "idp_event_exporter_sqs" {
   name                = "idp-event-exporter-sqs-schedule"
   description         = "Triggers the idp-event-exporter event queue on a schedule"
   schedule_expression = "cron(0/${local.event_window_minutes} * * * ? *)"
-  state               = "DISABLED"
+  state               = "ENABLED"
   tags                = local.core_tags
 }
 
@@ -224,4 +198,28 @@ resource "aws_cloudwatch_event_target" "idp_event_exporter_sqs" {
   rule      = aws_cloudwatch_event_rule.idp_event_exporter_sqs.name
   target_id = "idp-event-exporter-sqs"
   arn       = aws_sqs_queue.idp_event_exporter.arn
+}
+
+data "aws_iam_policy_document" "idp_event_exporter_worker" {
+  statement {
+    effect = "Allow"
+    actions = [
+      "sqs:ReceiveMessage",
+      "sqs:DeleteMessage",
+      "sqs:GetQueueAttributes",
+    ]
+    resources = [aws_sqs_queue.idp_event_exporter.arn]
+  }
+
+  statement {
+    effect    = "Allow"
+    actions   = ["kms:Decrypt"]
+    resources = [aws_kms_key.sqs_dlq.arn]
+  }
+}
+
+resource "aws_lambda_event_source_mapping" "idp_event_exporter" {
+  event_source_arn = aws_sqs_queue.idp_event_exporter.arn
+  function_name    = module.idp_event_exporter.function_name
+  batch_size       = 1
 }

@@ -24,6 +24,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -284,17 +285,36 @@ func saveToS3(ctx context.Context, bucket, key string, events []json.RawMessage)
 // Lambda entry point
 // ---------------------------------------------------------------------------
 
-type response struct {
-	StatusCode  int    `json:"statusCode"`
-	EventsCount int    `json:"events_count"`
-	S3Key       string `json:"s3_key"`
-	WindowStart string `json:"window_start"`
-	WindowEnd   string `json:"window_end"`
+type eventBridgeEvent struct {
+	Time time.Time `json:"time"`
 }
 
-func handler(ctx context.Context) (response, error) {
+func recordEventTime(record events.SQSMessage) (time.Time, error) {
+	var eb eventBridgeEvent
+	if err := json.Unmarshal([]byte(record.Body), &eb); err != nil {
+		return time.Time{}, fmt.Errorf("parsing EventBridge event from SQS message body: %w", err)
+	}
+	if eb.Time.IsZero() {
+		return time.Time{}, fmt.Errorf("EventBridge event missing time field")
+	}
+	return eb.Time.UTC(), nil
+}
+
+type response struct {
+	StatusCode  int      `json:"statusCode"`
+	EventsCount int      `json:"events_count"`
+	S3Keys      []string `json:"s3_keys,omitempty"`
+	EventTime   string   `json:"event_time"`
+	WindowStart string   `json:"window_start"`
+	WindowEnd   string   `json:"window_end"`
+}
+
+func handler(ctx context.Context, sqsEvent events.SQSEvent) (response, error) {
 	if initErr != nil {
 		return response{}, initErr
+	}
+	if len(sqsEvent.Records) == 0 {
+		return response{}, fmt.Errorf("no SQS records in event")
 	}
 
 	zitadelAPIClient, err := zitadelclient.New(
@@ -318,38 +338,46 @@ func handler(ctx context.Context) (response, error) {
 	}
 	ctx = zitadelclient.BearerTokenCtx(ctx, token)
 
-	now := time.Now().UTC()
-	windowStart, windowEnd := computeWindow(now, windowMinutes)
-	log.Printf("Starting event export: window=[%s, %s) window_minutes=%d",
-		windowStart.Format(time.RFC3339), windowEnd.Format(time.RFC3339), windowMinutes)
-
 	svc := zitadelAPIClient.AdminService()
 
-	events, err := fetchEvents(ctx, svc, windowStart, windowEnd)
-	if err != nil {
-		return response{}, fmt.Errorf("fetching events: %w", err)
-	}
 
 	result := response{
-		StatusCode:  200,
-		EventsCount: len(events),
-		WindowStart: windowStart.Format(time.RFC3339),
-		WindowEnd:   windowEnd.Format(time.RFC3339),
+		StatusCode: 200,
+	}
+	for i, record := range sqsEvent.Records {
+		eventTime, err := recordEventTime(record)
+		if err != nil {
+			return response{}, fmt.Errorf("determining event time for SQS record %d: %w", i, err)
+		}
+
+		windowStart, windowEnd := computeWindow(eventTime, windowMinutes)
+		log.Printf("Starting event export for SQS record %d/%d: window=[%s, %s) window_minutes=%d",
+			i+1, len(sqsEvent.Records), windowStart.Format(time.RFC3339), windowEnd.Format(time.RFC3339), windowMinutes)
+
+		zitadelEvents, err := fetchEvents(ctx, svc, windowStart, windowEnd)
+		if err != nil {
+			return response{}, fmt.Errorf("fetching events: %w", err)
+		}
+
+		result.EventsCount += len(zitadelEvents)
+		result.EventTime = eventTime.Format(time.RFC3339)
+		result.WindowStart = windowStart.Format(time.RFC3339)
+		result.WindowEnd = windowEnd.Format(time.RFC3339)
+
+		if len(zitadelEvents) == 0 {
+			log.Println("No events in window, skipping S3 upload")
+			continue
+		}
+
+		auditEvents(zitadelEvents, eventsTypesToAudit)
+
+		s3Key := fmt.Sprintf("events/%s.json", windowStart.Format("2006/01/02/15-04-05"))
+		if err := saveToS3(ctx, s3Bucket, s3Key, zitadelEvents); err != nil {
+			return response{}, fmt.Errorf("saving to S3: %w", err)
+		}
+		result.S3Keys = append(result.S3Keys, s3Key)
 	}
 
-	if len(events) == 0 {
-		log.Println("No events in window, skipping S3 upload")
-		log.Printf("Event export complete: %+v", result)
-		return result, nil
-	}
-
-	auditEvents(events, eventsTypesToAudit)
-
-	s3Key := fmt.Sprintf("events/%s.json", windowStart.Format("2006/01/02/15-04-05"))
-	if err := saveToS3(ctx, s3Bucket, s3Key, events); err != nil {
-		return response{}, fmt.Errorf("saving to S3: %w", err)
-	}
-	result.S3Key = s3Key
 	log.Printf("Event export complete: %+v", result)
 	return result, nil
 }
@@ -358,7 +386,12 @@ func main() {
 	isLocal := os.Getenv("LOCAL") == "true"
 	if isLocal {
 		log.Println("Running locally, invoking handler directly")
-		response, err := handler(context.Background())
+		body, err := json.Marshal(eventBridgeEvent{Time: time.Now().UTC()})
+		if err != nil {
+			log.Fatalf("Failed to build local invocation event: %v", err)
+		}
+		event := events.SQSEvent{Records: []events.SQSMessage{{Body: string(body)}}}
+		response, err := handler(context.Background(), event)
 		if err != nil {
 			log.Fatalf("Handler error: %v", err)
 		}
