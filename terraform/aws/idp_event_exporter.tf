@@ -71,7 +71,7 @@ module "idp_event_exporter" {
   source = "github.com/cds-snc/terraform-modules//lambda?ref=v11.4.7"
 
   name      = "idp-event-exporter"
-  image_uri = "${aws_ecr_repository.repo["idp-event-exporter"].repository_url}:latest"
+  image_uri = "${aws_ecr_repository.repo["idp-event-exporter"].repository_url}:sha-e84bf885e465bca50d60c7697116eebe04f47dca"
   ecr_arn   = aws_ecr_repository.repo["idp-event-exporter"].arn
 
   timeout       = 60
