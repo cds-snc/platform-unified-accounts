@@ -14,6 +14,8 @@ import (
 	adminpb "github.com/zitadel/zitadel-go/v3/pkg/client/zitadel/admin"
 	eventpb "github.com/zitadel/zitadel-go/v3/pkg/client/zitadel/event"
 	"google.golang.org/grpc"
+
+	"github.com/aws/aws-lambda-go/events"
 )
 
 // ---------------------------------------------------------------------------
@@ -214,6 +216,71 @@ func TestEventEnvelope_ExtractsNestedType(t *testing.T) {
 	}
 	if got, want := meta.Type.Type, "instance.member.added"; got != want {
 		t.Fatalf("type.type: got %q, want %q", got, want)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// recordEventTime
+// ---------------------------------------------------------------------------
+
+func sqsMessageWithBody(body string) events.SQSMessage {
+	return events.SQSMessage{Body: body}
+}
+
+func TestRecordEventTime_Valid(t *testing.T) {
+	want := time.Date(2026, 9, 3, 0, 0, 0, 0, time.UTC)
+	body, err := json.Marshal(eventBridgeEvent{Time: want})
+	if err != nil {
+		t.Fatalf("failed to marshal test event: %v", err)
+	}
+
+	got, err := recordEventTime(sqsMessageWithBody(string(body)))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !got.Equal(want) {
+		t.Errorf("got %s, want %s", got, want)
+	}
+}
+
+func TestRecordEventTime_MultipleRecords_ExtractsEach(t *testing.T) {
+	first := time.Date(2026, 9, 3, 12, 0, 0, 0, time.UTC)
+	second := first.Add(time.Hour)
+
+	firstBody, err := json.Marshal(eventBridgeEvent{Time: first})
+	if err != nil {
+		t.Fatalf("failed to marshal test event: %v", err)
+	}
+	secondBody, err := json.Marshal(eventBridgeEvent{Time: second})
+	if err != nil {
+		t.Fatalf("failed to marshal test event: %v", err)
+	}
+
+	event := events.SQSEvent{Records: []events.SQSMessage{
+		{Body: string(firstBody)},
+		{Body: string(secondBody)},
+	}}
+
+	for i, want := range []time.Time{first, second} {
+		got, err := recordEventTime(event.Records[i])
+		if err != nil {
+			t.Fatalf("unexpected error for record %d: %v", i, err)
+		}
+		if !got.Equal(want) {
+			t.Errorf("record %d: got %s, want %s", i, got, want)
+		}
+	}
+}
+
+func TestRecordEventTime_InvalidJSON(t *testing.T) {
+	if _, err := recordEventTime(sqsMessageWithBody("not-json")); err == nil {
+		t.Fatal("expected error for invalid JSON body, got nil")
+	}
+}
+
+func TestRecordEventTime_MissingTime(t *testing.T) {
+	if _, err := recordEventTime(sqsMessageWithBody("{}")); err == nil {
+		t.Fatal("expected error for missing time field, got nil")
 	}
 }
 
