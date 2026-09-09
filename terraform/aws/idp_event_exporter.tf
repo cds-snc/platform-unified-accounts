@@ -218,8 +218,8 @@ data "aws_iam_policy_document" "idp_event_exporter_worker" {
   }
 
   statement {
-    effect = "Allow"
-    actions = ["s3:PutObject"]
+    effect    = "Allow"
+    actions   = ["s3:PutObject"]
     resources = ["${module.idp_event_exporter_s3.s3_bucket_arn}/*"]
   }
 }
