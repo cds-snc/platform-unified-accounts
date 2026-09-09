@@ -216,6 +216,12 @@ data "aws_iam_policy_document" "idp_event_exporter_worker" {
     actions   = ["kms:Decrypt"]
     resources = [aws_kms_key.sqs_dlq.arn]
   }
+
+  statement {
+    effect    = "Allow"
+    actions   = ["s3:PutObject"]
+    resources = ["${module.idp_event_exporter_s3.s3_bucket_arn}/*"]
+  }
 }
 
 resource "aws_lambda_event_source_mapping" "idp_event_exporter" {
