@@ -822,7 +822,7 @@ resource "aws_wafv2_web_acl" "idp_internal" {
 
     statement {
       rate_based_statement {
-        limit              = local.rate_limit_all
+        limit              = local.rate_limit_internal_all
         aggregate_key_type = "IP"
 
       }
@@ -873,7 +873,7 @@ resource "aws_wafv2_web_acl" "idp_internal" {
 
     statement {
       rate_based_statement {
-        limit              = local.rate_limit_mutating
+        limit              = local.rate_limit_internal_mutating
         aggregate_key_type = "IP"
         scope_down_statement {
           regex_match_statement {
@@ -907,7 +907,7 @@ resource "aws_wafv2_web_acl" "idp_internal" {
 
     statement {
       rate_based_statement {
-        limit              = local.rate_limit_mutating
+        limit              = local.rate_limit_internal_mutating
         aggregate_key_type = "CUSTOM_KEYS"
 
         custom_key {
