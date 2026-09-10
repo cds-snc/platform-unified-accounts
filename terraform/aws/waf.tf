@@ -8,8 +8,10 @@ locals {
     "EC2MetaDataSSRF_BODY",          # Rule is blocking IdP OIDC app creation
     "EC2MetaDataSSRF_QUERYARGUMENTS" # Rule is blocking IdP OIDC login
   ]
-  rate_limit_all        = 4000
-  rate_limit_mutating   = 2000
+  rate_limit_all        = 1000
+  rate_limit_mutating   = 500
+  rate_limit_internal_all        = 4000
+  rate_limit_internal_mutating   = 2000
   rate_limit_contact_us = 10
 }
 
@@ -707,8 +709,8 @@ resource "aws_wafv2_web_acl" "idp" {
   tags = local.core_tags
 }
 
-resource "aws_wafv2_web_acl" "idp-internal" {
-  name  = "idp-internal"
+resource "aws_wafv2_web_acl" "idp_internal" {
+  name  = "idp_internal"
   scope = "REGIONAL"
 
   default_action {
@@ -1073,7 +1075,7 @@ resource "aws_wafv2_web_acl" "idp-internal" {
           type     = "LOWERCASE"
         }
         positional_constraint = "EXACTLY"
-        search_string         = var.domain
+         search_string         = "idp.${var.domain}"
       }
     }
 
