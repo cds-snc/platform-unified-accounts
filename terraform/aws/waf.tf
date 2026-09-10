@@ -1075,7 +1075,7 @@ resource "aws_wafv2_web_acl" "idp_internal" {
           type     = "LOWERCASE"
         }
         positional_constraint = "EXACTLY"
-         search_string         = "idp.${var.domain}"
+        search_string         = "idp.${var.domain}"
       }
     }
 
