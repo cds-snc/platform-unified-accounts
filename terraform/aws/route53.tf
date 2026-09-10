@@ -78,6 +78,7 @@ module "resolver_dns" {
     "idp.${var.domain}.",
     "*.amazonaws.com.",
     "api.notification.canada.ca.",
+    "*.hcaptcha.com.",
     "idp.ecs.local."
   ]
 
