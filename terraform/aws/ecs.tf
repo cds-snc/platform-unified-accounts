@@ -84,6 +84,10 @@ locals {
       "name"  = "HOSTNAME",
       "value" = "0.0.0.0"
     },
+    {
+      "name"  = "RUNTIME_METRICS",
+      "value" = "1"
+    },
   ]
   login_container_secrets = [
     {
