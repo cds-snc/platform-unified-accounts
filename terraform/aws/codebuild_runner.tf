@@ -5,4 +5,6 @@
 module "codebuild_runner" {
   count  = var.env == "staging" ? 1 : 0
   source = "./codebuild_runner"
+
+  common_tags = local.common_tags
 }
