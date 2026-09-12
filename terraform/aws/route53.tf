@@ -69,7 +69,7 @@ resource "aws_route53_record" "idp_dmarc_TXT" {
 }
 
 module "resolver_dns" {
-  source           = "github.com/cds-snc/terraform-modules//resolver_dns?ref=v11.4.5"
+  source           = "github.com/cds-snc/terraform-modules//resolver_dns?ref=v11.4.7"
   vpc_id           = module.idp_vpc.vpc_id
   firewall_enabled = true
 
