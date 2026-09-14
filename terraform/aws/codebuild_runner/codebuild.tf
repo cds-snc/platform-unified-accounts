@@ -6,7 +6,7 @@ module "github_runner" {
   github_codeconnection_name = aws_codestarconnections_connection.github.name
 
   vpc_id             = var.vpc_id
-  subnets            = var.subnet_ids
+  subnet_ids         = var.subnet_ids
   security_group_ids = var.security_group_ids
 
   environment_variables = {
