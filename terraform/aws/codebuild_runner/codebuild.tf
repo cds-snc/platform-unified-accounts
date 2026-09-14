@@ -9,10 +9,10 @@ module "github_runner" {
   subnet_ids         = var.subnet_ids
   security_group_ids = var.security_group_ids
 
-  environment_variables = {
+  environment_variables = [{
     name  = "CODEBUILD_CONFIG_GITHUB_ACTIONS_RUNNER_GROUP_ID"
     value = var.github_runner_group_id
-  }
+  }]
 
   billing_tag_value = var.billing_tag_value
 }
