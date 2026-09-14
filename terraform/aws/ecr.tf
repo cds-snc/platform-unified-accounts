@@ -4,6 +4,7 @@ locals {
     "idp",
     "idp-cleanup-users",
     "idp-event-exporter",
+    "idp-event-exporter-dlq-redriver",
     "idp-login",
   ])
 }
