@@ -510,28 +510,6 @@ resource "aws_security_group_rule" "idp_event_exporter_egress_vpc_endpoint" {
   source_security_group_id = aws_security_group.vpc_endpoint.id
 }
 
-# CodeBuild GitHub Runner ===============================================
-resource "aws_security_group" "codebuild_github_runner" {
-  count = var.env == "staging" ? 1 : 0
-
-  description = "NSG for CodeBuild GitHub runner"
-  name        = "codebuild_github_runner"
-  vpc_id      = module.idp_vpc.vpc_id
-  tags        = local.core_tags
-}
-
-resource "aws_security_group_rule" "codebuild_github_runner_egress_internet" {
-  count = var.env == "staging" ? 1 : 0
-
-  description       = "Egress from CodeBuild GitHub runner to the internet"
-  type              = "egress"
-  from_port         = 443
-  to_port           = 443
-  protocol          = "tcp"
-  security_group_id = aws_security_group.codebuild_github_runner[0].id
-  cidr_blocks       = ["0.0.0.0/0"]
-}
-
 # Internal ALB ==========================================================
 resource "aws_security_group" "idp_internal_lb" {
   description = "NSG for idp internal load balancer"
@@ -580,18 +558,6 @@ resource "aws_security_group_rule" "idp_internal_lb_ingress_lambda_pr_review" {
   protocol                 = "tcp"
   security_group_id        = aws_security_group.idp_internal_lb.id
   source_security_group_id = aws_security_group.lambda_pr_review[0].id
-}
-
-resource "aws_security_group_rule" "idp_internal_lb_ingress_codebuild_github_runner" {
-  count = var.env == "staging" ? 1 : 0
-
-  description              = "Ingress from CodeBuild GitHub runner to idp internal load balancer"
-  type                     = "ingress"
-  from_port                = 443
-  to_port                  = 443
-  protocol                 = "tcp"
-  security_group_id        = aws_security_group.idp_internal_lb.id
-  source_security_group_id = aws_security_group.codebuild_github_runner[0].id
 }
 
 resource "aws_security_group_rule" "idp_internal_lb_egress_idp_ecs" {

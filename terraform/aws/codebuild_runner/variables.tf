@@ -9,23 +9,32 @@ variable "common_tags" {
   default     = {}
 }
 
+variable "env" {
+  description = "Environment name"
+  type        = string
+}
+
 variable "github_runner_group_id" {
   description = "GitHub Actions runner group ID for the CodeBuild project"
   type        = string
 }
 
-variable "security_group_ids" {
-  description = "Security group IDs to associate with the CodeBuild project"
-  type        = list(string)
-}
-
-variable "subnet_ids" {
-  description = "Subnet IDs where the CodeBuild project will be deployed"
-  type        = list(string)
-}
-
-variable "vpc_id" {
-  description = "VPC ID where the CodeBuild project will be deployed"
+variable "idp_alb_security_group_id" {
+  description = "Security group ID of the IdP's internal ALB"
   type        = string
 }
 
+variable "idp_vpc_id" {
+  description = "VPC ID of the IdP that the CodeBuild project will connect to"
+  type        = string
+}
+
+variable "idp_vpc_cidr_block" {
+  description = "CIDR block of the IdP VPC"
+  type        = string
+}
+
+variable "idp_vpc_main_route_table_id" {
+  description = "Main route table ID of the IdP VPC"
+  type        = string
+}
