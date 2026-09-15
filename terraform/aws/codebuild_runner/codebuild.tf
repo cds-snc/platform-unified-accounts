@@ -1,5 +1,5 @@
 module "github_runner" {
-  source = "github.com/cds-snc/terraform-modules//codebuild_github_runner?ref=5cbd7b59351373093c880fc73c41e6eef5cbdd99"
+  source = "github.com/cds-snc/terraform-modules//codebuild_github_runner?ref=v12.1.0"
 
   project_name               = "platform-unified-accounts-user-portal"
   github_repository_url      = "https://github.com/cds-snc/platform-unified-accounts-user-portal.git"
@@ -10,6 +10,9 @@ module "github_runner" {
   security_group_ids = var.security_group_ids
 
   environment_variables = [{
+    name = "CODEBUILD_CONFIG_GITHUB_ACTIONS_ORG_REGISTRATION_NAME"
+    value = "cds-snc"
+  },{
     name  = "CODEBUILD_CONFIG_GITHUB_ACTIONS_RUNNER_GROUP_ID"
     value = var.github_runner_group_id
   }]
