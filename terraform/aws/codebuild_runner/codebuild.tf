@@ -5,9 +5,9 @@ module "github_runner" {
   github_repository_url      = "https://github.com/cds-snc/platform-unified-accounts-user-portal.git"
   github_codeconnection_name = aws_codestarconnections_connection.github.name
 
-  vpc_id             = var.vpc_id
-  subnet_ids         = var.subnet_ids
-  security_group_ids = var.security_group_ids
+  vpc_id             = module.codebuild_vpc.vpc_id
+  subnet_ids         = module.codebuild_vpc.private_subnet_ids
+  security_group_ids = [aws_security_group.codebuild_github_runner.id]
 
   environment_variables = [{
     name = "CODEBUILD_CONFIG_GITHUB_ACTIONS_ORG_REGISTRATION_NAME"
