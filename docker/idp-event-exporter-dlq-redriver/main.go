@@ -2,11 +2,13 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
@@ -20,6 +22,7 @@ const (
 	redriveCountAttribute = "RedriveCount"
 	maxMessagesPerReceive = 10
 	maxReceiveBatches     = 10
+	metricNamespace       = "IdpEventExporterDlqRedriver"
 )
 
 // ---------------------------------------------------------------------------
@@ -183,6 +186,33 @@ func drainDLQ(ctx context.Context, svc sqsService) (response, error) {
 	return result, nil
 }
 
+func emitMetrics(redriven, abandoned int) {
+	record := map[string]any{
+		"_aws": map[string]any{
+			"Timestamp": time.Now().UnixMilli(),
+			"CloudWatchMetrics": []map[string]any{
+				{
+					"Namespace":  metricNamespace,
+					"Dimensions": [][]string{{}},
+					"Metrics": []map[string]string{
+						{"Name": "RedrivenCount", "Unit": "Count"},
+						{"Name": "AbandonedCount", "Unit": "Count"},
+					},
+				},
+			},
+		},
+		"RedrivenCount":  redriven,
+		"AbandonedCount": abandoned,
+	}
+
+	b, err := json.Marshal(record)
+	if err != nil {
+		log.Printf("failed to marshal EMF metric record: %v", err)
+		return
+	}
+	fmt.Println(string(b))
+}
+
 // ---------------------------------------------------------------------------
 // Lambda entry point
 // ---------------------------------------------------------------------------
@@ -198,6 +228,7 @@ func handler(ctx context.Context, _ events.CloudWatchEvent) (response, error) {
 	}
 
 	log.Printf("DLQ redrive complete: redriven=%d abandoned=%d", result.RedrivenCount, result.AbandonedCount)
+	emitMetrics(result.RedrivenCount, result.AbandonedCount)
 	return result, nil
 }
 
