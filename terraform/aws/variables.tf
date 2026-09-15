@@ -54,6 +54,11 @@ variable "env" {
   type        = string
 }
 
+variable "github_runner_group_id" {
+  description = "GitHub Actions runner group ID for the CodeBuild project"
+  type        = string
+}
+
 variable "product_name" {
   description = "The name of the product you are deploying."
   type        = string
