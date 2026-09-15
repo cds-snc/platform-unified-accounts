@@ -25,3 +25,8 @@ resource "aws_codestarconnections_connection" "github" {
   provider_type = "GitHub"
   tags          = var.common_tags
 }
+
+moved {
+  from = module.codebuild_runner[0].module.github_runner.aws_codebuild_source_credential.codeconnections[0]
+  to   = module.codebuild_runner[0].module.github_runner.aws_codebuild_source_credential.this_codeconnections[0]
+}
