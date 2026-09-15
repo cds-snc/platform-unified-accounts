@@ -229,3 +229,76 @@ resource "aws_lambda_event_source_mapping" "idp_event_exporter" {
   function_name    = module.idp_event_exporter.function_name
   batch_size       = 1
 }
+
+module "idp_event_exporter_dlq_redriver" {
+  source = "github.com/cds-snc/terraform-modules//lambda?ref=v11.4.7"
+
+  name      = "idp-event-exporter-dlq-redriver"
+  image_uri = "${aws_ecr_repository.repo["idp-event-exporter-dlq-redriver"].repository_url}:latest"
+  ecr_arn   = aws_ecr_repository.repo["idp-event-exporter-dlq-redriver"].arn
+
+  timeout       = 60
+  memory        = 256
+  architectures = ["arm64"]
+
+  environment_variables = {
+    DLQ_URL              = aws_sqs_queue.idp_event_exporter_dlq_queue.id
+    SOURCE_QUEUE_URL     = aws_sqs_queue.idp_event_exporter.id
+    MAX_REDRIVE_ATTEMPTS = 3
+  }
+
+  policies = [
+    data.aws_iam_policy_document.idp_event_exporter_dlq_redriver.json
+  ]
+
+  billing_tag_value = var.billing_tag_value
+}
+
+data "aws_iam_policy_document" "idp_event_exporter_dlq_redriver" {
+  statement {
+    effect = "Allow"
+    actions = [
+      "sqs:ReceiveMessage",
+      "sqs:DeleteMessage",
+      "sqs:GetQueueAttributes",
+    ]
+    resources = [aws_sqs_queue.idp_event_exporter_dlq_queue.arn]
+  }
+
+  statement {
+    effect    = "Allow"
+    actions   = ["sqs:SendMessage"]
+    resources = [aws_sqs_queue.idp_event_exporter.arn]
+  }
+
+  statement {
+    effect = "Allow"
+    actions = [
+      "kms:Decrypt",
+      "kms:GenerateDataKey",
+    ]
+    resources = [aws_kms_key.sqs_dlq.arn]
+  }
+}
+
+resource "aws_cloudwatch_event_rule" "idp_event_exporter_dlq_redrive_schedule" {
+  name                = "idp-event-exporter-dlq-redrive-schedule"
+  description         = "Triggers the idp-event-exporter-dlq-redriver Lambda on a schedule"
+  schedule_expression = "cron(0 * * * ? *)" # Every hour
+  state               = "ENABLED"
+  tags                = local.core_tags
+}
+
+resource "aws_cloudwatch_event_target" "idp_event_exporter_dlq_redrive_schedule" {
+  rule      = aws_cloudwatch_event_rule.idp_event_exporter_dlq_redrive_schedule.name
+  target_id = "idp-event-exporter-dlq-redriver"
+  arn       = module.idp_event_exporter_dlq_redriver.function_arn
+}
+
+resource "aws_lambda_permission" "idp_event_exporter_dlq_redriver_schedule" {
+  statement_id  = "AllowExecutionFromCloudWatch-dlq-redrive-schedule"
+  action        = "lambda:InvokeFunction"
+  function_name = module.idp_event_exporter_dlq_redriver.function_name
+  principal     = "events.amazonaws.com"
+  source_arn    = aws_cloudwatch_event_rule.idp_event_exporter_dlq_redrive_schedule.arn
+}

@@ -61,6 +61,13 @@ locals {
   ]
   idp_event_exporter_error_metric_pattern = "[(w=\"*${join("*\" || w=\"*", local.idp_event_exporter_error_filters)}*\")]"
 
+  # IdP Event Exporter DLQ Redriver errors
+  idp_event_exporter_dlq_redriver_error_filters = [
+    "error",
+    "exception"
+  ]
+  idp_event_exporter_dlq_redriver_error_metric_pattern = "[(w=\"*${join("*\" || w=\"*", local.idp_event_exporter_dlq_redriver_error_filters)}*\")]"
+
   # ECS and ALB thresholds
   threshold_ecs_high_cpu      = 80   # percentage
   threshold_ecs_high_memory   = 80   # percentage
@@ -96,6 +103,11 @@ locals {
       pattern        = local.idp_event_exporter_error_metric_pattern
       log_group_name = module.idp_event_exporter.cloudwatch_log_group_name
     }
+    idp_event_exporter_dlq_redriver = {
+      error_filters  = local.idp_event_exporter_dlq_redriver_error_filters
+      pattern        = local.idp_event_exporter_dlq_redriver_error_metric_pattern
+      log_group_name = module.idp_event_exporter_dlq_redriver.cloudwatch_log_group_name
+    }
   }
 
   lambda_functions = {
@@ -107,6 +119,9 @@ locals {
     }
     idp_event_exporter = {
       name = module.idp_event_exporter.function_name
+    }
+    idp_event_exporter_dlq_redriver = {
+      name = module.idp_event_exporter_dlq_redriver.function_name
     }
   }
 }
