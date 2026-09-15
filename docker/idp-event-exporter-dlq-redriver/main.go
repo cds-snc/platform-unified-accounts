@@ -1,4 +1,3 @@
-
 package main
 
 import (
@@ -20,7 +19,7 @@ import (
 const (
 	redriveCountAttribute = "RedriveCount"
 	maxMessagesPerReceive = 10
-	maxReceiveBatches = 10
+	maxReceiveBatches     = 10
 )
 
 // ---------------------------------------------------------------------------
