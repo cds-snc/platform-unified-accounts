@@ -23,9 +23,9 @@ module "codebuild_vpc" {
 # VPC peering connection
 #
 resource "aws_vpc_peering_connection" "idp_codebuild" {
-  vpc_id        = var.idp_vpc_id
-  peer_vpc_id   = module.codebuild_vpc.vpc_id
-  auto_accept   = true
+  vpc_id      = var.idp_vpc_id
+  peer_vpc_id = module.codebuild_vpc.vpc_id
+  auto_accept = true
 
   tags = var.common_tags
 }

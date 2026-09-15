@@ -8,7 +8,7 @@ module "codebuild_runner" {
 
   env                    = var.env
   github_runner_group_id = var.github_runner_group_id
-  
+
   idp_vpc_id                  = module.idp_vpc.vpc_id
   idp_vpc_cidr_block          = module.idp_vpc.cidr_block
   idp_vpc_main_route_table_id = module.idp_vpc.main_route_table_id
