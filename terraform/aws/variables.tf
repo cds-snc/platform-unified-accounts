@@ -273,9 +273,3 @@ variable "security_txt_content" {
   description = "The content of the /.well-known/security.txt response."
   type        = string
 }
-
-variable "waf_geo_restriction_bypass" {
-  description = "WAF header value that allows bypassing the geo restriction rule. Used for GitHub workflows that run in the US of A."
-  type        = string
-  sensitive   = true
-}

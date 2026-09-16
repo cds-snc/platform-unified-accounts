@@ -115,27 +115,8 @@ resource "aws_wafv2_web_acl" "idp" {
     statement {
       not_statement {
         statement {
-          or_statement {
-            statement {
-              geo_match_statement {
-                country_codes = ["CA"]
-              }
-            }
-            statement {
-              byte_match_statement {
-                field_to_match {
-                  single_header {
-                    name = "waf-geo-restriction-bypass"
-                  }
-                }
-                text_transformation {
-                  priority = 1
-                  type     = "NONE"
-                }
-                positional_constraint = "EXACTLY"
-                search_string         = var.waf_geo_restriction_bypass
-              }
-            }
+          geo_match_statement {
+            country_codes = ["CA"]
           }
         }
       }
