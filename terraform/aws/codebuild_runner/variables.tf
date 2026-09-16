@@ -34,7 +34,7 @@ variable "idp_vpc_cidr_block" {
   type        = string
 }
 
-variable "idp_vpc_main_route_table_id" {
-  description = "Main route table ID of the IdP VPC"
-  type        = string
+variable "idp_vpc_private_route_table_ids" {
+  description = "Private route table IDs of the IdP VPC"
+  type        = list(string)
 }
