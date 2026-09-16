@@ -3,7 +3,7 @@
 # This is being done to limit the exposure of the IdP and its private resources 
 #
 module "codebuild_vpc" {
-  source = "github.com/cds-snc/terraform-modules//vpc?ref=v11.4.7"
+  source = "github.com/cds-snc/terraform-modules//vpc?ref=v12.1.2"
   name   = "codebuild-${var.env}"
   cidr   = "10.1.0.0/22"
 
@@ -21,16 +21,24 @@ module "codebuild_vpc" {
 
 #
 # VPC peering connection
+# Create the peering connection and provide a route between subnets
 #
 resource "aws_vpc_peering_connection" "idp_codebuild" {
   vpc_id      = var.idp_vpc_id
   peer_vpc_id = module.codebuild_vpc.vpc_id
   auto_accept = true
-
-  tags = var.common_tags
+  tags        = var.common_tags
 }
 
-resource "aws_route" "idp_to_codebuild" {
+resource "aws_route" "idp_to_codebuild_public_subnets" {
+  for_each = toset(var.idp_vpc_public_route_table_ids)
+
+  route_table_id            = each.value
+  destination_cidr_block    = module.codebuild_vpc.cidr_block
+  vpc_peering_connection_id = aws_vpc_peering_connection.idp_codebuild.id
+}
+
+resource "aws_route" "idp_to_codebuild_private_subnets" {
   for_each = toset(var.idp_vpc_private_route_table_ids)
 
   route_table_id            = each.value
@@ -38,7 +46,15 @@ resource "aws_route" "idp_to_codebuild" {
   vpc_peering_connection_id = aws_vpc_peering_connection.idp_codebuild.id
 }
 
-resource "aws_route" "codebuild_to_idp" {
+resource "aws_route" "codebuild_to_idp_public_subnets" {
+  for_each = toset(module.codebuild_vpc.public_route_table_ids)
+
+  route_table_id            = each.value
+  destination_cidr_block    = var.idp_vpc_cidr_block
+  vpc_peering_connection_id = aws_vpc_peering_connection.idp_codebuild.id
+}
+
+resource "aws_route" "codebuild_to_idp_private_subnets" {
   for_each = toset(module.codebuild_vpc.private_route_table_ids)
 
   route_table_id            = each.value

@@ -12,6 +12,7 @@ module "codebuild_runner" {
   idp_vpc_id                      = module.idp_vpc.vpc_id
   idp_vpc_cidr_block              = module.idp_vpc.cidr_block
   idp_vpc_private_route_table_ids = module.idp_vpc.private_route_table_ids
+  idp_vpc_public_route_table_ids  = module.idp_vpc.public_route_table_ids
   idp_alb_security_group_id       = aws_security_group.idp_internal_lb.id
 
   billing_tag_value = var.billing_tag_value

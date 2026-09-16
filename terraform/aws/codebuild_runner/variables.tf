@@ -38,3 +38,8 @@ variable "idp_vpc_private_route_table_ids" {
   description = "Private route table IDs of the IdP VPC"
   type        = list(string)
 }
+
+variable "idp_vpc_public_route_table_ids" {
+  description = "Public route table IDs of the IdP VPC"
+  type        = list(string)
+}
