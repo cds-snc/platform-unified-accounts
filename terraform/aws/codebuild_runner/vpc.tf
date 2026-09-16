@@ -31,13 +31,17 @@ resource "aws_vpc_peering_connection" "idp_codebuild" {
 }
 
 resource "aws_route" "idp_to_codebuild" {
-  route_table_id            = var.idp_vpc_main_route_table_id
+  for_each = toset(var.idp_vpc_private_route_table_ids)
+
+  route_table_id            = each.value
   destination_cidr_block    = module.codebuild_vpc.cidr_block
   vpc_peering_connection_id = aws_vpc_peering_connection.idp_codebuild.id
 }
 
 resource "aws_route" "codebuild_to_idp" {
-  route_table_id            = module.codebuild_vpc.main_route_table_id
+  for_each = toset(module.codebuild_vpc.private_route_table_ids)
+
+  route_table_id            = each.value
   destination_cidr_block    = var.idp_vpc_cidr_block
   vpc_peering_connection_id = aws_vpc_peering_connection.idp_codebuild.id
 }
