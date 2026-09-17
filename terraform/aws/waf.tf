@@ -1082,6 +1082,11 @@ resource "aws_wafv2_web_acl_association" "idp" {
   web_acl_arn  = aws_wafv2_web_acl.idp.arn
 }
 
+resource "aws_wafv2_web_acl_association" "idp_internal" {
+  resource_arn = aws_lb.idp_internal.arn
+  web_acl_arn  = aws_wafv2_web_acl.idp_internal.arn
+}
+
 #
 # WAF logging
 #
@@ -1111,6 +1116,35 @@ resource "aws_kinesis_firehose_delivery_stream" "idp_waf_logs" {
     compression_format = "GZIP"
   }
 }
+
+resource "aws_wafv2_web_acl_logging_configuration" "idp_internal_waf_logs" {
+  log_destination_configs = [aws_kinesis_firehose_delivery_stream.idp_internal_waf_logs.arn]
+  resource_arn            = aws_wafv2_web_acl.idp_internal.arn
+
+  redacted_fields {
+    single_header {
+      name = "authorization"
+    }
+  }
+}
+
+
+resource "aws_kinesis_firehose_delivery_stream" "idp_internal_waf_logs" {
+  name        = "aws-waf-logs-idp-internal"
+  destination = "extended_s3"
+
+  server_side_encryption {
+    enabled = true
+  }
+
+  extended_s3_configuration {
+    role_arn           = aws_iam_role.idp_internal_waf_logs.arn
+    prefix             = "waf_acl_logs/AWSLogs/${var.account_id}/idp_internal/"
+    bucket_arn         = local.cbs_satellite_bucket_arn
+    compression_format = "GZIP"
+  }
+}
+
 
 #
 # WAF logging IAM role
