@@ -4,7 +4,7 @@
 module "cloudwatch_log_storage" {
   source = "github.com/cds-snc/terraform-modules//cloudwatch_log_storage?ref=v11.4.7"
 
-  product_name          = var.product_name
+  product_name          = "${var.product_name}-${var.env}"
   athena_workgroup_name = module.athena_access_logs.athena_workgroup_name
   athena_database_name  = module.athena_access_logs.athena_database_name
   log_expiration_days   = 730
