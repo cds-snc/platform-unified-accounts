@@ -76,7 +76,7 @@ resource "aws_route53_record" "idp_dmarc_TXT" {
 }
 
 module "resolver_dns" {
-  source           = "github.com/cds-snc/terraform-modules//resolver_dns?ref=v11.4.7"
+  source           = "github.com/cds-snc/terraform-modules//resolver_dns?ref=v12.0.0"
   vpc_id           = module.idp_vpc.vpc_id
   firewall_enabled = true
 
@@ -131,19 +131,4 @@ resource "aws_route53_record" "idp_private_A" {
     zone_id                = aws_lb.idp_internal.zone_id
     evaluate_target_health = true
   }
-}
-
-moved {
-  from = aws_route53_record.idp_verification_TXT
-  to   = aws_route53_record.idp_verification_TXT[0]
-}
-
-moved {
-  from = aws_route53_record.idp_spf_TXT
-  to   = aws_route53_record.idp_spf_TXT[0]
-}
-
-moved {
-  from = aws_route53_record.idp_dmarc_TXT
-  to   = aws_route53_record.idp_dmarc_TXT[0]
 }

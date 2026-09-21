@@ -77,7 +77,7 @@ resource "aws_cloudwatch_event_target" "idp_cleanup_users_sqs" {
 }
 
 module "idp_cleanup_users" {
-  source = "github.com/cds-snc/terraform-modules//lambda?ref=v11.4.7"
+  source = "github.com/cds-snc/terraform-modules//lambda?ref=v12.0.0"
 
   name      = "idp-cleanup-users"
   image_uri = "${aws_ecr_repository.repo["idp-cleanup-users"].repository_url}:latest"
