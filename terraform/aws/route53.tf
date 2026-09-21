@@ -132,18 +132,3 @@ resource "aws_route53_record" "idp_private_A" {
     evaluate_target_health = true
   }
 }
-
-moved {
-  from = aws_route53_record.idp_verification_TXT
-  to   = aws_route53_record.idp_verification_TXT[0]
-}
-
-moved {
-  from = aws_route53_record.idp_spf_TXT
-  to   = aws_route53_record.idp_spf_TXT[0]
-}
-
-moved {
-  from = aws_route53_record.idp_dmarc_TXT
-  to   = aws_route53_record.idp_dmarc_TXT[0]
-}
