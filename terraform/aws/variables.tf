@@ -269,6 +269,12 @@ variable "idp_task_min_capacity" {
   type        = number
 }
 
+variable "is_ses" {
+  description = "Flag to indicate if Simple Email Service (SES) resources are created."
+  type        = bool
+  default     = false
+}
+
 variable "security_txt_content" {
   description = "The content of the /.well-known/security.txt response."
   type        = string
