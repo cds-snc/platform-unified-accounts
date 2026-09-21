@@ -19,8 +19,8 @@ module "client_vpn" {
 
   # Only create a self-service portal in prod  
   # The client config can still be downloaded from the AWS console
-  self_service_portal                            = var.env == "production" ? "enabled" : "disabled"
-  client_vpn_self_service_saml_metadata_document = var.env == "production" ? var.client_vpn_self_service_saml_metadata : null
+  self_service_portal                            = "disabled"
+  client_vpn_self_service_saml_metadata_document = null
   client_vpn_saml_metadata_document              = var.client_vpn_saml_metadata
 
   billing_tag_value = var.billing_tag_value
