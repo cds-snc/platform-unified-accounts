@@ -33,15 +33,17 @@ resource "aws_route53_record" "idp_internal_A" {
 
 # SES verification
 resource "aws_route53_record" "idp_verification_TXT" {
+  count   = var.is_ses ? 1 : 0
   zone_id = aws_route53_zone.idp.zone_id
-  name    = "_amazonses.${aws_ses_domain_identity.idp.id}"
+  name    = "_amazonses.${aws_ses_domain_identity.idp[0].id}"
   type    = "TXT"
   ttl     = "600"
-  records = [aws_ses_domain_identity.idp.verification_token]
+  records = [aws_ses_domain_identity.idp[0].verification_token]
 }
 
 # Email sending
 resource "aws_route53_record" "idp_spf_TXT" {
+  count   = var.is_ses ? 1 : 0
   zone_id = aws_route53_zone.idp.zone_id
   name    = var.domain
   type    = "TXT"
@@ -52,17 +54,18 @@ resource "aws_route53_record" "idp_spf_TXT" {
 }
 
 resource "aws_route53_record" "idp_dkim_CNAME" {
-  count   = 3
+  count   = var.is_ses ? 3 : 0
   zone_id = aws_route53_zone.idp.zone_id
-  name    = "${element(aws_ses_domain_dkim.idp.dkim_tokens, count.index)}._domainkey.${var.domain}"
+  name    = "${element(aws_ses_domain_dkim.idp[0].dkim_tokens, count.index)}._domainkey.${var.domain}"
   type    = "CNAME"
   ttl     = "300"
   records = [
-    "${element(aws_ses_domain_dkim.idp.dkim_tokens, count.index)}.dkim.amazonses.com",
+    "${element(aws_ses_domain_dkim.idp[0].dkim_tokens, count.index)}.dkim.amazonses.com",
   ]
 }
 
 resource "aws_route53_record" "idp_dmarc_TXT" {
+  count   = var.is_ses ? 1 : 0
   zone_id = aws_route53_zone.idp.zone_id
   name    = "_dmarc.${var.domain}"
   type    = "TXT"
@@ -128,4 +131,19 @@ resource "aws_route53_record" "idp_private_A" {
     zone_id                = aws_lb.idp_internal.zone_id
     evaluate_target_health = true
   }
+}
+
+moved {
+  from = aws_route53_record.idp_verification_TXT
+  to   = aws_route53_record.idp_verification_TXT[0]
+}
+
+moved {
+  from = aws_route53_record.idp_spf_TXT
+  to   = aws_route53_record.idp_spf_TXT[0]
+}
+
+moved {
+  from = aws_route53_record.idp_dmarc_TXT
+  to   = aws_route53_record.idp_dmarc_TXT[0]
 }

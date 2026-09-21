@@ -22,6 +22,8 @@ inputs = {
   idp_task_desired_count        = 1
   idp_task_min_capacity         = 1
   idp_task_max_capacity         = 4
+
+  is_ses = true
 }
 
 include {
