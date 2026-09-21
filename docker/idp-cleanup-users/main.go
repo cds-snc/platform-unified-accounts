@@ -173,7 +173,7 @@ func loadSSMParameter(ctx context.Context, path string) (string, error) {
 // Zitadel operations
 // ---------------------------------------------------------------------------
 
-// listActiveUsers fetches every active human user, paging through the result
+// listActiveUsers fetches every active or inactive human user, paging through the result
 // set until fewer than limit records are returned.
 func listActiveUsers(ctx context.Context, svc userService, limit int) ([]*userv2.User, error) {
 	var all []*userv2.User
@@ -189,8 +189,21 @@ func listActiveUsers(ctx context.Context, svc userService, limit int) ([]*userv2
 			},
 			Queries: []*userv2.SearchQuery{
 				{
-					Query: &userv2.SearchQuery_StateQuery{
-						StateQuery: &userv2.StateQuery{State: userv2.UserState_USER_STATE_ACTIVE},
+					Query: &userv2.SearchQuery_OrQuery{
+						OrQuery: &userv2.OrQuery{
+							Queries: []*userv2.SearchQuery{
+								{
+									Query: &userv2.SearchQuery_StateQuery{
+										StateQuery: &userv2.StateQuery{State: userv2.UserState_USER_STATE_ACTIVE},
+									},
+								},
+								{
+									Query: &userv2.SearchQuery_StateQuery{
+										StateQuery: &userv2.StateQuery{State: userv2.UserState_USER_STATE_INACTIVE},
+									},
+								},
+							},
+						},
 					},
 				},
 				{
