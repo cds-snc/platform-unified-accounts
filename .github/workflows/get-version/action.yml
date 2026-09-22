@@ -1,0 +1,53 @@
+name: Get version to deploy
+description: "Read `version.txt` to determine the version to deploy."
+
+inputs:
+  is-tagged:
+    description: "Is this for the release of a tagged version?  This action will wait for the tag to exist if so."
+    required: true
+outputs:
+  version:
+    description: "Version to deploy"
+    value: ${{ steps.output-version.outputs.version }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Get version, release PR branch
+      id: version-from-branch
+      if: inputs.is-tagged == 'false' && startsWith(github.head_ref, 'release-please--')
+      env:
+        GITHUB_HEAD_REF: ${{ github.head_ref }}
+      run: echo "version=$GITHUB_HEAD_REF" >> "$GITHUB_OUTPUT"
+      shell: bash
+
+    - name: Get version, perform release of tag
+      id: version-from-tag
+      if: inputs.is-tagged == 'true'
+      run: |
+        VERSION="$(tr -d '\n\r' < version.txt)"
+        if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+          echo "::error::Invalid version format in version.txt: '$VERSION'"
+          exit 1
+        fi
+        echo "version=v${VERSION}" >> "$GITHUB_OUTPUT"
+      shell: bash
+
+    - name: Wait for ref to exist
+      if: inputs.is-tagged == 'true'
+      env:
+        VERSION: ${{ steps.version-from-tag.outputs.version }}
+      run: ./.github/workflows/scripts/wait-for-ref.sh "$VERSION"
+      shell: bash
+
+    - name: Fail if no version set
+      if: steps.version-from-branch.outputs.version == '' && steps.version-from-tag.outputs.version == ''   
+      run: exit 1
+      shell: bash
+
+    - name: Output version
+      id: output-version
+      env:
+        VERSION: ${{ steps.version-from-branch.outputs.version || steps.version-from-tag.outputs.version }}
+      run: echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+      shell: bash

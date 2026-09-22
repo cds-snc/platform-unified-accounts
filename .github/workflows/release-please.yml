@@ -1,0 +1,47 @@
+name: Release Please
+
+on:
+  push:
+    branches:
+      - main
+
+permissions: {}
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+    steps:
+      - name: Audit DNS requests
+        uses: cds-snc/dns-proxy-action@9ad793100229573be3f5ba78cc69ec523f2c8b7e # v1.1.0
+        env:
+          DNS_PROXY_FORWARDTOSENTINEL: "true"
+          DNS_PROXY_LOGANALYTICSWORKSPACEID: "${{ secrets.LOG_ANALYTICS_WORKSPACE_ID }}"
+          DNS_PROXY_LOGANALYTICSSHAREDKEY: "${{ secrets.LOG_ANALYTICS_WORKSPACE_KEY }}"
+          DNS_PROXY_SAFELIST: "${{ vars.DNS_PROXY_SAFELIST }}"
+          DNS_PROXY_WILDCARDGREEDY: "true"
+
+      - uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2.2.2
+        id: sre-app-token
+        with:
+          app-id: ${{ secrets.CDS_RELEASE_BOT_APP_ID }}
+          private-key: ${{ secrets.CDS_RELEASE_BOT_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+
+      - uses: googleapis/release-please-action@5c625bfb5d1ff62eadeeb3772007f7f66fdcf071 # v4.4.1
+        with:
+          token: ${{ steps.sre-app-token.outputs.token }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+  workflow-failure:
+    needs: [release-please]
+    if: failure()
+    uses: ./.github/workflows/workflow-failure.yml
+    secrets:
+      LOG_ANALYTICS_WORKSPACE_ID: ${{ secrets.LOG_ANALYTICS_WORKSPACE_ID }}
+      LOG_ANALYTICS_WORKSPACE_KEY: ${{ secrets.LOG_ANALYTICS_WORKSPACE_KEY }}
+      SLACK_WEBHOOK_URL: ${{ secrets.PROD_CLOUDWATCH_ALERT_SLACK_WEBHOOK }}
