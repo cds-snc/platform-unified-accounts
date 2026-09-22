@@ -57,7 +57,6 @@ variable "env" {
 variable "github_runner_group_id" {
   description = "GitHub Actions runner group ID for the CodeBuild project"
   type        = string
-  default     = ""
 }
 
 variable "product_name" {
