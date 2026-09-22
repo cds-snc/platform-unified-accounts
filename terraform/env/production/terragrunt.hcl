@@ -5,8 +5,6 @@ terraform {
 inputs = {
   enable_waf_geo_restriction = true
 
-  github_runner_group_id = "8"
-
   idp_cluster_capacity_provider = "FARGATE"
   idp_database                  = "idp"
   idp_database_instance_count   = 1

@@ -31,6 +31,7 @@ env:
   TF_VAR_idp_notify_template_id: ${{ secrets.PROD_IDP_NOTIFY_TEMPLATE_ID }}
   TF_VAR_idp_secret_key: ${{ secrets.PROD_IDP_SECRET_KEY }}
   TF_VAR_security_txt_content: ${{ vars.SECURITY_TXT_ALPHA_CANADA_CA }}
+  TF_VAR_github_runner_group_id: "8"
 
 permissions: {}
 
