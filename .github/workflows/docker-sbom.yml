@@ -2,6 +2,10 @@ name: Docker SBOM Staging
 
 on:
   workflow_call:
+    inputs:
+      GITHUB_REF:
+        required: true
+        type: string
     secrets:
       LOG_ANALYTICS_WORKSPACE_ID:
         required: true
@@ -21,7 +25,6 @@ jobs:
           - idp
           - idp-cleanup-users
           - idp-event-exporter
-    
     steps:
     - name: Audit DNS requests
       uses: cds-snc/dns-proxy-action@7b6ba63b4f045de61c98a3c1b99fdd08f32b0784 # v1.2.0
@@ -36,17 +39,7 @@ jobs:
       uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
         persist-credentials: false
-
-    - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
-      id: changes
-      with:
-        filters: |
-          docker:
-            - './docker/${{ matrix.image }}/**'
-
-    - name: Exit if no changes
-      if: steps.changes.outputs.docker == 'false'
-      run: exit 0
+        ref: ${{ inputs.GITHUB_REF }}
 
     - name: Build image
       run: |

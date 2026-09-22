@@ -1,32 +1,55 @@
-name: Docker build and push Staging
+name: Docker build and push Production
 
 concurrency:
-  group: docker-build-staging
+  group: docker-build-production
   cancel-in-progress: false
-
 
 on:
   push:
     branches:
       - main
     paths:
-      - "docker/**"
-      - ".github/workflows/docker-build-staging.yml"
-      - ".github/workflows/docker-deploy.yml"
-      - ".github/workflows/docker-sbom.yml"
+      - "version.txt"
 
 env: 
   AWS_REGION: ca-central-1
-  REGISTRY_PREFIX: ${{ vars.STAGING_AWS_ACCOUNT_ID }}.dkr.ecr.ca-central-1.amazonaws.com
-  GITHUB_SHA: ${{ github.sha }}
+  REGISTRY_PREFIX: ${{ vars.PROD_AWS_ACCOUNT_ID }}.dkr.ecr.ca-central-1.amazonaws.com
 
 permissions: {}
   
 jobs:
+  get-version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.get-version.outputs.version }}
+    steps:
+      - name: Audit DNS requests
+        uses: cds-snc/dns-proxy-action@7b6ba63b4f045de61c98a3c1b99fdd08f32b0784 # v1.2.0
+        env:
+          DNS_PROXY_FORWARDTOSENTINEL: "true"
+          DNS_PROXY_LOGANALYTICSWORKSPACEID: "${{ secrets.LOG_ANALYTICS_WORKSPACE_ID }}"
+          DNS_PROXY_LOGANALYTICSSHAREDKEY: "${{ secrets.LOG_ANALYTICS_WORKSPACE_KEY }}"
+          DNS_PROXY_SAFELIST: "${{ vars.DNS_PROXY_SAFELIST }}"
+          DNS_PROXY_WILDCARDGREEDY: "true"
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Get version to deploy
+        id: get-version
+        uses: ./.github/workflows/get-version
+        with:
+          is-tagged: "true"
+
   docker-push:
     permissions:
       id-token: write
       contents: read
+    needs: get-version
+    env:
+      VERSION: ${{ needs.get-version.outputs.version }}
     outputs:
       IMAGE_TAG: ${{ steps.set-image-tag.outputs.IMAGE_TAG }}
     runs-on: ubuntu-24.04-arm
@@ -50,18 +73,8 @@ jobs:
     - name: Checkout
       uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
+        ref: ${{ env.VERSION }}
         persist-credentials: false
-
-    - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
-      id: changes
-      with:
-        filters: |
-          docker:
-            - './docker/${{ matrix.image }}/**'
-
-    - name: Exit if no changes
-      if: steps.changes.outputs.docker == 'false'
-      run: exit 0
 
     - name: Setup Docker Buildx
       uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
@@ -69,27 +82,41 @@ jobs:
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@cbe3b392738ccf3f987d68400dafcf4b0624a56c # v6.2.4
       with:
-        role-to-assume: arn:aws:iam::${{ vars.STAGING_AWS_ACCOUNT_ID }}:role/platform-unified-accounts-docker-push
+        role-to-assume: arn:aws:iam::${{ vars.PROD_AWS_ACCOUNT_ID }}:role/platform-unified-accounts-docker-push
         role-session-name: PushContainer
         aws-region: ${{ env.AWS_REGION }}
 
     - name: Login to Amazon ECR
       id: login-ecr
       uses: aws-actions/amazon-ecr-login@03f1aad4c6c7ffd436567f42f9384779290529bd # v2.1.7 
-  
+
+    - name: Check if image already exists
+      id: check-image
+      env:
+        IMAGE_NAME: ${{ matrix.image }}
+      run: |
+        IMAGE_COUNT="$(aws ecr batch-get-image \
+          --repository-name "$IMAGE_NAME" \
+          --image-ids "imageTag=$VERSION" \
+          --query 'length(images)' \
+          --region "$AWS_REGION" \
+          --output text)"
+        echo "exists=$([[ "$IMAGE_COUNT" == "1" ]] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+
     - name: Build and push image
+      if: steps.check-image.outputs.exists != 'true'
       run: |
         docker buildx build \
           --push \
           --provenance=false \
           --platform linux/arm64 \
-          --tag "$REGISTRY_PREFIX/${{ matrix.image }}:sha-$GITHUB_SHA" \
+          --tag "$REGISTRY_PREFIX/${{ matrix.image }}:$VERSION" \
           --file ./docker/${{ matrix.image }}/Dockerfile \
           ./docker/${{ matrix.image }}
 
     - name: Set IMAGE_TAG output
       id: set-image-tag
-      run: echo "IMAGE_TAG=sha-$GITHUB_SHA" >> $GITHUB_OUTPUT
+      run: echo "IMAGE_TAG=$VERSION" >> $GITHUB_OUTPUT
 
   docker-deploy:
     permissions:
@@ -97,7 +124,7 @@ jobs:
     needs: docker-push
     uses: ./.github/workflows/docker-deploy.yml
     with:
-      ACCOUNT_ID: ${{ vars.STAGING_AWS_ACCOUNT_ID }}
+      ACCOUNT_ID: ${{ vars.PROD_AWS_ACCOUNT_ID }}
       IMAGE_TAG: ${{ needs.docker-push.outputs.IMAGE_TAG }}
     secrets:
       LOG_ANALYTICS_WORKSPACE_ID: ${{ secrets.LOG_ANALYTICS_WORKSPACE_ID }}
@@ -109,7 +136,7 @@ jobs:
     needs: docker-push
     uses: ./.github/workflows/docker-sbom.yml
     with:
-      GITHUB_REF: ${{ github.sha }}
+      GITHUB_REF: ${{ needs.docker-push.outputs.IMAGE_TAG }}
     secrets:
       LOG_ANALYTICS_WORKSPACE_ID: ${{ secrets.LOG_ANALYTICS_WORKSPACE_ID }}
       LOG_ANALYTICS_WORKSPACE_KEY: ${{ secrets.LOG_ANALYTICS_WORKSPACE_KEY }}
@@ -121,4 +148,4 @@ jobs:
     secrets:
       LOG_ANALYTICS_WORKSPACE_ID: ${{ secrets.LOG_ANALYTICS_WORKSPACE_ID }}
       LOG_ANALYTICS_WORKSPACE_KEY: ${{ secrets.LOG_ANALYTICS_WORKSPACE_KEY }}
-      SLACK_WEBHOOK_URL: ${{ secrets.STAGING_CLOUDWATCH_ALERT_SLACK_WEBHOOK }}
+      SLACK_WEBHOOK_URL: ${{ secrets.PROD_CLOUDWATCH_ALERT_SLACK_WEBHOOK }}

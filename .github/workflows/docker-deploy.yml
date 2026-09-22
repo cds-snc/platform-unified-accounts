@@ -1,7 +1,14 @@
-name: Docker deploy Staging
+name: Docker deploy
 
 on:
   workflow_call:
+    inputs:
+      ACCOUNT_ID:
+        required: true
+        type: string
+      IMAGE_TAG:
+        required: true
+        type: string
     secrets:
       LOG_ANALYTICS_WORKSPACE_ID:
         required: true
@@ -11,8 +18,7 @@ on:
 env: 
   AWS_REGION: ca-central-1
   ECS_CLUSTER: idp
-  REGISTRY_PREFIX: ${{ vars.STAGING_AWS_ACCOUNT_ID }}.dkr.ecr.ca-central-1.amazonaws.com
-  GITHUB_SHA: ${{ github.sha }}
+  REGISTRY_PREFIX: ${{ inputs.ACCOUNT_ID }}.dkr.ecr.ca-central-1.amazonaws.com
 
 permissions:
   id-token: write
@@ -31,7 +37,6 @@ jobs:
             type: lambda
           - name: idp-event-exporter
             type: lambda
-
     steps:
     - name: Audit DNS requests
       uses: cds-snc/dns-proxy-action@7b6ba63b4f045de61c98a3c1b99fdd08f32b0784 # v1.2.0
@@ -45,16 +50,18 @@ jobs:
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@cbe3b392738ccf3f987d68400dafcf4b0624a56c # v6.2.4
       with:
-        role-to-assume: arn:aws:iam::${{ vars.STAGING_AWS_ACCOUNT_ID }}:role/platform-unified-accounts-docker-deploy
+        role-to-assume: arn:aws:iam::${{ inputs.ACCOUNT_ID }}:role/platform-unified-accounts-docker-deploy
         role-session-name: DeployContainer
         aws-region: ${{ env.AWS_REGION }}
 
     - name: Update Lambda
       if: matrix.service.type == 'lambda'
+      env:
+        IMAGE_TAG: ${{ inputs.IMAGE_TAG }}
       run: |
         aws lambda update-function-code \
           --function-name ${{ matrix.service.name }} \
-          --image-uri $REGISTRY_PREFIX/${{ matrix.service.name }}:sha-${{ env.GITHUB_SHA }} > /dev/null 2>&1
+          --image-uri "$REGISTRY_PREFIX/${{ matrix.service.name }}:$IMAGE_TAG" > /dev/null 2>&1
         aws lambda wait function-updated \
           --function-name ${{ matrix.service.name }} > /dev/null 2>&1
 
@@ -65,7 +72,7 @@ jobs:
       with:
         task-definition-family: ${{ matrix.service.name }}
         container-name: ${{ matrix.service.name }}
-        image: ${{ env.REGISTRY_PREFIX }}/${{ matrix.service.name }}:sha-${{ env.GITHUB_SHA }}
+        image: ${{ env.REGISTRY_PREFIX }}/${{ matrix.service.name }}:${{ inputs.IMAGE_TAG }}
 
     - name: Deploy updated ECS task
       if: matrix.service.type == 'ecs'
@@ -79,9 +86,11 @@ jobs:
 
     - name: Update SSM parameter for deployed image
       if: matrix.service.type == 'ecs'
+      env:
+        IMAGE_TAG: ${{ inputs.IMAGE_TAG }}
       run: |
         aws ssm put-parameter \
           --name "/ecs/${{ env.ECS_CLUSTER }}/${{ matrix.service.name }}/container-image" \
-          --value "$REGISTRY_PREFIX/${{ matrix.service.name }}:sha-$GITHUB_SHA" \
+          --value "$REGISTRY_PREFIX/${{ matrix.service.name }}:$IMAGE_TAG" \
           --type "String" \
           --overwrite

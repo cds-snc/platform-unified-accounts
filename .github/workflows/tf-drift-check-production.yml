@@ -1,0 +1,118 @@
+name: Terraform Drift Check Production
+
+concurrency:
+  group: terraform-production
+  cancel-in-progress: false
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 13 * * *'
+
+env:
+  AWS_REGION: ca-central-1
+  TF_VAR_idp_admin_username: ${{ secrets.PROD_IDP_ADMIN_USERNAME }}
+  TF_VAR_idp_admin_password: ${{ secrets.PROD_IDP_ADMIN_PASSWORD }}
+  TF_VAR_client_vpn_access_group_id: ${{ secrets.PROD_CLIENT_VPN_ACCESS_GROUP_ID }}
+  TF_VAR_client_vpn_saml_metadata: ${{ secrets.PROD_CLIENT_VPN_SAML_METADATA }}
+  TF_VAR_cloudwatch_slack_webhook_url: ${{ secrets.PROD_CLOUDWATCH_ALERT_SLACK_WEBHOOK }}
+  TF_VAR_idp_cleanup_users_key_json: ${{ secrets.PROD_IDP_CLEANUP_USERS_KEY_JSON }}
+  TF_VAR_idp_database_username: ${{ secrets.PROD_IDP_DATABASE_USERNAME }}
+  TF_VAR_idp_database_password: ${{ secrets.PROD_IDP_DATABASE_PASSWORD }}
+  TF_VAR_idp_database_admin_username: ${{ secrets.PROD_IDP_DATABASE_ADMIN_USERNAME }}
+  TF_VAR_idp_database_admin_password: ${{ secrets.PROD_IDP_DATABASE_ADMIN_PASSWORD }}
+  TF_VAR_idp_event_exporter_key_json: ${{ secrets.PROD_IDP_EVENT_EXPORTER_KEY_JSON }}
+  TF_VAR_idp_hcaptcha_secret: ${{ secrets.PROD_IDP_HCAPTCHA_SECRET }}
+  TF_VAR_idp_hcaptcha_site_key: ${{ secrets.PROD_IDP_HCAPTCHA_SITE_KEY }}
+  TF_VAR_idp_loginclient_machine_username: ${{ secrets.PROD_IDP_LOGINCLIENT_MACHINE_USERNAME }}
+  TF_VAR_idp_loginclient_pat: ${{ secrets.PROD_IDP_LOGINCLIENT_PAT }}
+  TF_VAR_idp_zitadel_org: ${{ secrets.PROD_IDP_ZITADEL_ORG }}
+  TF_VAR_idp_notify_api_key: ${{ secrets.PROD_IDP_NOTIFY_API_KEY }}
+  TF_VAR_idp_notify_template_id: ${{ secrets.PROD_IDP_NOTIFY_TEMPLATE_ID }}
+  TF_VAR_idp_secret_key: ${{ secrets.PROD_IDP_SECRET_KEY }}
+  TF_VAR_security_txt_content: ${{ vars.SECURITY_TXT_ALPHA_CANADA_CA }}
+
+permissions: {}
+
+jobs:
+  get-version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.get-version.outputs.version }}
+    steps:
+      - name: Audit DNS requests
+        uses: cds-snc/dns-proxy-action@7b6ba63b4f045de61c98a3c1b99fdd08f32b0784 # v1.2.0
+        env:
+          DNS_PROXY_FORWARDTOSENTINEL: "true"
+          DNS_PROXY_LOGANALYTICSWORKSPACEID: "${{ secrets.LOG_ANALYTICS_WORKSPACE_ID }}"
+          DNS_PROXY_LOGANALYTICSSHAREDKEY: "${{ secrets.LOG_ANALYTICS_WORKSPACE_KEY }}"
+          DNS_PROXY_SAFELIST: "${{ vars.DNS_PROXY_SAFELIST }}"
+          DNS_PROXY_WILDCARDGREEDY: "true"
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Get version to deploy
+        id: get-version
+        uses: ./.github/workflows/get-version
+        with:
+          is-tagged: "true"
+
+  terraform-drift:
+    permissions:
+      id-token: write
+      contents: read
+    needs: get-version
+    env:
+      VERSION: ${{ needs.get-version.outputs.version }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Audit DNS requests
+        uses: cds-snc/dns-proxy-action@7b6ba63b4f045de61c98a3c1b99fdd08f32b0784 # v1.2.0
+        env:
+          DNS_PROXY_FORWARDTOSENTINEL: "true"
+          DNS_PROXY_LOGANALYTICSWORKSPACEID: "${{ secrets.LOG_ANALYTICS_WORKSPACE_ID }}"
+          DNS_PROXY_LOGANALYTICSSHAREDKEY: "${{ secrets.LOG_ANALYTICS_WORKSPACE_KEY }}"
+          DNS_PROXY_SAFELIST: "${{ vars.DNS_PROXY_SAFELIST }}"
+          DNS_PROXY_WILDCARDGREEDY: "true"
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.VERSION }}
+          persist-credentials: false
+
+      - name: Configure aws credentials using OIDC
+        uses: aws-actions/configure-aws-credentials@cbe3b392738ccf3f987d68400dafcf4b0624a56c # v6.2.4
+        with:
+          role-to-assume: arn:aws:iam::${{ vars.PROD_AWS_ACCOUNT_ID }}:role/platform-unified-accounts-plan
+          role-session-name: TFPlan
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform tools
+        uses: cds-snc/terraform-tools-setup@36df0d7572a15921998170395475093c183d720a # v1.3.0
+        env:
+          CONFTEST_VERSION: NONE
+          TERRAFORM_VERSION: 1.14.3
+          TERRAFORM_CHECKSUM: 178b2a602251bb68b94732aceca2cc1023d87597cb83dba92cab31b6689edb4d
+          TERRAGRUNT_VERSION: 0.98.0
+          TERRAGRUNT_CHECKSUM: 68a9e029b438957c4164e505dfade123c67d6c3c3e11880bcadf3f2b33a8d865
+          TF_SUMMARIZE_VERSION: NONE
+          TRUFFLEHOG_VERSION: NONE
+
+      - name: Check for drift
+        working-directory: ./terraform/env/production
+        run: |
+          terragrunt init
+          terragrunt plan -detailed-exitcode
+
+  workflow-failure:
+    needs: [terraform-drift]
+    if: failure()
+    uses: ./.github/workflows/workflow-failure.yml
+    secrets:
+      LOG_ANALYTICS_WORKSPACE_ID: ${{ secrets.LOG_ANALYTICS_WORKSPACE_ID }}
+      LOG_ANALYTICS_WORKSPACE_KEY: ${{ secrets.LOG_ANALYTICS_WORKSPACE_KEY }}
+      SLACK_WEBHOOK_URL: ${{ secrets.PROD_CLOUDWATCH_ALERT_SLACK_WEBHOOK }}
