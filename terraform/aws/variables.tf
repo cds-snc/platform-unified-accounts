@@ -156,6 +156,18 @@ variable "idp_hcaptcha_site_key" {
   sensitive   = true
 }
 
+variable "idp_freshdesk_api_url" {
+  description = "The Freshdesk API URL for the contact us form."
+  type        = string
+  sensitive   = true
+}
+
+variable "idp_freshdesk_api_key" {
+  description = "The Freshdesk API key for the contact us form."
+  type        = string
+  sensitive   = true
+}
+
 variable "idp_load_test_client_id" {
   description = "The Zitadel client ID for the IdP load test."
   type        = string
