@@ -24,6 +24,8 @@ env:
   TF_VAR_idp_event_exporter_key_json: ${{ secrets.PROD_IDP_EVENT_EXPORTER_KEY_JSON }}
   TF_VAR_idp_hcaptcha_secret: ${{ secrets.PROD_IDP_HCAPTCHA_SECRET }}
   TF_VAR_idp_hcaptcha_site_key: ${{ secrets.PROD_IDP_HCAPTCHA_SITE_KEY }}
+  TF_VAR_idp_freshdesk_api_url: ${{ secrets.PROD_IDP_FRESHDESK_API_URL }}
+  TF_VAR_idp_freshdesk_api_key: ${{ secrets.PROD_IDP_FRESHDESK_API_KEY }}
   TF_VAR_idp_loginclient_machine_username: ${{ secrets.PROD_IDP_LOGINCLIENT_MACHINE_USERNAME }}
   TF_VAR_idp_loginclient_pat: ${{ secrets.PROD_IDP_LOGINCLIENT_PAT }}
   TF_VAR_idp_zitadel_org: ${{ secrets.PROD_IDP_ZITADEL_ORG }}
