@@ -82,6 +82,7 @@ jobs:
         service: ${{ matrix.service.name }}
         cluster: ${{ env.ECS_CLUSTER }}
         wait-for-service-stability: true
+        wait-max-delay-seconds: 15
         propagate-tags: SERVICE
 
     - name: Update SSM parameter for deployed image
