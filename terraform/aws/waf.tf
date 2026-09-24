@@ -1139,7 +1139,7 @@ resource "aws_kinesis_firehose_delivery_stream" "idp_internal_waf_logs" {
 
   extended_s3_configuration {
     role_arn           = aws_iam_role.idp_waf_logs.arn
-    prefix             = "waf_acl_logs/AWSLogs/${var.account_id}/idp_internal/"
+    prefix             = "waf_acl_internal_logs/AWSLogs/${var.account_id}/"
     bucket_arn         = local.cbs_satellite_bucket_arn
     compression_format = "GZIP"
   }
