@@ -64,7 +64,7 @@ data "aws_iam_policy_document" "idp_event_exporter_s3" {
  * Lambda function to export events to S3
  */
 locals {
-  event_export_window_minutes   = 5
+  event_export_window_minutes  = 5
   event_anomaly_window_minutes = 60
 }
 
