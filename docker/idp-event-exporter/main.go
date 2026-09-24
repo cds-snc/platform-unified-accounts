@@ -8,7 +8,6 @@
 //
 // Optional environment variables:
 //
-//	WINDOW_MINUTES - Duration of the collection window in minutes (default: 5)
 //	LOCAL          - When "true", run the handler directly instead of starting the Lambda (default: false)
 package main
 
@@ -20,7 +19,6 @@ import (
 	"log"
 	"os"
 	"regexp"
-	"strconv"
 	"strings"
 	"time"
 
@@ -52,6 +50,26 @@ var eventsTypesToAudit = []string{
 	"user.locked",
 }
 
+type highAnomalyEvent struct {
+	eventType string
+	threshold int
+}
+
+var eventsTypesHighAnomaly = []highAnomalyEvent{
+	{eventType: "user.human.added", threshold: 50},
+	{eventType: "user.human.email.verified", threshold: 50},
+	{eventType: "user.human.password.changed", threshold: 5},
+	{eventType: "user.human.mfa.u2f.token.added", threshold: 50},
+	{eventType: "user.human.mfa.u2f.token.removed", threshold: 5},
+	{eventType: "user.human.mfa.otp.added", threshold: 50},
+	{eventType: "user.human.mfa.otp.removed", threshold: 5},
+	{eventType: "user.machine.added", threshold: 5},
+	{eventType: "user.machine.key.added", threshold: 5},
+	{eventType: "user.machine.key.removed", threshold: 5},
+	{eventType: "user.pat.added", threshold: 5},
+	{eventType: "user.pat.removed", threshold: 5},
+}
+
 // ---------------------------------------------------------------------------
 // Module-level configuration (read once at cold start)
 // ---------------------------------------------------------------------------
@@ -60,7 +78,6 @@ var (
 	zitadelURL               string
 	s3Bucket                 string
 	zitadelPrivateKeySSMPath string
-	windowMinutes            int
 )
 
 // AWS clients and the parsed Zitadel key are initialised at cold start.
@@ -96,13 +113,6 @@ func init() {
 		return
 	}
 
-	wm, err := parseWindowMinutes()
-	if err != nil {
-		initErr = err
-		return
-	}
-	windowMinutes = wm
-
 	cfg, err := config.LoadDefaultConfig(context.Background())
 	if err != nil {
 		initErr = fmt.Errorf("loading AWS config: %w", err)
@@ -123,18 +133,6 @@ func init() {
 		return
 	}
 	zitadelKeyFile = keyFile
-}
-
-func parseWindowMinutes() (int, error) {
-	v := os.Getenv("WINDOW_MINUTES")
-	if v == "" {
-		return 5, nil
-	}
-	i, err := strconv.Atoi(v)
-	if err != nil {
-		return 0, fmt.Errorf("WINDOW_MINUTES must be an integer, got %q", v)
-	}
-	return i, nil
 }
 
 // ---------------------------------------------------------------------------
@@ -271,6 +269,37 @@ func auditEvents(events []json.RawMessage, patterns []string) {
 	}
 }
 
+func countHighAnomalyEvents(events []json.RawMessage) map[string]int {
+	knownTypes := make(map[string]struct{}, len(eventsTypesHighAnomaly))
+	for _, anomalyEvent := range eventsTypesHighAnomaly {
+		knownTypes[anomalyEvent.eventType] = struct{}{}
+	}
+
+	counts := make(map[string]int)
+	for _, event := range events {
+		var envelope eventEnvelope
+		if err := json.Unmarshal(event, &envelope); err != nil {
+			log.Printf("Error parsing event metadata: %v", err)
+			continue
+		}
+		if _, ok := knownTypes[envelope.Type.Type]; ok {
+			counts[envelope.Type.Type]++
+		}
+	}
+	return counts
+}
+
+func alertHighAnomalyEvents(events []json.RawMessage, anomalyTypes []highAnomalyEvent, windowStart, windowEnd time.Time) {
+	counts := countHighAnomalyEvents(events)
+	for _, anomalyEvent := range anomalyTypes {
+		count := counts[anomalyEvent.eventType]
+		if count > anomalyEvent.threshold {
+			log.Printf("AEVT: HIGH ANOMALY event_type=%q count=%d threshold=%d window=[%s,%s)",
+				anomalyEvent.eventType, count, anomalyEvent.threshold, windowStart.Format(time.RFC3339), windowEnd.Format(time.RFC3339))
+		}
+	}
+}
+
 // saveToS3 serialises events as newline-delimited JSON and writes them to the
 // given key in bucket.
 func saveToS3(ctx context.Context, bucket, key string, events []json.RawMessage) error {
@@ -305,7 +334,38 @@ func saveToS3(ctx context.Context, bucket, key string, events []json.RawMessage)
 // ---------------------------------------------------------------------------
 
 type eventBridgeEvent struct {
-	Time time.Time `json:"time"`
+	Time           time.Time `json:"time"`
+	InvocationType string    `json:"invocation_type"`
+	WindowMinutes  int       `json:"window_minutes"`
+}
+
+type invocationType string
+
+const (
+	invocationTypeExport      invocationType = "export"
+	invocationTypeHighAnomaly invocationType = "high_anomaly"
+)
+
+func recordInvocation(record events.SQSMessage) (eventBridgeEvent, error) {
+	var event eventBridgeEvent
+	if err := json.Unmarshal([]byte(record.Body), &event); err != nil {
+		return eventBridgeEvent{}, fmt.Errorf("parsing EventBridge event from SQS message body: %w", err)
+	}
+	if event.Time.IsZero() {
+		return eventBridgeEvent{}, fmt.Errorf("EventBridge event missing time field")
+	}
+	invocation := invocationType(event.InvocationType)
+	switch invocation {
+	case invocationTypeExport:
+	case invocationTypeHighAnomaly:
+	default:
+		return eventBridgeEvent{}, fmt.Errorf("unsupported invocation_type %q", event.InvocationType)
+	}
+	if event.WindowMinutes <= 0 {
+		return eventBridgeEvent{}, fmt.Errorf("window_minutes must be a positive integer")
+	}
+	event.Time = event.Time.UTC()
+	return event, nil
 }
 
 func recordEventTime(record events.SQSMessage) (time.Time, error) {
@@ -363,14 +423,16 @@ func handler(ctx context.Context, sqsEvent events.SQSEvent) (response, error) {
 		StatusCode: 200,
 	}
 	for i, record := range sqsEvent.Records {
-		eventTime, err := recordEventTime(record)
+		invocationEvent, err := recordInvocation(record)
 		if err != nil {
-			return response{}, fmt.Errorf("determining event time for SQS record %d: %w", i, err)
+			return response{}, fmt.Errorf("determining invocation for SQS record %d: %w", i, err)
 		}
+		eventTime := invocationEvent.Time
+		invocation := invocationType(invocationEvent.InvocationType)
+		windowStart, windowEnd := computeWindow(eventTime, invocationEvent.WindowMinutes)
 
-		windowStart, windowEnd := computeWindow(eventTime, windowMinutes)
-		log.Printf("Starting event export for SQS record %d/%d: window=[%s, %s) window_minutes=%d",
-			i+1, len(sqsEvent.Records), windowStart.Format(time.RFC3339), windowEnd.Format(time.RFC3339), windowMinutes)
+		log.Printf("Starting %s event processing for SQS record %d/%d: window=[%s, %s)",
+			invocation, i+1, len(sqsEvent.Records), windowStart.Format(time.RFC3339), windowEnd.Format(time.RFC3339))
 
 		zitadelEvents, err := fetchEvents(ctx, svc, windowStart, windowEnd)
 		if err != nil {
@@ -383,17 +445,22 @@ func handler(ctx context.Context, sqsEvent events.SQSEvent) (response, error) {
 		result.WindowEnd = windowEnd.Format(time.RFC3339)
 
 		if len(zitadelEvents) == 0 {
-			log.Println("No events in window, skipping S3 upload")
+			log.Println("No events in window, no-op")
 			continue
 		}
 
-		auditEvents(zitadelEvents, eventsTypesToAudit)
+		switch invocation {
+		case invocationTypeExport:
+			auditEvents(zitadelEvents, eventsTypesToAudit)
 
-		s3Key := fmt.Sprintf("events/%s.json", windowStart.Format("2006/01/02/15-04-05"))
-		if err := saveToS3(ctx, s3Bucket, s3Key, zitadelEvents); err != nil {
-			return response{}, fmt.Errorf("saving to S3: %w", err)
+			s3Key := fmt.Sprintf("events/%s.json", windowStart.Format("2006/01/02/15-04-05"))
+			if err := saveToS3(ctx, s3Bucket, s3Key, zitadelEvents); err != nil {
+				return response{}, fmt.Errorf("saving to S3: %w", err)
+			}
+			result.S3Keys = append(result.S3Keys, s3Key)
+		case invocationTypeHighAnomaly:
+			alertHighAnomalyEvents(zitadelEvents, eventsTypesHighAnomaly, windowStart, windowEnd)
 		}
-		result.S3Keys = append(result.S3Keys, s3Key)
 	}
 
 	log.Printf("Event export complete: %+v", result)
@@ -404,7 +471,11 @@ func main() {
 	isLocal := os.Getenv("LOCAL") == "true"
 	if isLocal {
 		log.Println("Running locally, invoking handler directly")
-		body, err := json.Marshal(eventBridgeEvent{Time: time.Now().UTC()})
+		body, err := json.Marshal(eventBridgeEvent{
+			Time:           time.Now().UTC(),
+			InvocationType: string(invocationTypeExport),
+			WindowMinutes:  5,
+		})
 		if err != nil {
 			log.Fatalf("Failed to build local invocation event: %v", err)
 		}

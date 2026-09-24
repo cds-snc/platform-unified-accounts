@@ -357,6 +357,108 @@ func TestRecordEventTime_MissingTime(t *testing.T) {
 	}
 }
 
+func TestRecordInvocation_ValidTypeAndTime(t *testing.T) {
+	wantTime := time.Date(2026, 9, 3, 12, 0, 0, 0, time.FixedZone("offset", -4*60*60))
+	body, err := json.Marshal(eventBridgeEvent{
+		Time:           wantTime,
+		InvocationType: string(invocationTypeHighAnomaly),
+		WindowMinutes:  60,
+	})
+	if err != nil {
+		t.Fatalf("failed to marshal test event: %v", err)
+	}
+
+	got, err := recordInvocation(sqsMessageWithBody(string(body)))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !got.Time.Equal(wantTime.UTC()) {
+		t.Errorf("time: got %s, want %s", got.Time, wantTime.UTC())
+	}
+	if got.InvocationType != string(invocationTypeHighAnomaly) {
+		t.Errorf("invocation: got %q, want %q", got.InvocationType, invocationTypeHighAnomaly)
+	}
+	if got.WindowMinutes != 60 {
+		t.Errorf("window: got %d, want 60", got.WindowMinutes)
+	}
+}
+
+func TestRecordInvocation_RejectsMissingTypeOrDuration(t *testing.T) {
+	for _, body := range []string{
+		`{"time":"2026-09-03T12:00:00Z"}`,
+		`{"time":"2026-09-03T12:00:00Z","invocation_type":"unknown"}`,
+		`{"time":"2026-09-03T12:00:00Z","invocation_type":"export"}`,
+		`{"time":"2026-09-03T12:00:00Z","invocation_type":"export","window_minutes":0}`,
+		`{"time":"2026-09-03T12:00:00Z","invocation_type":"high_anomaly"}`,
+		`{"time":"2026-09-03T12:00:00Z","invocation_type":"high_anomaly","window_minutes":-1}`,
+	} {
+		if _, err := recordInvocation(sqsMessageWithBody(body)); err == nil {
+			t.Errorf("expected an error for body %s", body)
+		}
+	}
+}
+
+func TestHighAnomalyEventThresholdsAreValid(t *testing.T) {
+	seen := make(map[string]struct{}, len(eventsTypesHighAnomaly))
+	for _, anomalyEvent := range eventsTypesHighAnomaly {
+		if anomalyEvent.eventType == "" {
+			t.Error("event type must not be empty")
+		}
+		if anomalyEvent.threshold < 0 {
+			t.Errorf("threshold for %q must not be negative", anomalyEvent.eventType)
+		}
+		if _, ok := seen[anomalyEvent.eventType]; ok {
+			t.Errorf("duplicate event type %q", anomalyEvent.eventType)
+		}
+		seen[anomalyEvent.eventType] = struct{}{}
+	}
+}
+
+func TestCountHighAnomalyEvents_CountsOnlyConfiguredAnomalyTypes(t *testing.T) {
+	input := []json.RawMessage{
+		json.RawMessage(`{"type":{"type":"user.human.added"}}`),
+		json.RawMessage(`{"type":{"type":"user.human.added"}}`),
+		json.RawMessage(`{"type":{"type":"project.application.added"}}`),
+	}
+
+	got := countHighAnomalyEvents(input)
+	if got["user.human.added"] != 2 {
+		t.Errorf("user.human.added: got %d, want 2", got["user.human.added"])
+	}
+	if got["project.application.added"] != 0 {
+		t.Errorf("project.application.added: got %d, want 0", got["project.application.added"])
+	}
+}
+
+func TestAlertHighAnomalyEvents_AlertsOnlyAboveThreshold(t *testing.T) {
+	var logBuf strings.Builder
+	origOutput := log.Writer()
+	origFlags := log.Flags()
+	log.SetOutput(&logBuf)
+	log.SetFlags(0)
+	defer log.SetOutput(origOutput)
+	defer log.SetFlags(origFlags)
+
+	events := []json.RawMessage{
+		json.RawMessage(`{"type":{"type":"user.human.added"}}`),
+		json.RawMessage(`{"type":{"type":"user.human.added"}}`),
+	}
+	windowStart := time.Date(2026, 9, 3, 11, 0, 0, 0, time.UTC)
+	windowEnd := windowStart.Add(time.Hour)
+
+	anomalyTypes := []highAnomalyEvent{{eventType: "user.human.added", threshold: 2}}
+	alertHighAnomalyEvents(events, anomalyTypes, windowStart, windowEnd)
+	if strings.Contains(logBuf.String(), "HIGH ANOMALY") {
+		t.Fatalf("threshold-equal count should not alert, got %q", logBuf.String())
+	}
+
+	anomalyTypes[0].threshold = 1
+	alertHighAnomalyEvents(events, anomalyTypes, windowStart, windowEnd)
+	if !strings.Contains(logBuf.String(), "AEVT: HIGH ANOMALY event_type=\"user.human.added\" count=2 threshold=1") {
+		t.Fatalf("expected above-threshold AEVT alert, got %q", logBuf.String())
+	}
+}
+
 // ---------------------------------------------------------------------------
 // silence logs in test output
 // ---------------------------------------------------------------------------
