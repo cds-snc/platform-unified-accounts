@@ -213,7 +213,7 @@ resource "aws_cloudwatch_event_target" "idp_event_exporter_sqs" {
 resource "aws_cloudwatch_event_rule" "idp_event_exporter_anomaly_sqs" {
   name                = "idp-event-exporter-anomaly-sqs-schedule"
   description         = "Triggers a high anomaly lookback for the idp-event-exporter"
-  schedule_expression = "cron(0/${local.event_anomaly_window_minutes} * * * ? *)"
+  schedule_expression = "cron(0 * * * ? *)"
   state               = "ENABLED"
   tags                = local.core_tags
 }
