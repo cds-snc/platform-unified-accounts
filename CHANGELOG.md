@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.2.0](https://github.com/cds-snc/platform-unified-accounts/compare/v1.1.1...v1.2.0) (2026-09-24)
+
+
+### Features
+
+* added waf association to internal idp ([#328](https://github.com/cds-snc/platform-unified-accounts/issues/328)) ([329f7ee](https://github.com/cds-snc/platform-unified-accounts/commit/329f7ee0af9e7ecdf8190e6d173e4003c8acb4af))
+* connect contact us form to freshdesk ([#342](https://github.com/cds-snc/platform-unified-accounts/issues/342)) ([ce016e6](https://github.com/cds-snc/platform-unified-accounts/commit/ce016e68fb220b32df16a8c0ecc3b80a85d4256c))
+
+
+### Bug Fixes
+
+* OIDC role access to new SSM params ([#345](https://github.com/cds-snc/platform-unified-accounts/issues/345)) ([09ed2ce](https://github.com/cds-snc/platform-unified-accounts/commit/09ed2ce049b625a9bae9f4a7aeab79494d3c82ea))
+
 ## [1.1.1](https://github.com/cds-snc/platform-unified-accounts/compare/v1.1.0...v1.1.1) (2026-09-24)
 
 
