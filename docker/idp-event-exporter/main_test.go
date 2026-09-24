@@ -448,13 +448,13 @@ func TestAlertHighAnomalyEvents_AlertsOnlyAboveThreshold(t *testing.T) {
 
 	anomalyTypes := []highAnomalyEvent{{eventType: "user.human.added", threshold: 2}}
 	alertHighAnomalyEvents(events, anomalyTypes, windowStart, windowEnd)
-	if strings.Contains(logBuf.String(), "HIGH ANOMALY") {
+	if strings.Contains(logBuf.String(), "High event count for") {
 		t.Fatalf("threshold-equal count should not alert, got %q", logBuf.String())
 	}
 
 	anomalyTypes[0].threshold = 1
 	alertHighAnomalyEvents(events, anomalyTypes, windowStart, windowEnd)
-	if !strings.Contains(logBuf.String(), "AEVT: HIGH ANOMALY event_type=\"user.human.added\" count=2 threshold=1") {
+	if !strings.Contains(logBuf.String(), "AEVT: High event count for `user.human.added` → `2` counted with threshold `1`") {
 		t.Fatalf("expected above-threshold AEVT alert, got %q", logBuf.String())
 	}
 }

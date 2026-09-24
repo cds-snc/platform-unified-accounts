@@ -294,7 +294,7 @@ func alertHighAnomalyEvents(events []json.RawMessage, anomalyTypes []highAnomaly
 	for _, anomalyEvent := range anomalyTypes {
 		count := counts[anomalyEvent.eventType]
 		if count > anomalyEvent.threshold {
-			log.Printf("AEVT: HIGH ANOMALY event_type=%q count=%d threshold=%d window=[%s,%s)",
+			log.Printf("AEVT: High event count for `%s` → `%d` counted with threshold `%d` during window `%s,%s`",
 				anomalyEvent.eventType, count, anomalyEvent.threshold, windowStart.Format(time.RFC3339), windowEnd.Format(time.RFC3339))
 		}
 	}
