@@ -107,6 +107,14 @@ locals {
       "valueFrom" = aws_ssm_parameter.idp_hcaptcha_site_key.arn
     },
     {
+      "name"      = "FRESHDESK_API_URL",
+      "valueFrom" = aws_ssm_parameter.idp_freshdesk_api_url.arn
+    },
+    {
+      "name"      = "FRESHDESK_API_KEY",
+      "valueFrom" = aws_ssm_parameter.idp_freshdesk_api_key.arn
+    },
+    {
       "name"      = "NOTIFY_API_KEY",
       "valueFrom" = aws_ssm_parameter.idp_notify_api_key.arn
     },
@@ -327,6 +335,8 @@ data "aws_iam_policy_document" "ecs_task_ssm_parameters" {
       aws_ssm_parameter.idp_database_admin_password.arn,
       aws_ssm_parameter.idp_hcaptcha_secret.arn,
       aws_ssm_parameter.idp_hcaptcha_site_key.arn,
+      aws_ssm_parameter.idp_freshdesk_api_url.arn,
+      aws_ssm_parameter.idp_freshdesk_api_key.arn,
       aws_ssm_parameter.idp_loginclient_machine_username.arn,
       aws_ssm_parameter.idp_loginclient_pat.arn,
       aws_ssm_parameter.idp_secret_key.arn,
@@ -406,6 +416,20 @@ resource "aws_ssm_parameter" "idp_hcaptcha_site_key" {
   name  = "idp_hcaptcha_site_key"
   type  = "SecureString"
   value = var.idp_hcaptcha_site_key
+  tags  = local.core_tags
+}
+
+resource "aws_ssm_parameter" "idp_freshdesk_api_url" {
+  name  = "idp_freshdesk_api_url"
+  type  = "SecureString"
+  value = var.idp_freshdesk_api_url
+  tags  = local.core_tags
+}
+
+resource "aws_ssm_parameter" "idp_freshdesk_api_key" {
+  name  = "idp_freshdesk_api_key"
+  type  = "SecureString"
+  value = var.idp_freshdesk_api_key
   tags  = local.core_tags
 }
 
