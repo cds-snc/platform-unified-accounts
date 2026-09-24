@@ -189,27 +189,46 @@ type eventEnvelope struct {
 // fetchEvents fetches all events from the Zitadel Admin API between windowStart and
 // windowEnd and returns them serialised as JSON.
 func fetchEvents(ctx context.Context, svc adminService, windowStart, windowEnd time.Time) ([]json.RawMessage, error) {
+	const pageLimit = 1000
+
 	log.Printf("Fetching events from Zitadel starting at %s and ending at %s", windowStart.Format(time.RFC3339), windowEnd.Format(time.RFC3339))
 
-	resp, err := svc.ListEvents(ctx, &adminpb.ListEventsRequest{
-		CreationDateFilter: &adminpb.ListEventsRequest_Range{
-			Range: &adminpb.ListEventsRequestCreationDateRange{
-				Since: timestamppb.New(windowStart),
-				Until: timestamppb.New(windowEnd),
+	result := make([]json.RawMessage, 0)
+	var sequence uint64
+	for {
+		resp, err := svc.ListEvents(ctx, &adminpb.ListEventsRequest{
+			Sequence: sequence,
+			Limit:    pageLimit,
+			Asc:      true,
+			CreationDateFilter: &adminpb.ListEventsRequest_Range{
+				Range: &adminpb.ListEventsRequestCreationDateRange{
+					Since: timestamppb.New(windowStart),
+					Until: timestamppb.New(windowEnd),
+				},
 			},
-		},
-	})
-	if err != nil {
-		return nil, fmt.Errorf("fetching events: %w", err)
-	}
-
-	result := make([]json.RawMessage, 0, len(resp.GetEvents()))
-	for _, event := range resp.GetEvents() {
-		b, err := protojson.Marshal(event)
+		})
 		if err != nil {
-			return nil, fmt.Errorf("marshalling event: %w", err)
+			return nil, fmt.Errorf("fetching events: %w", err)
 		}
-		result = append(result, json.RawMessage(b))
+
+		pageEvents := resp.GetEvents()
+		for _, event := range pageEvents {
+			b, err := protojson.Marshal(event)
+			if err != nil {
+				return nil, fmt.Errorf("marshalling event: %w", err)
+			}
+			result = append(result, json.RawMessage(b))
+		}
+
+		if len(pageEvents) < pageLimit {
+			break
+		}
+
+		nextSequence := pageEvents[len(pageEvents)-1].GetSequence()
+		if nextSequence <= sequence {
+			return nil, fmt.Errorf("event pagination did not advance: current sequence %d, last event sequence %d", sequence, nextSequence)
+		}
+		sequence = nextSequence
 	}
 
 	log.Printf("Fetched %d event(s)", len(result))
@@ -339,7 +358,6 @@ func handler(ctx context.Context, sqsEvent events.SQSEvent) (response, error) {
 	ctx = zitadelclient.BearerTokenCtx(ctx, token)
 
 	svc := zitadelAPIClient.AdminService()
-
 
 	result := response{
 		StatusCode: 200,
