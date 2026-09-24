@@ -24,16 +24,23 @@ import (
 
 type mockAdminService struct {
 	// capturedReq holds the last ListEventsRequest received.
-	capturedReq *adminpb.ListEventsRequest
+	capturedReq  *adminpb.ListEventsRequest
+	capturedReqs []*adminpb.ListEventsRequest
 
-	events    []*eventpb.Event
-	eventsErr error
+	events     []*eventpb.Event
+	eventPages [][]*eventpb.Event
+	eventsErr  error
 }
 
 func (m *mockAdminService) ListEvents(_ context.Context, req *adminpb.ListEventsRequest, _ ...grpc.CallOption) (*adminpb.ListEventsResponse, error) {
 	m.capturedReq = req
+	m.capturedReqs = append(m.capturedReqs, req)
 	if m.eventsErr != nil {
 		return nil, m.eventsErr
+	}
+	pageIndex := len(m.capturedReqs) - 1
+	if pageIndex < len(m.eventPages) {
+		return &adminpb.ListEventsResponse{Events: m.eventPages[pageIndex]}, nil
 	}
 	return &adminpb.ListEventsResponse{Events: m.events}, nil
 }
@@ -150,6 +157,72 @@ func TestFetchEvents_SetsCreationDateFilter(t *testing.T) {
 	}
 	if !rangeFilter.Range.Until.AsTime().Equal(windowEnd) {
 		t.Errorf("CreationDateFilter.Until: got %v, want %v", rangeFilter.Range.Until.AsTime(), windowEnd)
+	}
+	if got, want := svc.capturedReq.GetLimit(), uint32(1000); got != want {
+		t.Errorf("Limit: got %d, want %d", got, want)
+	}
+	if !svc.capturedReq.GetAsc() {
+		t.Error("Asc: got false, want true")
+	}
+	if got := svc.capturedReq.GetSequence(); got != 0 {
+		t.Errorf("Sequence: got %d, want 0", got)
+	}
+}
+
+func TestFetchEvents_PaginatesUsingLastEventSequence(t *testing.T) {
+	firstPage := make([]*eventpb.Event, 1000)
+	for index := range firstPage {
+		firstPage[index] = &eventpb.Event{Sequence: uint64(index + 1)}
+	}
+	secondPage := []*eventpb.Event{{Sequence: 1001}}
+	svc := &mockAdminService{eventPages: [][]*eventpb.Event{firstPage, secondPage}}
+	windowStart := time.Date(2026, 4, 21, 15, 0, 0, 0, time.UTC)
+	windowEnd := time.Date(2026, 4, 21, 15, 15, 0, 0, time.UTC)
+
+	got, err := fetchEvents(t.Context(), svc, windowStart, windowEnd)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(got) != 1001 {
+		t.Fatalf("got %d events, want 1001", len(got))
+	}
+	if len(svc.capturedReqs) != 2 {
+		t.Fatalf("got %d ListEvents calls, want 2", len(svc.capturedReqs))
+	}
+	if got, want := svc.capturedReqs[0].GetSequence(), uint64(0); got != want {
+		t.Errorf("first request sequence: got %d, want %d", got, want)
+	}
+	if got, want := svc.capturedReqs[1].GetSequence(), uint64(1000); got != want {
+		t.Errorf("second request sequence: got %d, want %d", got, want)
+	}
+	for index, req := range svc.capturedReqs {
+		if !req.GetAsc() {
+			t.Errorf("request %d: Asc got false, want true", index)
+		}
+		if got, want := req.GetLimit(), uint32(1000); got != want {
+			t.Errorf("request %d: Limit got %d, want %d", index, got, want)
+		}
+		rangeFilter, ok := req.GetCreationDateFilter().(*adminpb.ListEventsRequest_Range)
+		if !ok || rangeFilter.Range == nil {
+			t.Fatalf("request %d: CreationDateFilter was not set to a Range", index)
+		}
+		if !rangeFilter.Range.Since.AsTime().Equal(windowStart) || !rangeFilter.Range.Until.AsTime().Equal(windowEnd) {
+			t.Errorf("request %d: date range changed between pages", index)
+		}
+	}
+}
+
+func TestFetchEvents_FullPageWithoutSequenceProgressReturnsError(t *testing.T) {
+	fullPage := make([]*eventpb.Event, 1000)
+	for index := range fullPage {
+		fullPage[index] = &eventpb.Event{}
+	}
+	svc := &mockAdminService{eventPages: [][]*eventpb.Event{fullPage}}
+	windowStart := time.Date(2026, 4, 21, 15, 0, 0, 0, time.UTC)
+	windowEnd := time.Date(2026, 4, 21, 15, 15, 0, 0, time.UTC)
+
+	if _, err := fetchEvents(t.Context(), svc, windowStart, windowEnd); err == nil {
+		t.Fatal("expected error when pagination sequence does not advance")
 	}
 }
 
