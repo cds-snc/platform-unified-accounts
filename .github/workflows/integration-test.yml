@@ -1,0 +1,50 @@
+name: Integration test
+
+on:
+  workflow_call:
+    inputs:
+      EVENT_TYPE:
+        required: true
+        type: string
+    secrets:
+      LOG_ANALYTICS_WORKSPACE_ID:
+        required: true
+      LOG_ANALYTICS_WORKSPACE_KEY:
+        required: true
+      CDS_RELEASE_BOT_APP_ID:
+        required: true
+      CDS_RELEASE_BOT_PRIVATE_KEY:
+        required: true
+
+jobs:
+  integration-test:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Audit DNS requests
+        uses: cds-snc/dns-proxy-action@7b6ba63b4f045de61c98a3c1b99fdd08f32b0784 # v1.2.0
+        env:
+          DNS_PROXY_FORWARDTOSENTINEL: "true"
+          DNS_PROXY_LOGANALYTICSWORKSPACEID: "${{ secrets.LOG_ANALYTICS_WORKSPACE_ID }}"
+          DNS_PROXY_LOGANALYTICSSHAREDKEY: "${{ secrets.LOG_ANALYTICS_WORKSPACE_KEY }}"
+          DNS_PROXY_SAFELIST: "${{ vars.DNS_PROXY_SAFELIST }}"
+          DNS_PROXY_WILDCARDGREEDY: "true"
+
+      - uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2.2.2
+        id: sre-app-token
+        with:
+          app-id: ${{ secrets.CDS_RELEASE_BOT_APP_ID }}
+          private-key: ${{ secrets.CDS_RELEASE_BOT_PRIVATE_KEY }}
+          owner: cds-snc
+          repositories: platform-unified-accounts-user-portal
+          permission-contents: write
+
+      - name: Dispatch integration test event
+        env:
+          GH_TOKEN: ${{ steps.sre-app-token.outputs.token }}
+          EVENT_TYPE: ${{ inputs.EVENT_TYPE }}
+        run: gh api --method POST \
+          repos/cds-snc/platform-unified-accounts-user-portal/dispatches \
+          -f event_type="$EVENT_TYPE"
