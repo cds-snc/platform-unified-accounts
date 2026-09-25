@@ -64,7 +64,8 @@ data "aws_iam_policy_document" "idp_event_exporter_s3" {
  * Lambda function to export events to S3
  */
 locals {
-  event_window_minutes = 5
+  event_export_window_minutes  = 5
+  event_anomaly_window_minutes = 60
 }
 
 module "idp_event_exporter" {
@@ -82,7 +83,6 @@ module "idp_event_exporter" {
     S3_BUCKET                    = module.idp_event_exporter_s3.s3_bucket_id
     ZITADEL_PRIVATE_KEY_SSM_PATH = aws_ssm_parameter.idp_event_exporter_key_json.name
     ZITADEL_URL                  = "idp.${var.domain}"
-    WINDOW_MINUTES               = local.event_window_minutes
   }
 
   vpc = {
@@ -176,7 +176,10 @@ data "aws_iam_policy_document" "idp_event_exporter" {
     condition {
       test     = "ArnEquals"
       variable = "aws:SourceArn"
-      values   = [aws_cloudwatch_event_rule.idp_event_exporter_sqs.arn]
+      values = [
+        aws_cloudwatch_event_rule.idp_event_exporter_sqs.arn,
+        aws_cloudwatch_event_rule.idp_event_exporter_anomaly_sqs.arn,
+      ]
     }
   }
 }
@@ -189,7 +192,7 @@ resource "aws_sqs_queue_policy" "idp_event_exporter" {
 resource "aws_cloudwatch_event_rule" "idp_event_exporter_sqs" {
   name                = "idp-event-exporter-sqs-schedule"
   description         = "Triggers the idp-event-exporter event queue on a schedule"
-  schedule_expression = "cron(0/${local.event_window_minutes} * * * ? *)"
+  schedule_expression = "cron(0/${local.event_export_window_minutes} * * * ? *)"
   state               = "ENABLED"
   tags                = local.core_tags
 }
@@ -198,6 +201,34 @@ resource "aws_cloudwatch_event_target" "idp_event_exporter_sqs" {
   rule      = aws_cloudwatch_event_rule.idp_event_exporter_sqs.name
   target_id = "idp-event-exporter-sqs"
   arn       = aws_sqs_queue.idp_event_exporter.arn
+
+  input_transformer {
+    input_paths = {
+      time = "$.time"
+    }
+    input_template = "{\"time\": <time>, \"invocation_type\": \"export\", \"window_minutes\": ${local.event_export_window_minutes}}"
+  }
+}
+
+resource "aws_cloudwatch_event_rule" "idp_event_exporter_anomaly_sqs" {
+  name                = "idp-event-exporter-anomaly-sqs-schedule"
+  description         = "Triggers a high anomaly lookback for the idp-event-exporter"
+  schedule_expression = "cron(0 * * * ? *)"
+  state               = "ENABLED"
+  tags                = local.core_tags
+}
+
+resource "aws_cloudwatch_event_target" "idp_event_exporter_anomaly_sqs" {
+  rule      = aws_cloudwatch_event_rule.idp_event_exporter_anomaly_sqs.name
+  target_id = "idp-event-exporter-anomaly-sqs"
+  arn       = aws_sqs_queue.idp_event_exporter.arn
+
+  input_transformer {
+    input_paths = {
+      time = "$.time"
+    }
+    input_template = "{\"time\": <time>, \"invocation_type\": \"high_anomaly\", \"window_minutes\": ${local.event_anomaly_window_minutes}}"
+  }
 }
 
 data "aws_iam_policy_document" "idp_event_exporter_worker" {
