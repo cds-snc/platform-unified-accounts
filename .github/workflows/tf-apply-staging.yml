@@ -14,6 +14,7 @@ on:
       - "terraform/env/common/**"
       - "terraform/env/root.hcl"
       - ".github/workflows/tf-apply-staging.yml"
+      - ".github/workflows/tf-plan-staging.yml"
 
 env:
   AWS_REGION: ca-central-1
@@ -90,8 +91,19 @@ jobs:
         working-directory: terraform/env/staging
         run: terragrunt run --non-interactive -- apply -auto-approve
 
+  integration-test:
+    needs: terragrunt-apply
+    uses: ./.github/workflows/integration-test.yml
+    with:
+      EVENT_TYPE: integration-test-staging
+    secrets:
+      CDS_RELEASE_BOT_APP_ID: ${{ secrets.CDS_RELEASE_BOT_APP_ID }}
+      CDS_RELEASE_BOT_PRIVATE_KEY: ${{ secrets.CDS_RELEASE_BOT_PRIVATE_KEY }}
+      LOG_ANALYTICS_WORKSPACE_ID: ${{ secrets.LOG_ANALYTICS_WORKSPACE_ID }}
+      LOG_ANALYTICS_WORKSPACE_KEY: ${{ secrets.LOG_ANALYTICS_WORKSPACE_KEY }}
+
   workflow-failure:
-    needs: [terragrunt-apply]
+    needs: terragrunt-apply
     if: failure()
     uses: ./.github/workflows/workflow-failure.yml
     secrets:
