@@ -78,7 +78,7 @@ locals {
     },
     {
       "name"  = "CUSTOM_REQUEST_HEADERS",
-      "value" = "Host:${var.domain}"
+      "value" = "Host:idp.${var.domain}"
     },
     {
       "name"  = "HOSTNAME",
