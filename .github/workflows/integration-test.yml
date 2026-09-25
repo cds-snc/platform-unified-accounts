@@ -16,12 +16,11 @@ on:
       CDS_RELEASE_BOT_PRIVATE_KEY:
         required: true
 
+permissions: {}
+
 jobs:
   integration-test:
     runs-on: ubuntu-latest
-    permissions:
-      id-token: write
-      contents: read
     steps:
       - name: Audit DNS requests
         uses: cds-snc/dns-proxy-action@7b6ba63b4f045de61c98a3c1b99fdd08f32b0784 # v1.2.0
