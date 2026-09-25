@@ -1,5 +1,24 @@
 # Changelog
 
+## [1.3.0](https://github.com/cds-snc/platform-unified-accounts/compare/v1.2.0...v1.3.0) (2026-09-25)
+
+
+### Features
+
+* add integration test after terraform apply ([#349](https://github.com/cds-snc/platform-unified-accounts/issues/349)) ([1ab01d9](https://github.com/cds-snc/platform-unified-accounts/commit/1ab01d9130afbd9977e81479507ee9f184bb74da))
+
+
+### Bug Fixes
+
+* integration test repository dispatch ([#352](https://github.com/cds-snc/platform-unified-accounts/issues/352)) ([f52adbe](https://github.com/cds-snc/platform-unified-accounts/commit/f52adbe2be13c801f570b9f08f5ee250442dadad))
+* remove permissions from workflow ([#350](https://github.com/cds-snc/platform-unified-accounts/issues/350)) ([14a3394](https://github.com/cds-snc/platform-unified-accounts/commit/14a33941f1f6b8c409d1d2764399433475ced7f6))
+* update login task to use internal URL ([#347](https://github.com/cds-snc/platform-unified-accounts/issues/347)) ([116a636](https://github.com/cds-snc/platform-unified-accounts/commit/116a63622bda01d749e9d1da5d8cca70c69882d6))
+
+
+### Miscellaneous Chores
+
+* adjust variable definition ([#351](https://github.com/cds-snc/platform-unified-accounts/issues/351)) ([8f01cd1](https://github.com/cds-snc/platform-unified-accounts/commit/8f01cd10afef6bb571b4975f09189208aeb2f323))
+
 ## [1.2.0](https://github.com/cds-snc/platform-unified-accounts/compare/v1.1.1...v1.2.0) (2026-09-24)
 
 
