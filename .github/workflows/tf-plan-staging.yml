@@ -11,6 +11,7 @@ on:
       - "terraform/env/staging/**"
       - "terraform/env/common/**"
       - "terraform/env/root.hcl"
+      - ".github/workflows/tf-apply-staging.yml"
       - ".github/workflows/tf-plan-staging.yml"
 
 env:
