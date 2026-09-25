@@ -1,5 +1,5 @@
 variable "account_id" {
-  description = "The account ID to perform actions on."
+  description = "The account ID of the target account."
   type        = string
 }
 
