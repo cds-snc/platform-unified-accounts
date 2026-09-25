@@ -443,18 +443,16 @@ func TestAlertHighAnomalyEvents_AlertsOnlyAboveThreshold(t *testing.T) {
 		json.RawMessage(`{"type":{"type":"user.human.added"}}`),
 		json.RawMessage(`{"type":{"type":"user.human.added"}}`),
 	}
-	windowStart := time.Date(2026, 9, 3, 11, 0, 0, 0, time.UTC)
-	windowEnd := windowStart.Add(time.Hour)
 
 	anomalyTypes := []highAnomalyEvent{{eventType: "user.human.added", threshold: 2}}
-	alertHighAnomalyEvents(events, anomalyTypes, windowStart, windowEnd)
-	if strings.Contains(logBuf.String(), "High event count for") {
+	alertHighAnomalyEvents(events, anomalyTypes, 60)
+	if strings.Contains(logBuf.String(), "AEVT: High") {
 		t.Fatalf("threshold-equal count should not alert, got %q", logBuf.String())
 	}
 
 	anomalyTypes[0].threshold = 1
-	alertHighAnomalyEvents(events, anomalyTypes, windowStart, windowEnd)
-	if !strings.Contains(logBuf.String(), "AEVT: High event count for `user.human.added` → `2` counted with threshold `1`") {
+	alertHighAnomalyEvents(events, anomalyTypes, 60)
+	if !strings.Contains(logBuf.String(), "AEVT: High `user.human.added` events → `2` counted (threshold `1`) during past `60` minutes") {
 		t.Fatalf("expected above-threshold AEVT alert, got %q", logBuf.String())
 	}
 }

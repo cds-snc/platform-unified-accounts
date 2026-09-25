@@ -289,13 +289,13 @@ func countHighAnomalyEvents(events []json.RawMessage) map[string]int {
 	return counts
 }
 
-func alertHighAnomalyEvents(events []json.RawMessage, anomalyTypes []highAnomalyEvent, windowStart, windowEnd time.Time) {
+func alertHighAnomalyEvents(events []json.RawMessage, anomalyTypes []highAnomalyEvent, windowMinutes int) {
 	counts := countHighAnomalyEvents(events)
 	for _, anomalyEvent := range anomalyTypes {
 		count := counts[anomalyEvent.eventType]
 		if count > anomalyEvent.threshold {
-			log.Printf("AEVT: High event count for `%s` → `%d` counted with threshold `%d` during window `%s,%s`",
-				anomalyEvent.eventType, count, anomalyEvent.threshold, windowStart.Format(time.RFC3339), windowEnd.Format(time.RFC3339))
+			log.Printf("AEVT: High `%s` events → `%d` counted (threshold `%d`) during past `%d` minutes",
+				anomalyEvent.eventType, count, anomalyEvent.threshold, windowMinutes)
 		}
 	}
 }
@@ -459,7 +459,7 @@ func handler(ctx context.Context, sqsEvent events.SQSEvent) (response, error) {
 			}
 			result.S3Keys = append(result.S3Keys, s3Key)
 		case invocationTypeHighAnomaly:
-			alertHighAnomalyEvents(zitadelEvents, eventsTypesHighAnomaly, windowStart, windowEnd)
+			alertHighAnomalyEvents(zitadelEvents, eventsTypesHighAnomaly, invocationEvent.WindowMinutes)
 		}
 	}
 
