@@ -4,7 +4,7 @@ variable "account_id" {
 }
 
 variable "billing_tag_value" {
-  description = "The billing code to tag our resources with"
+  description = "The billing code to tag resources with"
   type        = string
 }
 
