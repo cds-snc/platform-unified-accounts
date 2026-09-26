@@ -2,7 +2,7 @@
  * S3 bucket to store exported events
  */
 module "idp_event_exporter_s3" {
-  source            = "github.com/cds-snc/terraform-modules//S3?ref=v12.0.0"
+  source            = "github.com/cds-snc/terraform-modules//S3?ref=v12.1.2"
   bucket_name       = "idp-event-exporter-${var.env}"
   billing_tag_value = var.billing_tag_value
 
@@ -68,7 +68,7 @@ locals {
 }
 
 module "idp_event_exporter" {
-  source = "github.com/cds-snc/terraform-modules//lambda?ref=v12.0.0"
+  source = "github.com/cds-snc/terraform-modules//lambda?ref=v12.1.2"
 
   name      = "idp-event-exporter"
   image_uri = "${aws_ecr_repository.repo["idp-event-exporter"].repository_url}:latest"
