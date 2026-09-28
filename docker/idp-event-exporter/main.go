@@ -70,6 +70,8 @@ var eventsTypesHighAnomaly = []highAnomalyEvent{
 	{eventType: "user.pat.removed", threshold: 5},
 }
 
+var standardAccountEmailDomain = regexp.MustCompile(`^([a-zA-Z0-9-.]+\.gc\.ca|(canada|cds-snc|elections|rcafinnovation|canadacouncil|nfb|debates-debats|invcanada|gg)\.ca)$`)
+
 // ---------------------------------------------------------------------------
 // Module-level configuration (read once at cold start)
 // ---------------------------------------------------------------------------
@@ -300,6 +302,43 @@ func alertHighAnomalyEvents(events []json.RawMessage, anomalyTypes []highAnomaly
 	}
 }
 
+func isStandardAccountEmail(email string) bool {
+	parts := strings.Split(email, "@")
+	if len(parts) != 2 {
+		return false
+	}
+	localPart, domain := parts[0], strings.ToLower(parts[1])
+	periodCount := strings.Count(localPart, ".")
+	return periodCount >= 1 && periodCount <= 2 &&
+		strings.Count(localPart, "-") <= 1 &&
+		!strings.Contains(localPart, "_") &&
+		standardAccountEmailDomain.MatchString(domain)
+}
+
+func alertNonStandardAccountEmails(events []json.RawMessage) {
+	for _, event := range events {
+		var envelope eventEnvelope
+		if err := json.Unmarshal(event, &envelope); err != nil {
+			log.Printf("Error parsing event metadata: %v", err)
+			continue
+		}
+		if envelope.Type.Type != "user.human.added" {
+			continue
+		}
+
+		var payload struct {
+			Email string `json:"email"`
+		}
+		if err := json.Unmarshal(envelope.Payload, &payload); err != nil {
+			log.Printf("Error parsing added-user event payload: %v", err)
+			continue
+		}
+		if payload.Email != "" && !isStandardAccountEmail(payload.Email) {
+			log.Printf("AEVT: Non-standard account email found: `%s`", payload.Email)
+		}
+	}
+}
+
 // saveToS3 serialises events as newline-delimited JSON and writes them to the
 // given key in bucket.
 func saveToS3(ctx context.Context, bucket, key string, events []json.RawMessage) error {
@@ -460,6 +499,7 @@ func handler(ctx context.Context, sqsEvent events.SQSEvent) (response, error) {
 			result.S3Keys = append(result.S3Keys, s3Key)
 		case invocationTypeHighAnomaly:
 			alertHighAnomalyEvents(zitadelEvents, eventsTypesHighAnomaly, invocationEvent.WindowMinutes)
+			alertNonStandardAccountEmails(zitadelEvents)
 		}
 	}
 

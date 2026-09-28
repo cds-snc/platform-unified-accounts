@@ -458,6 +458,98 @@ func TestAlertHighAnomalyEvents_AlertsOnlyAboveThreshold(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
+// Non-standard account email alerts
+// ---------------------------------------------------------------------------
+
+func TestIsStandardAccountEmail(t *testing.T) {
+	tests := []struct {
+		name  string
+		email string
+		want  bool
+	}{
+		{name: "gc.ca subdomain", email: "alice.smith@department.gc.ca", want: true},
+		{name: "all listed domains", email: "alice.smith@canada.ca", want: true},
+		{name: "cds-snc domain", email: "alice.smith@cds-snc.ca", want: true},
+		{name: "elections domain", email: "alice.smith@elections.ca", want: true},
+		{name: "rcafinnovation domain", email: "alice.smith@rcafinnovation.ca", want: true},
+		{name: "canadacouncil domain", email: "alice.smith@canadacouncil.ca", want: true},
+		{name: "nfb domain", email: "alice.smith@nfb.ca", want: true},
+		{name: "debates-debats domain", email: "alice.smith@debates-debats.ca", want: true},
+		{name: "invcanada domain", email: "alice.smith@invcanada.ca", want: true},
+		{name: "gg domain", email: "alice.smith@gg.ca", want: true},
+		{name: "domain case is ignored", email: "alice.smith@Canada.CA", want: true},
+		{name: "missing period", email: "alicesmith@canada.ca", want: false},
+		{name: "two periods", email: "alice.middle.smith@canada.ca", want: true},
+		{name: "three periods", email: "alice.middle.j.smith@canada.ca", want: false},
+		{name: "one hyphen", email: "alice.smith-jones@canada.ca", want: true},
+		{name: "two hyphens", email: "alice.smith-jones-jr@canada.ca", want: false},
+		{name: "underscore", email: "alice_smith.jones@canada.ca", want: false},
+		{name: "unapproved domain", email: "alice.smith@example.com", want: false},
+		{name: "malformed address", email: "alice.smith@@canada.ca", want: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := isStandardAccountEmail(tt.email); got != tt.want {
+				t.Errorf("isStandardAccountEmail(%q) = %t, want %t", tt.email, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestAlertNonStandardAccountEmails_LogsEachAddedUserEmailSeparately(t *testing.T) {
+	var logBuf strings.Builder
+	origOutput := log.Writer()
+	origFlags := log.Flags()
+	log.SetOutput(&logBuf)
+	log.SetFlags(0)
+	defer log.SetOutput(origOutput)
+	defer log.SetFlags(origFlags)
+
+	events := []json.RawMessage{
+		json.RawMessage(`{"type":{"type":"user.human.added"},"payload":{"email":"odd_address@example.com"}}`),
+		json.RawMessage(`{"type":{"type":"user.human.added"},"payload":{"email":"alice.smith@canada.ca"}}`),
+		json.RawMessage(`{"type":{"type":"user.human.email.changed"},"payload":{"email":"ignored@example.com"}}`),
+		json.RawMessage(`{"type":{"type":"user.human.added"},"payload":{"email":"second.user@outside.ca"}}`),
+	}
+
+	alertNonStandardAccountEmails(events)
+
+	gotLines := strings.Split(strings.TrimSpace(logBuf.String()), "\n")
+	wantLines := []string{
+		"AEVT: Non-standard account email found: `odd_address@example.com`",
+		"AEVT: Non-standard account email found: `second.user@outside.ca`",
+	}
+	if len(gotLines) != len(wantLines) {
+		t.Fatalf("got %d log lines, want %d; logs: %q", len(gotLines), len(wantLines), logBuf.String())
+	}
+	for index, want := range wantLines {
+		if gotLines[index] != want {
+			t.Errorf("log line %d: got %q, want %q", index, gotLines[index], want)
+		}
+	}
+}
+
+func TestAlertNonStandardAccountEmails_StandardEmailsProduceNoAlert(t *testing.T) {
+	var logBuf strings.Builder
+	origOutput := log.Writer()
+	origFlags := log.Flags()
+	log.SetOutput(&logBuf)
+	log.SetFlags(0)
+	defer log.SetOutput(origOutput)
+	defer log.SetFlags(origFlags)
+
+	events := []json.RawMessage{
+		json.RawMessage(`{"type":{"type":"user.human.added"},"payload":{"email":"alice.smith@canada.ca"}}`),
+	}
+	alertNonStandardAccountEmails(events)
+
+	if strings.Contains(logBuf.String(), "AEVT:") {
+		t.Errorf("standard account email should not produce an alert, got %q", logBuf.String())
+	}
+}
+
+// ---------------------------------------------------------------------------
 // silence logs in test output
 // ---------------------------------------------------------------------------
 
