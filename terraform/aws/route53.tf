@@ -87,7 +87,7 @@ module "resolver_dns" {
     "api.notification.canada.ca.",
     "*.hcaptcha.com.",
     "idp.ecs.local.",
-    "cds-snc.freshdesk.com"
+    "cds-snc.freshdesk.com."
   ]
 
   billing_tag_value = var.billing_tag_value
