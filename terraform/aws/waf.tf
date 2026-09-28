@@ -1041,7 +1041,7 @@ resource "aws_wafv2_web_acl" "idp_internal" {
     }
 
     statement {
-      byte_match_statement {
+      regex_match_statement {
         field_to_match {
           single_header {
             name = "host"
@@ -1055,8 +1055,7 @@ resource "aws_wafv2_web_acl" "idp_internal" {
           priority = 2
           type     = "LOWERCASE"
         }
-        positional_constraint = "EXACTLY"
-        search_string         = "idp.${var.domain}"
+        regex_string = "^(idp\\.)?${replace(var.domain, ".", "\\.")}$"
       }
     }
 
