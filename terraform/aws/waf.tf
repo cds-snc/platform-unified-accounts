@@ -320,7 +320,7 @@ resource "aws_wafv2_web_acl" "idp" {
     priority = 67
 
     action {
-      challenge {}
+      count {}
     }
 
     statement {
