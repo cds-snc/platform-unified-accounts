@@ -115,6 +115,18 @@ locals {
       "valueFrom" = aws_ssm_parameter.idp_freshdesk_api_key.arn
     },
     {
+      "name"      = "FRESHDESK_PRODUCT_ID",
+      "valueFrom" = aws_ssm_parameter.idp_freshdesk_product_id.arn
+    },
+    {
+      "name"      = "FRESHDESK_GROUP_ID",
+      "valueFrom" = aws_ssm_parameter.idp_freshdesk_group_id.arn
+    },
+    {
+      "name"      = "FRESHDESK_TAGS",
+      "valueFrom" = aws_ssm_parameter.idp_freshdesk_tags.arn
+    },
+    {
       "name"      = "NOTIFY_API_KEY",
       "valueFrom" = aws_ssm_parameter.idp_notify_api_key.arn
     },
@@ -337,6 +349,9 @@ data "aws_iam_policy_document" "ecs_task_ssm_parameters" {
       aws_ssm_parameter.idp_hcaptcha_site_key.arn,
       aws_ssm_parameter.idp_freshdesk_api_url.arn,
       aws_ssm_parameter.idp_freshdesk_api_key.arn,
+      aws_ssm_parameter.idp_freshdesk_product_id.arn,
+      aws_ssm_parameter.idp_freshdesk_group_id.arn,
+      aws_ssm_parameter.idp_freshdesk_tags.arn,
       aws_ssm_parameter.idp_loginclient_machine_username.arn,
       aws_ssm_parameter.idp_loginclient_pat.arn,
       aws_ssm_parameter.idp_secret_key.arn,
@@ -430,6 +445,27 @@ resource "aws_ssm_parameter" "idp_freshdesk_api_key" {
   name  = "idp_freshdesk_api_key"
   type  = "SecureString"
   value = var.idp_freshdesk_api_key
+  tags  = local.core_tags
+}
+
+resource "aws_ssm_parameter" "idp_freshdesk_product_id" {
+  name  = "idp_freshdesk_product_id"
+  type  = "SecureString"
+  value = var.idp_freshdesk_product_id
+  tags  = local.core_tags
+}
+
+resource "aws_ssm_parameter" "idp_freshdesk_group_id" {
+  name  = "idp_freshdesk_group_id"
+  type  = "SecureString"
+  value = var.idp_freshdesk_group_id
+  tags  = local.core_tags
+}
+
+resource "aws_ssm_parameter" "idp_freshdesk_tags" {
+  name  = "idp_freshdesk_tags"
+  type  = "SecureString"
+  value = var.idp_freshdesk_tags
   tags  = local.core_tags
 }
 

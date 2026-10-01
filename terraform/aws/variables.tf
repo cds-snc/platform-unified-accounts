@@ -168,6 +168,24 @@ variable "idp_freshdesk_api_key" {
   sensitive   = true
 }
 
+variable "idp_freshdesk_product_id" {
+  description = "The Freshdesk product ID for the contact us form."
+  type        = string
+  sensitive   = true
+}
+
+variable "idp_freshdesk_group_id" {
+  description = "The Freshdesk group ID for the contact us form."
+  type        = string
+  sensitive   = true
+}
+
+variable "idp_freshdesk_tags" {
+  description = "The Freshdesk tags for the contact us form."
+  type        = string
+  sensitive   = true
+}
+
 variable "idp_load_test_client_id" {
   description = "The Zitadel client ID for the IdP load test."
   type        = string
