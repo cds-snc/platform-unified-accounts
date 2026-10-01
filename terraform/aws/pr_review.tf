@@ -15,6 +15,9 @@ module "pr_review" {
     aws_ssm_parameter.idp_hcaptcha_site_key.arn,
     aws_ssm_parameter.idp_freshdesk_api_key.arn,
     aws_ssm_parameter.idp_freshdesk_api_url.arn,
+    aws_ssm_parameter.idp_freshdesk_product_id.arn,
+    aws_ssm_parameter.idp_freshdesk_group_id.arn,
+    aws_ssm_parameter.idp_freshdesk_tags.arn,
   ]
 
   ecr_policy        = data.aws_ecr_lifecycle_policy_document.repo.json
