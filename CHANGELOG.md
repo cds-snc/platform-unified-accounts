@@ -1,5 +1,24 @@
 # Changelog
 
+## [1.4.0](https://github.com/cds-snc/platform-unified-accounts/compare/v1.3.0...v1.4.0) (2026-10-02)
+
+
+### Features
+
+* add anomaly alerting on user events ([#346](https://github.com/cds-snc/platform-unified-accounts/issues/346)) ([7c15f34](https://github.com/cds-snc/platform-unified-accounts/commit/7c15f34375ff99dab2cb4ca41be98e4a7e284a45))
+* add check for non-standard email addresses ([#360](https://github.com/cds-snc/platform-unified-accounts/issues/360)) ([0938dc5](https://github.com/cds-snc/platform-unified-accounts/commit/0938dc56f5bd5faab0b278c599b278f2d9babd48))
+
+
+### Bug Fixes
+
+* add missing Freshdesk vars ([#364](https://github.com/cds-snc/platform-unified-accounts/issues/364)) ([914b034](https://github.com/cds-snc/platform-unified-accounts/commit/914b0346c134ddab9d4350ce7564ab0013116c91))
+
+
+### Miscellaneous Chores
+
+* added freshdesk vars ([#363](https://github.com/cds-snc/platform-unified-accounts/issues/363)) ([e57bd48](https://github.com/cds-snc/platform-unified-accounts/commit/e57bd486fb9b1eb68b479051beb30be0c9047b2c))
+* remove docker compose and idp-login ([#362](https://github.com/cds-snc/platform-unified-accounts/issues/362)) ([f66a9a9](https://github.com/cds-snc/platform-unified-accounts/commit/f66a9a9eed0720258f15a43f6d309cd512f2cefc))
+
 ## [1.3.0](https://github.com/cds-snc/platform-unified-accounts/compare/v1.2.0...v1.3.0) (2026-09-28)
 
 
