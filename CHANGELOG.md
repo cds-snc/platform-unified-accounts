@@ -1,5 +1,28 @@
 # Changelog
 
+## [1.4.0](https://github.com/cds-snc/platform-unified-accounts/compare/v1.3.0...v1.4.0) (2026-10-05)
+
+
+### Features
+
+* add anomaly alerting on user events ([#346](https://github.com/cds-snc/platform-unified-accounts/issues/346)) ([7c15f34](https://github.com/cds-snc/platform-unified-accounts/commit/7c15f34375ff99dab2cb4ca41be98e4a7e284a45))
+* add check for non-standard email addresses ([#360](https://github.com/cds-snc/platform-unified-accounts/issues/360)) ([0938dc5](https://github.com/cds-snc/platform-unified-accounts/commit/0938dc56f5bd5faab0b278c599b278f2d9babd48))
+
+
+### Bug Fixes
+
+* add missing Freshdesk vars ([#364](https://github.com/cds-snc/platform-unified-accounts/issues/364)) ([914b034](https://github.com/cds-snc/platform-unified-accounts/commit/914b0346c134ddab9d4350ce7564ab0013116c91))
+* **deps:** update all patch dependencies ([#366](https://github.com/cds-snc/platform-unified-accounts/issues/366)) ([64ce2c0](https://github.com/cds-snc/platform-unified-accounts/commit/64ce2c0eb00fd8c54d727a176e210e63100ec7ac))
+* **deps:** update module github.com/zitadel/zitadel-go/v3 to v3.30.0 ([#367](https://github.com/cds-snc/platform-unified-accounts/issues/367)) ([dc657d5](https://github.com/cds-snc/platform-unified-accounts/commit/dc657d55b54db0ed26ee4243d3799a16d94da3a8))
+
+
+### Miscellaneous Chores
+
+* added freshdesk vars ([#363](https://github.com/cds-snc/platform-unified-accounts/issues/363)) ([e57bd48](https://github.com/cds-snc/platform-unified-accounts/commit/e57bd486fb9b1eb68b479051beb30be0c9047b2c))
+* **deps:** lock file maintenance ([#368](https://github.com/cds-snc/platform-unified-accounts/issues/368)) ([6eb70f0](https://github.com/cds-snc/platform-unified-accounts/commit/6eb70f018be144356f0303777942462c111e513c))
+* **deps:** update golang:1.27.1-alpine docker digest to 8a5910f ([#365](https://github.com/cds-snc/platform-unified-accounts/issues/365)) ([3cc7865](https://github.com/cds-snc/platform-unified-accounts/commit/3cc7865ca3ac93178ccccb39016b17ec22a4907c))
+* remove docker compose and idp-login ([#362](https://github.com/cds-snc/platform-unified-accounts/issues/362)) ([f66a9a9](https://github.com/cds-snc/platform-unified-accounts/commit/f66a9a9eed0720258f15a43f6d309cd512f2cefc))
+
 ## [1.3.0](https://github.com/cds-snc/platform-unified-accounts/compare/v1.2.0...v1.3.0) (2026-09-28)
 
 
