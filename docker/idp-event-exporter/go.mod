@@ -9,7 +9,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.113.4
 	github.com/aws/aws-sdk-go-v2/service/ssm v1.78.1
 	github.com/zitadel/oidc/v3 v3.51.8
-	github.com/zitadel/zitadel-go/v3 v3.29.4
+	github.com/zitadel/zitadel-go/v3 v3.30.0
 	google.golang.org/grpc v1.84.0
 	google.golang.org/protobuf v1.36.12
 )
