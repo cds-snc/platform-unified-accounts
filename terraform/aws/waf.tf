@@ -324,30 +324,37 @@ resource "aws_wafv2_web_acl" "idp" {
     }
 
     statement {
-      and_statement {
-        statement {
-          byte_match_statement {
-            field_to_match {
-              method {}
+      rate_based_statement {
+        limit              = 10
+        aggregate_key_type = "IP"
+
+        scope_down_statement {
+          and_statement {
+            statement {
+              byte_match_statement {
+                field_to_match {
+                  method {}
+                }
+                positional_constraint = "EXACTLY"
+                search_string         = "post"
+                text_transformation {
+                  priority = 1
+                  type     = "LOWERCASE"
+                }
+              }
             }
-            positional_constraint = "EXACTLY"
-            search_string         = "post"
-            text_transformation {
-              priority = 1
-              type     = "LOWERCASE"
-            }
-          }
-        }
-        statement {
-          byte_match_statement {
-            field_to_match {
-              uri_path {}
-            }
-            positional_constraint = "CONTAINS"
-            search_string         = "/contact-us"
-            text_transformation {
-              priority = 1
-              type     = "LOWERCASE"
+            statement {
+              byte_match_statement {
+                field_to_match {
+                  uri_path {}
+                }
+                positional_constraint = "CONTAINS"
+                search_string         = "/contact-us"
+                text_transformation {
+                  priority = 1
+                  type     = "LOWERCASE"
+                }
+              }
             }
           }
         }
