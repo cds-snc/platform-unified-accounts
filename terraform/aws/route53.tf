@@ -80,15 +80,14 @@ module "resolver_dns" {
   vpc_id           = module.idp_vpc.vpc_id
   firewall_enabled = true
 
-  allowed_domains = [
+  allowed_domains = concat([
     "${var.domain}.",
     "idp.${var.domain}.",
     "*.amazonaws.com.",
     "api.notification.canada.ca.",
     "*.hcaptcha.com.",
-    "idp.ecs.local.",
-    "cds-snc.freshdesk.com."
-  ]
+    "idp.ecs.local."
+  ], var.env == "production" ? ["cds-snc.freshdesk.com."] : [])
 
   billing_tag_value = var.billing_tag_value
 }
