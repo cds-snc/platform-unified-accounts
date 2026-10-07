@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.1](https://github.com/cds-snc/platform-unified-accounts/compare/v1.4.0...v1.4.1) (2026-10-07)
+
+
+### Miscellaneous Chores
+
+* change contact us to rate limit ([#369](https://github.com/cds-snc/platform-unified-accounts/issues/369)) ([dd9d67b](https://github.com/cds-snc/platform-unified-accounts/commit/dd9d67bbc805718b51ef4dafdb61086badb9ec81))
+
 ## [1.4.0](https://github.com/cds-snc/platform-unified-accounts/compare/v1.3.0...v1.4.0) (2026-10-05)
 
 
