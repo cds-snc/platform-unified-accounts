@@ -138,6 +138,11 @@ variable "idp_database_instance_count" {
   type        = number
 }
 
+variable "idp_event_exporter_anomaly_thresholds" {
+  description = "The anomaly thresholds for the IdP event exporter. It is expected to be a map of Zitadel event type names to their respective thresholds."
+  type        = map(number)
+}
+
 variable "idp_event_exporter_key_json" {
   description = "The JSON key for the IdP event exporter to authenticate with the IdP API."
   type        = string
