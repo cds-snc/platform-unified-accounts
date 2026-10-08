@@ -13,7 +13,7 @@ inputs = {
   idp_database_min_acu          = 0
   idp_database_max_acu          = 10
 
-  idp_event_exporter_anaomaly_thresholds = {
+  idp_event_exporter_anomaly_thresholds = {
     "user.human.added"                 = 100
     "user.human.email.verified"        = 100
     "user.human.password.changed"      = 100
