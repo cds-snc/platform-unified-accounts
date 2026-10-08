@@ -75,20 +75,26 @@ resource "aws_route53_record" "idp_dmarc_TXT" {
   ]
 }
 
-module "resolver_dns" {
-  source           = "github.com/cds-snc/terraform-modules//resolver_dns?ref=v12.1.2"
-  vpc_id           = module.idp_vpc.vpc_id
-  firewall_enabled = true
-
-  allowed_domains = concat([
+locals {
+  allowed_all_domains = [
     "${var.domain}.",
     "idp.${var.domain}.",
     "*.amazonaws.com.",
     "api.notification.canada.ca.",
     "*.hcaptcha.com.",
     "idp.ecs.local."
-  ], var.env == "production" ? ["cds-snc.freshdesk.com."] : [])
+  ]
+  allowed_env_domains = {
+    staging    = ["session.canada.ca."]
+    production = ["cds-snc.freshdesk.com."]
+  }
+}
 
+module "resolver_dns" {
+  source            = "github.com/cds-snc/terraform-modules//resolver_dns?ref=v12.1.2"
+  vpc_id            = module.idp_vpc.vpc_id
+  firewall_enabled  = true
+  allowed_domains   = concat(local.allowed_all_domains, local.allowed_env_domains[var.env])
   billing_tag_value = var.billing_tag_value
 }
 
