@@ -80,9 +80,10 @@ module "idp_event_exporter" {
   architectures = ["arm64"]
 
   environment_variables = {
-    S3_BUCKET                    = module.idp_event_exporter_s3.s3_bucket_id
-    ZITADEL_PRIVATE_KEY_SSM_PATH = aws_ssm_parameter.idp_event_exporter_key_json.name
-    ZITADEL_URL                  = "idp.${var.domain}"
+    S3_BUCKET                     = module.idp_event_exporter_s3.s3_bucket_id
+    ZITADEL_PRIVATE_KEY_SSM_PATH  = aws_ssm_parameter.idp_event_exporter_key_json.name
+    ZITADEL_URL                   = "idp.${var.domain}"
+    HIGH_ANOMALY_EVENT_THRESHOLDS = jsonencode(var.idp_event_exporter_anomaly_thresholds)
   }
 
   vpc = {

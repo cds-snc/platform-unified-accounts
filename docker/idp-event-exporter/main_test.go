@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -398,19 +399,31 @@ func TestRecordInvocation_RejectsMissingTypeOrDuration(t *testing.T) {
 	}
 }
 
-func TestHighAnomalyEventThresholdsAreValid(t *testing.T) {
-	seen := make(map[string]struct{}, len(eventsTypesHighAnomaly))
-	for _, anomalyEvent := range eventsTypesHighAnomaly {
-		if anomalyEvent.eventType == "" {
-			t.Error("event type must not be empty")
+func TestParseHighAnomalyThresholds(t *testing.T) {
+	got, err := parseHighAnomalyThresholds(`{"user.human.added":50,"user.human.password.changed":5}`)
+	if err != nil {
+		t.Fatalf("parseHighAnomalyThresholds() error = %v", err)
+	}
+	want := []highAnomalyEvent{
+		{eventType: "user.human.added", threshold: 50},
+		{eventType: "user.human.password.changed", threshold: 5},
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("parseHighAnomalyThresholds() = %#v, want %#v", got, want)
+	}
+}
+
+func TestParseHighAnomalyThresholdsRejectsInvalidConfiguration(t *testing.T) {
+	for _, raw := range []string{
+		`not json`,
+		`{}`,
+		`{"":1}`,
+		`{"user.human.added":-1}`,
+		`{"user.human.added":"5"}`,
+	} {
+		if _, err := parseHighAnomalyThresholds(raw); err == nil {
+			t.Errorf("parseHighAnomalyThresholds(%q) expected an error", raw)
 		}
-		if anomalyEvent.threshold < 0 {
-			t.Errorf("threshold for %q must not be negative", anomalyEvent.eventType)
-		}
-		if _, ok := seen[anomalyEvent.eventType]; ok {
-			t.Errorf("duplicate event type %q", anomalyEvent.eventType)
-		}
-		seen[anomalyEvent.eventType] = struct{}{}
 	}
 }
 
@@ -421,7 +434,7 @@ func TestCountHighAnomalyEvents_CountsOnlyConfiguredAnomalyTypes(t *testing.T) {
 		json.RawMessage(`{"type":{"type":"project.application.added"}}`),
 	}
 
-	got := countHighAnomalyEvents(input)
+	got := countHighAnomalyEvents(input, []highAnomalyEvent{{eventType: "user.human.added", threshold: 50}})
 	if got["user.human.added"] != 2 {
 		t.Errorf("user.human.added: got %d, want 2", got["user.human.added"])
 	}

@@ -2,9 +2,10 @@
 //
 // Required environment variables:
 //
-//	ZITADEL_URL                  - Base URL of the Zitadel instance
-//	S3_BUCKET                    - Destination S3 bucket name
-//	ZITADEL_PRIVATE_KEY_SSM_PATH - SSM Parameter Store path for the Zitadel service account JSON key
+//	ZITADEL_URL                   - Base URL of the Zitadel instance
+//	S3_BUCKET                     - Destination S3 bucket name
+//	ZITADEL_PRIVATE_KEY_SSM_PATH  - SSM Parameter Store path for the Zitadel service account JSON key
+//	HIGH_ANOMALY_EVENT_THRESHOLDS - JSON object mapping event types to alert thresholds
 //
 // Optional environment variables:
 //
@@ -19,6 +20,7 @@ import (
 	"log"
 	"os"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 
@@ -55,20 +57,7 @@ type highAnomalyEvent struct {
 	threshold int
 }
 
-var eventsTypesHighAnomaly = []highAnomalyEvent{
-	{eventType: "user.human.added", threshold: 50},
-	{eventType: "user.human.email.verified", threshold: 50},
-	{eventType: "user.human.password.changed", threshold: 5},
-	{eventType: "user.human.mfa.u2f.token.added", threshold: 50},
-	{eventType: "user.human.mfa.u2f.token.removed", threshold: 5},
-	{eventType: "user.human.mfa.otp.added", threshold: 50},
-	{eventType: "user.human.mfa.otp.removed", threshold: 5},
-	{eventType: "user.machine.added", threshold: 5},
-	{eventType: "user.machine.key.added", threshold: 5},
-	{eventType: "user.machine.key.removed", threshold: 5},
-	{eventType: "user.pat.added", threshold: 5},
-	{eventType: "user.pat.removed", threshold: 5},
-}
+var eventsTypesHighAnomaly []highAnomalyEvent
 
 var standardAccountEmailDomain = regexp.MustCompile(`^([a-zA-Z0-9-.]+\.gc\.ca|(canada|cds-snc|elections|rcafinnovation|canadacouncil|nfb|debates-debats|invcanada|gg)\.ca)$`)
 
@@ -110,10 +99,20 @@ func init() {
 	if zitadelPrivateKeySSMPath == "" {
 		missing = append(missing, "ZITADEL_PRIVATE_KEY_SSM_PATH")
 	}
+	highAnomalyEventThresholdsJSON := os.Getenv("HIGH_ANOMALY_EVENT_THRESHOLDS")
+	if highAnomalyEventThresholdsJSON == "" {
+		missing = append(missing, "HIGH_ANOMALY_EVENT_THRESHOLDS")
+	}
 	if len(missing) > 0 {
 		initErr = fmt.Errorf("required environment variables not set: %s", strings.Join(missing, ", "))
 		return
 	}
+	thresholds, err := parseHighAnomalyThresholds(highAnomalyEventThresholdsJSON)
+	if err != nil {
+		initErr = fmt.Errorf("parsing high anomaly event thresholds: %w", err)
+		return
+	}
+	eventsTypesHighAnomaly = thresholds
 
 	cfg, err := config.LoadDefaultConfig(context.Background())
 	if err != nil {
@@ -167,6 +166,34 @@ func computeWindow(now time.Time, windowMins int) (time.Time, time.Time) {
 	windowEnd := time.Unix(windowEndEpoch, 0).UTC()
 	windowStart := windowEnd.Add(-time.Duration(windowMins) * time.Minute)
 	return windowStart, windowEnd
+}
+
+func parseHighAnomalyThresholds(raw string) ([]highAnomalyEvent, error) {
+	thresholds := make(map[string]int)
+	if err := json.Unmarshal([]byte(raw), &thresholds); err != nil {
+		return nil, fmt.Errorf("decoding JSON: %w", err)
+	}
+	if len(thresholds) == 0 {
+		return nil, fmt.Errorf("must contain at least one event threshold")
+	}
+
+	eventTypes := make([]string, 0, len(thresholds))
+	for eventType, threshold := range thresholds {
+		if eventType == "" {
+			return nil, fmt.Errorf("event type must not be empty")
+		}
+		if threshold < 0 {
+			return nil, fmt.Errorf("threshold for %q must not be negative", eventType)
+		}
+		eventTypes = append(eventTypes, eventType)
+	}
+	sort.Strings(eventTypes)
+
+	events := make([]highAnomalyEvent, 0, len(eventTypes))
+	for _, eventType := range eventTypes {
+		events = append(events, highAnomalyEvent{eventType: eventType, threshold: thresholds[eventType]})
+	}
+	return events, nil
 }
 
 // ---------------------------------------------------------------------------
@@ -271,9 +298,9 @@ func auditEvents(events []json.RawMessage, patterns []string) {
 	}
 }
 
-func countHighAnomalyEvents(events []json.RawMessage) map[string]int {
-	knownTypes := make(map[string]struct{}, len(eventsTypesHighAnomaly))
-	for _, anomalyEvent := range eventsTypesHighAnomaly {
+func countHighAnomalyEvents(events []json.RawMessage, anomalyTypes []highAnomalyEvent) map[string]int {
+	knownTypes := make(map[string]struct{}, len(anomalyTypes))
+	for _, anomalyEvent := range anomalyTypes {
 		knownTypes[anomalyEvent.eventType] = struct{}{}
 	}
 
@@ -292,7 +319,7 @@ func countHighAnomalyEvents(events []json.RawMessage) map[string]int {
 }
 
 func alertHighAnomalyEvents(events []json.RawMessage, anomalyTypes []highAnomalyEvent, windowMinutes int) {
-	counts := countHighAnomalyEvents(events)
+	counts := countHighAnomalyEvents(events, anomalyTypes)
 	for _, anomalyEvent := range anomalyTypes {
 		count := counts[anomalyEvent.eventType]
 		if count > anomalyEvent.threshold {
