@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.4.2](https://github.com/cds-snc/platform-unified-accounts/compare/v1.4.1...v1.4.2) (2026-10-09)
+
+
+### Bug Fixes
+
+* allow per environment anomaly thresholds ([#373](https://github.com/cds-snc/platform-unified-accounts/issues/373)) ([6eb4019](https://github.com/cds-snc/platform-unified-accounts/commit/6eb40195d58d39e7e672ec3dbe7fb9e4bc254c6d))
+* allow staging to resolve session.canada.ca ([#374](https://github.com/cds-snc/platform-unified-accounts/issues/374)) ([d6e9720](https://github.com/cds-snc/platform-unified-accounts/commit/d6e9720a167b16066722a86c79680ab2576fbfd4))
+
+
+### Miscellaneous Chores
+
+* **deps:** update module golang.org/x/net to v0.60.0 [security] ([#375](https://github.com/cds-snc/platform-unified-accounts/issues/375)) ([f2e6db4](https://github.com/cds-snc/platform-unified-accounts/commit/f2e6db42f25fdbf5a0c63e04711b42e745314303))
+* disable Freshdesk tickets in Staging ([#371](https://github.com/cds-snc/platform-unified-accounts/issues/371)) ([66bc3de](https://github.com/cds-snc/platform-unified-accounts/commit/66bc3dea350ed7aff9d2ad767c464d0b2928d23d))
+
 ## [1.4.1](https://github.com/cds-snc/platform-unified-accounts/compare/v1.4.0...v1.4.1) (2026-10-07)
 
 
