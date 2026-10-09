@@ -113,6 +113,17 @@ jobs:
         working-directory: terraform/env/production
         run: terragrunt run --non-interactive -- apply -auto-approve
 
+  integration-test:
+    needs: terragrunt-apply
+    uses: ./.github/workflows/integration-test.yml
+    with:
+      EVENT_TYPE: integration-test-production
+    secrets:
+      CDS_RELEASE_BOT_APP_ID: ${{ secrets.CDS_RELEASE_BOT_APP_ID }}
+      CDS_RELEASE_BOT_PRIVATE_KEY: ${{ secrets.CDS_RELEASE_BOT_PRIVATE_KEY }}
+      LOG_ANALYTICS_WORKSPACE_ID: ${{ secrets.LOG_ANALYTICS_WORKSPACE_ID }}
+      LOG_ANALYTICS_WORKSPACE_KEY: ${{ secrets.LOG_ANALYTICS_WORKSPACE_KEY }}
+
   workflow-failure:
     needs: [terragrunt-apply]
     if: failure()
