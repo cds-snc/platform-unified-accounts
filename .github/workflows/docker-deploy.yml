@@ -68,7 +68,7 @@ jobs:
     - name: Update ECS task image
       if: matrix.service.type == 'ecs'
       id: task-def
-      uses: aws-actions/amazon-ecs-render-task-definition@138c24f321fdbdf7edee4a685519d253cae2cdea # v1.9.0
+      uses: aws-actions/amazon-ecs-render-task-definition@8d79160660ad39c402a16e5fc7cd2a32e8f7d6b7 # v1.9.1
       with:
         task-definition-family: ${{ matrix.service.name }}
         container-name: ${{ matrix.service.name }}
