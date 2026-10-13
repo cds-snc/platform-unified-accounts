@@ -343,6 +343,8 @@ github.com/zitadel/oidc/v3 v3.51.3 h1:jkEQ2k60amW6vwvzMwrGO7mw7vGxNp6BSsEH0AH6Ga
 github.com/zitadel/oidc/v3 v3.51.3/go.mod h1:KQmYte+zOePAeVwR3LM153dxWBC9orWZAIa4w9r1ZhU=
 github.com/zitadel/oidc/v3 v3.51.8 h1:HwMhPhwiafSfs7/WkSodvMWXbyNasEPdDHc6UAUoi0A=
 github.com/zitadel/oidc/v3 v3.51.8/go.mod h1:KkOaz5CH55jxheuCStNb5vyVIV0/qMUL65AYL9nNiGM=
+github.com/zitadel/oidc/v3 v3.51.11 h1:3419SH0SkZu+bSzEttVklqmtGFY0HjSJceU/UHUX90k=
+github.com/zitadel/oidc/v3 v3.51.11/go.mod h1:yqb3jGISsGVoZ9rU3AjG3CwtJ2WewSptbisqQuA8Shc=
 github.com/zitadel/schema v1.3.2 h1:gfJvt7dOMfTmxzhscZ9KkapKo3Nei3B6cAxjav+lyjI=
 github.com/zitadel/schema v1.3.2/go.mod h1:IZmdfF9Wu62Zu6tJJTH3UsArevs3Y4smfJIj3L8fzxw=
 github.com/zitadel/zitadel-go/v3 v3.29.1 h1:hdhZZSPcOLoTvUZ1Odm1vy9ilDpOACemkykN+gQ8Aws=
@@ -391,6 +393,8 @@ golang.org/x/net v0.60.0 h1:79p50tfZlm0J9YfoDsSi639qSXNGVwEzOPLCxM2FsYU=
 golang.org/x/net v0.60.0/go.mod h1:2DA/G1UfVbCpQPeWTmMPGY7Cs2PkBkwu743bVX5PIVg=
 golang.org/x/oauth2 v0.36.0 h1:peZ/1z27fi9hUOFCAZaHyrpWG5lwe0RJEEEeH0ThlIs=
 golang.org/x/oauth2 v0.36.0/go.mod h1:YDBUJMTkDnJS+A4BP4eZBjCqtokkg1hODuPjwiGPO7Q=
+golang.org/x/oauth2 v0.37.0 h1:JUlcxA8oAtauLfiH8FX2/FkAWHAdi0QtGCGc+hofE98=
+golang.org/x/oauth2 v0.37.0/go.mod h1:IxwZNxUULJmpBFf9K/9NTMSIfZZuvuTy1gGxhigP/58=
 golang.org/x/sys v0.46.0 h1:noSf2Fq6F8DBgS+LysIkx7rIExoNHJsxOAtPp4rthXw=
 golang.org/x/sys v0.46.0/go.mod h1:4GL1E5IUh+htKOUEOaiffhrAeqysfVGipDYzABqnCmw=
 golang.org/x/sys v0.47.0 h1:o7XGOvZQCADBQQ4Y7VNq2dRWQR7JmOUW8Kxx4ZsNgWs=
