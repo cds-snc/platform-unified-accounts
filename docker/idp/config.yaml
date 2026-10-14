@@ -53,6 +53,8 @@ DefaultInstance:
     EmailVerificationCode:
       Length: 6
       Expiry: "15m"
+  Restrictions:
+    DisallowPublicOrgRegistration: true
 
 OIDC:
   DefaultAccessTokenLifetime: '0.5h'
