@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.4.3](https://github.com/cds-snc/platform-unified-accounts/compare/v1.4.2...v1.4.3) (2026-10-14)
+
+
+### Bug Fixes
+
+* **deps:** update all minor dependencies ([#378](https://github.com/cds-snc/platform-unified-accounts/issues/378)) ([5a7244b](https://github.com/cds-snc/platform-unified-accounts/commit/5a7244b4bb170a2db8e2f1d1c7e6aecc019fdde0))
+* **deps:** update module github.com/zitadel/oidc/v3 to v3.51.11 ([#376](https://github.com/cds-snc/platform-unified-accounts/issues/376)) ([24569b8](https://github.com/cds-snc/platform-unified-accounts/commit/24569b8b829381fb2fc9b303c4dd1bc4ce16c0d5))
+* disable public org registration ([#381](https://github.com/cds-snc/platform-unified-accounts/issues/381)) ([13fedaf](https://github.com/cds-snc/platform-unified-accounts/commit/13fedaf8371b2df554d9982f21b795ae21e9d2b3))
+
+
+### Miscellaneous Chores
+
+* **deps:** lock file maintenance ([#379](https://github.com/cds-snc/platform-unified-accounts/issues/379)) ([fbb622e](https://github.com/cds-snc/platform-unified-accounts/commit/fbb622ed06fb33fe0257c3bbc1d38814a3b080c4))
+* **deps:** update all non-major github action dependencies ([#377](https://github.com/cds-snc/platform-unified-accounts/issues/377)) ([3a98a8e](https://github.com/cds-snc/platform-unified-accounts/commit/3a98a8eeda9d24229f5589d075eae06d29267260))
+
 ## [1.4.2](https://github.com/cds-snc/platform-unified-accounts/compare/v1.4.1...v1.4.2) (2026-10-09)
 
 
