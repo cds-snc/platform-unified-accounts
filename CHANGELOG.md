@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.4.4](https://github.com/cds-snc/platform-unified-accounts/compare/v1.4.3...v1.4.4) (2026-10-19)
+
+
+### Bug Fixes
+
+* **deps:** update all patch dependencies ([#383](https://github.com/cds-snc/platform-unified-accounts/issues/383)) ([91e221d](https://github.com/cds-snc/platform-unified-accounts/commit/91e221d9576cfe8b7867beaa9e906bb1c8619142))
+
+
+### Miscellaneous Chores
+
+* **deps:** lock file maintenance ([#384](https://github.com/cds-snc/platform-unified-accounts/issues/384)) ([a7d5898](https://github.com/cds-snc/platform-unified-accounts/commit/a7d589837d4b2d2b67924e1ea74b125e0d8db082))
+* **deps:** update all non-major github action dependencies ([#382](https://github.com/cds-snc/platform-unified-accounts/issues/382)) ([b982f63](https://github.com/cds-snc/platform-unified-accounts/commit/b982f638454a38f7ceb84a654968e2e3ce6b1492))
+
 ## [1.4.3](https://github.com/cds-snc/platform-unified-accounts/compare/v1.4.2...v1.4.3) (2026-10-14)
 
 
