@@ -1,6 +1,6 @@
 module github.com/cds-snc/platform-unified-accounts/idp-cleanup-users
 
-go 1.26.0
+go 1.27.3
 
 require (
 	github.com/aws/aws-lambda-go v1.55.1
@@ -35,8 +35,6 @@ require (
 	github.com/gorilla/securecookie v1.1.2 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.30.0 // indirect
 	github.com/muhlemmer/gu v0.3.1 // indirect
-	github.com/sirupsen/logrus v1.9.4 // indirect
-	github.com/zitadel/logging v0.7.0 // indirect
 	github.com/zitadel/schema v1.3.2 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/otel v1.46.0 // indirect
