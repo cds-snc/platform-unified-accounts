@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.4.5](https://github.com/cds-snc/platform-unified-accounts/compare/v1.4.4...v1.4.5) (2026-10-21)
+
+
+### Miscellaneous Chores
+
+* upgrade to latest Go release ([#386](https://github.com/cds-snc/platform-unified-accounts/issues/386)) ([fea3d7e](https://github.com/cds-snc/platform-unified-accounts/commit/fea3d7eba21fa9036b4e204ee509130c3655b9dd))
+* upgrade Zitadel to latest ([#388](https://github.com/cds-snc/platform-unified-accounts/issues/388)) ([e63aa66](https://github.com/cds-snc/platform-unified-accounts/commit/e63aa66666b9e72d06a62225fd2de5a6f334f179))
+
 ## [1.4.4](https://github.com/cds-snc/platform-unified-accounts/compare/v1.4.3...v1.4.4) (2026-10-19)
 
 
