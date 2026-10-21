@@ -95,6 +95,10 @@ locals {
       "valueFrom" = aws_ssm_parameter.idp_loginclient_pat.arn
     },
     {
+      "name"      = "ZITADEL_SESSION_COOKIE_SECRET"
+      "valueFrom" = aws_ssm_parameter.idp_session_cookie_secret.arn
+    },
+    {
       "name"      = "ZITADEL_ORGANIZATION",
       "valueFrom" = aws_ssm_parameter.idp_zitadel_org.arn
     },
@@ -133,6 +137,10 @@ locals {
     {
       "name"      = "TEMPLATE_ID",
       "valueFrom" = aws_ssm_parameter.idp_notify_template_id.arn
+    },
+    {
+      "name"      = "PASSWORD_RESET_SECRET",
+      "valueFrom" = aws_ssm_parameter.idp_password_reset_secret.arn
     }
   ]
 }
@@ -173,7 +181,7 @@ module "idp_ecs" {
 
   # Task definition
   container_image                     = "${aws_ecr_repository.repo["idp"].repository_url}:latest"
-  container_command                   = ["start-from-setup", "--masterkeyFromEnv", "--tlsMode", "external", "--config", "/app/config.yaml"]
+  container_command                   = ["start", "--masterkeyFromEnv", "--tlsMode", "external", "--config", "/app/config.yaml"]
   container_host_port                 = 8080
   container_port                      = 8080
   container_environment               = local.idp_container_env
@@ -358,6 +366,8 @@ data "aws_iam_policy_document" "ecs_task_ssm_parameters" {
       aws_ssm_parameter.idp_zitadel_org.arn,
       aws_ssm_parameter.idp_notify_api_key.arn,
       aws_ssm_parameter.idp_notify_template_id.arn,
+      aws_ssm_parameter.idp_password_reset_secret.arn,
+      aws_ssm_parameter.idp_session_cookie_secret.arn,
     ]
   }
 }
@@ -383,6 +393,20 @@ resource "aws_ssm_parameter" "idp_secret_key" {
   name  = "idp_secret_key"
   type  = "SecureString"
   value = var.idp_secret_key
+  tags  = local.core_tags
+}
+
+resource "aws_ssm_parameter" "idp_password_reset_secret" {
+  name  = "idp_password_reset_secret"
+  type  = "SecureString"
+  value = var.idp_password_reset_secret
+  tags  = local.core_tags
+}
+
+resource "aws_ssm_parameter" "idp_session_cookie_secret" {
+  name  = "idp_session_cookie_secret"
+  type  = "SecureString"
+  value = var.idp_session_cookie_secret
   tags  = local.core_tags
 }
 

@@ -45,7 +45,9 @@ env:
   TF_VAR_idp_zitadel_org: ${{ secrets.STAGING_IDP_ZITADEL_ORG }}
   TF_VAR_idp_notify_api_key: ${{ secrets.STAGING_IDP_NOTIFY_API_KEY }}
   TF_VAR_idp_notify_template_id: ${{ secrets.STAGING_IDP_NOTIFY_TEMPLATE_ID }}
+  TF_VAR_idp_password_reset_secret: ${{ secrets.STAGING_IDP_PASSWORD_RESET_SECRET }}
   TF_VAR_idp_secret_key: ${{ secrets.STAGING_IDP_SECRET_KEY }}
+  TF_VAR_idp_session_cookie_secret: ${{ secrets.STAGING_IDP_SESSION_COOKIE_SECRET }}
   TF_VAR_security_txt_content: ${{ vars.SECURITY_TXT_CDSSANDBOX_XYZ }}
 
 permissions: {}
