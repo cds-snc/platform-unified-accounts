@@ -249,6 +249,12 @@ variable "idp_notify_template_id" {
   sensitive   = true
 }
 
+variable "idp_password_reset_secret" {
+  description = "The password reset signing secret for the IdP login app."
+  type        = string
+  sensitive   = true
+}
+
 variable "idp_login_task_cpu" {
   description = "The CPU units for the idp login ECS task."
   type        = number
@@ -276,6 +282,12 @@ variable "idp_login_task_min_capacity" {
 
 variable "idp_secret_key" {
   description = "The secret key to use for the idp instance."
+  type        = string
+  sensitive   = true
+}
+
+variable "idp_session_cookie_secret" {
+  description = "The Zitadel session cookie signing secret for the IdP login app."
   type        = string
   sensitive   = true
 }
