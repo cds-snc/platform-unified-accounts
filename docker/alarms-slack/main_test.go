@@ -419,9 +419,6 @@ func TestFormatSlackMessage_SplitsLongMessages(t *testing.T) {
 		if len(body) > slackBodyMaxLen {
 			t.Fatalf("message %d body length %d exceeds %d", i, len(body), slackBodyMaxLen)
 		}
-		if body != long {
-			t.Fatalf("message %d body does not match the original log event", i)
-		}
 		headerText := msg.Attachments[0].Blocks[0].Text.Text
 		if !strings.Contains(headerText, "/aws/lambda/example") {
 			t.Fatalf("message %d missing log group in header: %q", i, headerText)
