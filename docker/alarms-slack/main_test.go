@@ -227,7 +227,7 @@ func TestHandler_PostsMultipleSlackMessagesWhenBodyExceedsLimit(t *testing.T) {
 	restore := setHandlerGlobals(t, "/alerts/slack-webhook", fakeClient, server.Client(), "")
 	defer restore()
 
-	// Three 1400-char events
+	// Two 1400-char events plus a newline exceed the 2800-character limit.
 	long := strings.Repeat("x", 1400)
 	err := handler(t.Context(), cloudWatchLogsEvent{
 		AWSLogs: struct {
@@ -250,14 +250,14 @@ func TestHandler_PostsMultipleSlackMessagesWhenBodyExceedsLimit(t *testing.T) {
 		t.Fatalf("handle returned error: %v", err)
 	}
 
-	if len(requests) != 2 {
-		t.Fatalf("expected multiple Slack requests due to body length, got %d", len(requests))
+	if len(requests) != 3 {
+		t.Fatalf("got %d Slack requests, want 3", len(requests))
 	}
 
 	for i, req := range requests {
 		body := req.Attachments[0].Blocks[2].Text.Text
-		if len(body) >= slackBodyMaxLen {
-			t.Fatalf("request %d body length %d is >= slackBodyMaxLen %d", i, len(body), slackBodyMaxLen)
+		if len(body) > slackBodyMaxLen {
+			t.Fatalf("request %d body length %d exceeds slackBodyMaxLen %d", i, len(body), slackBodyMaxLen)
 		}
 		headerText := req.Attachments[0].Blocks[0].Text.Text
 		if !strings.Contains(headerText, "/aws/lambda/example") {
@@ -411,8 +411,8 @@ func TestFormatSlackMessage_SplitsLongMessages(t *testing.T) {
 
 	msgs := formatSlackMessage(nil, "/aws/lambda/example", events)
 
-	if len(msgs) != 2 {
-		t.Fatalf("expected messages to be split, got %d message(s)", len(msgs))
+	if len(msgs) != 3 {
+		t.Fatalf("got %d messages, want 3", len(msgs))
 	}
 
 	for i, msg := range msgs {
@@ -420,18 +420,50 @@ func TestFormatSlackMessage_SplitsLongMessages(t *testing.T) {
 		if len(body) > slackBodyMaxLen {
 			t.Fatalf("message %d body length %d exceeds %d", i, len(body), slackBodyMaxLen)
 		}
+		if body != long {
+			t.Fatalf("message %d body does not match the original log event", i)
+		}
 		headerText := msg.Attachments[0].Blocks[0].Text.Text
 		if !strings.Contains(headerText, "/aws/lambda/example") {
 			t.Fatalf("message %d missing log group in header: %q", i, headerText)
 		}
 	}
 
-	// Verify body length constraints are met for all split messages.
-	for i, msg := range msgs {
-		body := msg.Attachments[0].Blocks[2].Text.Text
-		if len(body) >= slackBodyMaxLen {
-			t.Fatalf("message %d body length %d is >= slackBodyMaxLen %d", i, len(body), slackBodyMaxLen)
-		}
+}
+
+func TestFormatSlackMessage_BodyLengthBoundary(t *testing.T) {
+	for _, tc := range []struct {
+		name         string
+		bodyLength   int
+		wantMessages int
+	}{
+		{name: "below limit", bodyLength: 2799, wantMessages: 1},
+		{name: "at limit", bodyLength: 2800, wantMessages: 1},
+		{name: "above limit", bodyLength: 2801, wantMessages: 2},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			first := strings.Repeat("a", tc.bodyLength-2)
+			msgs := formatSlackMessage(nil, "/aws/lambda/example", []cloudWatchLogRecord{
+				{ID: "1", Message: first},
+				{ID: "2", Message: "b"},
+			})
+
+			if len(msgs) != tc.wantMessages {
+				t.Fatalf("got %d messages, want %d", len(msgs), tc.wantMessages)
+			}
+
+			var bodies []string
+			for i, msg := range msgs {
+				body := msg.Attachments[0].Blocks[2].Text.Text
+				if len(body) > slackBodyMaxLen {
+					t.Fatalf("message %d body length %d exceeds %d", i, len(body), slackBodyMaxLen)
+				}
+				bodies = append(bodies, body)
+			}
+			if strings.Join(bodies, "\n") != first+"\nb" {
+				t.Fatal("message bodies do not preserve the original log events")
+			}
+		})
 	}
 }
 
