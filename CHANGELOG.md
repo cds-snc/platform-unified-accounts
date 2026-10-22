@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.5.1](https://github.com/cds-snc/platform-unified-accounts/compare/v1.5.0...v1.5.1) (2026-10-22)
+
+
+### Bug Fixes
+
+* leave space in Slack message for SRE Bot ([#394](https://github.com/cds-snc/platform-unified-accounts/issues/394)) ([5662881](https://github.com/cds-snc/platform-unified-accounts/commit/5662881dd9b7a89eca1c32d9f38a04e7ddfb7ce9))
+
+
+### Miscellaneous Chores
+
+* revert to Zitadel `start` command ([#392](https://github.com/cds-snc/platform-unified-accounts/issues/392)) ([7c853fb](https://github.com/cds-snc/platform-unified-accounts/commit/7c853fbb7501c7f2b5fa16e4fbe014c6ba849746))
+
 ## [1.5.0](https://github.com/cds-snc/platform-unified-accounts/compare/v1.4.5...v1.5.0) (2026-10-22)
 
 
