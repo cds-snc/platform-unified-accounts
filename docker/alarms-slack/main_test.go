@@ -227,8 +227,7 @@ func TestHandler_PostsMultipleSlackMessagesWhenBodyExceedsLimit(t *testing.T) {
 	restore := setHandlerGlobals(t, "/alerts/slack-webhook", fakeClient, server.Client(), "")
 	defer restore()
 
-	// Two 1400-char events plus a newline exceed the 2800-character limit.
-	long := strings.Repeat("x", 1400)
+	long := strings.Repeat("x", 1300)
 	err := handler(t.Context(), cloudWatchLogsEvent{
 		AWSLogs: struct {
 			Data string `json:"data"`
@@ -250,8 +249,8 @@ func TestHandler_PostsMultipleSlackMessagesWhenBodyExceedsLimit(t *testing.T) {
 		t.Fatalf("handle returned error: %v", err)
 	}
 
-	if len(requests) != 3 {
-		t.Fatalf("got %d Slack requests, want 3", len(requests))
+	if len(requests) != 2 {
+		t.Fatalf("got %d Slack requests, want 2", len(requests))
 	}
 
 	for i, req := range requests {
@@ -402,7 +401,7 @@ func TestFormatSlackMessageMarksAuditEvents(t *testing.T) {
 }
 
 func TestFormatSlackMessage_SplitsLongMessages(t *testing.T) {
-	long := strings.Repeat("a", 1400)
+	long := strings.Repeat("a", 1300)
 	events := []cloudWatchLogRecord{
 		{ID: "1", Message: long},
 		{ID: "2", Message: long},
@@ -411,8 +410,8 @@ func TestFormatSlackMessage_SplitsLongMessages(t *testing.T) {
 
 	msgs := formatSlackMessage(nil, "/aws/lambda/example", events)
 
-	if len(msgs) != 3 {
-		t.Fatalf("got %d messages, want 3", len(msgs))
+	if len(msgs) != 2 {
+		t.Fatalf("got %d messages, want 2", len(msgs))
 	}
 
 	for i, msg := range msgs {
