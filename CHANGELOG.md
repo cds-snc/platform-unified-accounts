@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.5.0](https://github.com/cds-snc/platform-unified-accounts/compare/v1.4.5...v1.5.0) (2026-10-22)
+
+
+### Features
+
+* add new signing secrets ([#389](https://github.com/cds-snc/platform-unified-accounts/issues/389)) ([e95a0ee](https://github.com/cds-snc/platform-unified-accounts/commit/e95a0ee08aca8ac89c1cadfb1f62831cd770b24d))
+
+
+### Miscellaneous Chores
+
+* upgrade to Zitadel with no eMudhra trust ([#391](https://github.com/cds-snc/platform-unified-accounts/issues/391)) ([b9a1377](https://github.com/cds-snc/platform-unified-accounts/commit/b9a1377e50659aa0ed2c995114415f60e6d66e56))
+
 ## [1.4.5](https://github.com/cds-snc/platform-unified-accounts/compare/v1.4.4...v1.4.5) (2026-10-21)
 
 
