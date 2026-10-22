@@ -26,7 +26,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/ssm"
 )
 
-const slackBodyMaxLen = 3000
+const slackBodyMaxLen = 2800 // Slack API allows 3000 characters, so this leaves space for SRE Bot buttons and text
 const slackWaitBetweenMessages = 100 * time.Millisecond
 const slackWebhookParameterNameEnvVar = "SLACK_WEBHOOK_SSM_PARAMETER_NAME"
 
