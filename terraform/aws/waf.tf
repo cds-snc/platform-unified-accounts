@@ -496,7 +496,7 @@ resource "aws_wafv2_web_acl" "idp" {
                 field_to_match {
                   uri_path {}
                 }
-                positional_constraint = "CONTAINS"
+                positional_constraint = "EXACTLY"
                 search_string         = "/password/reset"
                 text_transformation {
                   priority = 1
@@ -555,7 +555,7 @@ resource "aws_wafv2_web_acl" "idp" {
                 field_to_match {
                   uri_path {}
                 }
-                positional_constraint = "CONTAINS"
+                positional_constraint = "EXACTLY"
                 search_string         = "/password/reset"
                 text_transformation {
                   priority = 1
