@@ -18,7 +18,32 @@ data "aws_iam_policy_document" "idp_login_pr" {
 
 resource "aws_iam_role_policy_attachment" "idp_login_pr_vpc_access" {
   role       = aws_iam_role.idp_login_pr.name
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
+  policy_arn = aws_iam_policy.idp_login_pr_vpc_access.arn
+}
+
+resource "aws_iam_policy" "idp_login_pr_vpc_access" {
+  name   = "idp-login-pr-vpc-access"
+  path   = "/"
+  policy = data.aws_iam_policy_document.idp_login_pr_vpc_access.json
+  tags   = var.core_tags
+}
+
+data "aws_iam_policy_document" "idp_login_pr_vpc_access" {
+  statement {
+    sid    = "AWSLambdaVPCAccess"
+    effect = "Allow"
+    actions = [
+      "logs:CreateLogStream",
+      "logs:PutLogEvents",
+      "ec2:CreateNetworkInterface",
+      "ec2:DescribeNetworkInterfaces",
+      "ec2:DescribeSubnets",
+      "ec2:DeleteNetworkInterface",
+      "ec2:AssignPrivateIpAddresses",
+      "ec2:UnassignPrivateIpAddresses",
+    ]
+    resources = ["*"]
+  }
 }
 
 resource "aws_iam_role_policy_attachment" "idp_login_pr_ssm_params" {
