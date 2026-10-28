@@ -23,6 +23,8 @@ resource "aws_elasticache_replication_group" "redis" {
   multi_az_enabled           = true
   auto_minor_version_upgrade = true
   at_rest_encryption_enabled = true
+  transit_encryption_enabled = true
+  transit_encryption_mode    = "preferred"
   subnet_group_name          = aws_elasticache_subnet_group.redis.name
   security_group_ids         = [aws_security_group.idp_login_redis.id]
 
