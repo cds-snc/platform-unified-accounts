@@ -10,7 +10,7 @@ resource "aws_elasticache_subnet_group" "redis" {
 }
 
 resource "aws_elasticache_replication_group" "redis" {
-  # checkov:skip=CKV_AWS_191: KMS encryption using customer managed key not required
+  # trivy:ignore:AWS-0051 
   automatic_failover_enabled = true
   replication_group_id       = "login-redis-rep-group"
   description          = "Shared key-value store for the IdP login ECS service"
@@ -21,6 +21,7 @@ resource "aws_elasticache_replication_group" "redis" {
   port                       = 6379
   multi_az_enabled           = true
   auto_minor_version_upgrade = true
+  at_rest_encryption_enabled = true
   subnet_group_name          = aws_elasticache_subnet_group.redis.name
   security_group_ids = [aws_security_group.idp_login_redis.id]
 
