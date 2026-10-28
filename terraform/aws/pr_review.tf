@@ -20,6 +20,7 @@ module "pr_review" {
     aws_ssm_parameter.idp_freshdesk_tags.arn,
     aws_ssm_parameter.idp_password_reset_secret.arn,
     aws_ssm_parameter.idp_session_cookie_secret.arn,
+    aws_ssm_parameter.idp_login_redis_url.arn
   ]
 
   ecr_policy        = data.aws_ecr_lifecycle_policy_document.repo.json
