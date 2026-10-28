@@ -285,6 +285,34 @@ resource "aws_security_group_rule" "idp_login_ecs_egress_idp_ecs" {
   source_security_group_id = aws_security_group.idp_ecs.id
 }
 
+resource "aws_security_group_rule" "idp_login_ecs_egress_redis" {
+  description              = "Egress from idp login ECS task to Redis"
+  type                     = "egress"
+  from_port                = 6379
+  to_port                  = 6379
+  protocol                 = "tcp"
+  security_group_id        = aws_security_group.idp_login_ecs.id
+  source_security_group_id = aws_security_group.idp_login_redis.id
+}
+
+# Redis =======================================================================
+resource "aws_security_group" "idp_login_redis" {
+  name        = "idp_login_redis"
+  description = "NSG for IdP login Redis"
+  vpc_id      = module.idp_vpc.vpc_id
+  tags        = local.core_tags
+}
+
+resource "aws_security_group_rule" "idp_login_redis_ingress_ecs" {
+  description              = "Ingress from idp login ECS task to Redis"
+  type                     = "ingress"
+  from_port                = 6379
+  to_port                  = 6379
+  protocol                 = "tcp"
+  security_group_id        = aws_security_group.idp_login_redis.id
+  source_security_group_id = aws_security_group.idp_login_ecs.id
+}
+
 # Load balancer ===============================================================
 resource "aws_security_group" "idp_lb" {
   name        = "idp_lb"

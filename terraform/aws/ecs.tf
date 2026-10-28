@@ -91,6 +91,10 @@ locals {
   ]
   login_container_secrets = [
     {
+      "name"      = "REDIS_URL",
+      "valueFrom" = aws_ssm_parameter.idp_login_redis_url.arn
+    },
+    {
       "name"      = "ZITADEL_SERVICE_USER_TOKEN",
       "valueFrom" = aws_ssm_parameter.idp_loginclient_pat.arn
     },
@@ -287,6 +291,7 @@ module "login_ecs" {
 
   task_exec_role_policy_documents = [
     data.aws_iam_policy_document.ecs_task_ssm_parameters.json,
+    data.aws_iam_policy_document.login_ecs_redis.json,
   ]
 
   task_role_policy_documents = [
@@ -369,6 +374,17 @@ data "aws_iam_policy_document" "ecs_task_ssm_parameters" {
       aws_ssm_parameter.idp_password_reset_secret.arn,
       aws_ssm_parameter.idp_session_cookie_secret.arn,
     ]
+  }
+}
+
+data "aws_iam_policy_document" "login_ecs_redis" {
+  statement {
+    effect = "Allow"
+    actions = [
+      "ssm:GetParameter",
+      "ssm:GetParameters",
+    ]
+    resources = [aws_ssm_parameter.idp_login_redis_url.arn]
   }
 }
 
