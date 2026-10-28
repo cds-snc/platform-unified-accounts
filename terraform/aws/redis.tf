@@ -34,6 +34,6 @@ resource "aws_elasticache_replication_group" "redis" {
 resource "aws_ssm_parameter" "idp_login_redis_url" {
   name  = "idp_login_redis_url"
   type  = "SecureString"
-  value = "redis://${aws_elasticache_replication_group.redis.primary_endpoint_address}:${aws_elasticache_replication_group.redis.port}"
+  value = "rediss://${aws_elasticache_replication_group.redis.primary_endpoint_address}:${aws_elasticache_replication_group.redis.port}"
   tags  = local.core_tags
 }
