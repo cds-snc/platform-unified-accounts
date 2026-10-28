@@ -10,7 +10,6 @@ resource "aws_elasticache_subnet_group" "redis" {
 }
 
 resource "aws_elasticache_replication_group" "redis" {
-  # trivy:ignore:AWS-0051 
   automatic_failover_enabled = true
   replication_group_id       = "login-redis-rep-group"
   description                = "Shared key-value store for the IdP login ECS service"
