@@ -16,8 +16,9 @@ resource "aws_elasticache_replication_group" "redis" {
   description          = "Shared key-value store for the IdP login ECS service"
   node_type                  = "cache.t3.micro"
   num_cache_clusters         = 2
-  engine_version             = "7.1"
-  parameter_group_name       = "default.redis7"
+  engine               = "valkey"
+  engine_version       = "7.2"
+  parameter_group_name = "default.valkey7"
   port                       = 6379
   multi_az_enabled           = true
   auto_minor_version_upgrade = true
