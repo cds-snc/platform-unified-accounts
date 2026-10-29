@@ -313,6 +313,17 @@ resource "aws_security_group_rule" "idp_login_redis_ingress_ecs" {
   source_security_group_id = aws_security_group.idp_login_ecs.id
 }
 
+resource "aws_security_group_rule" "idp_login_redis_ingress_clientvpn" {
+  count                    = var.env == "staging" ? 1 : 0
+  description              = "Ingress from client VPN to Redis"
+  type                     = "ingress"
+  from_port                = 6379
+  to_port                  = 6379
+  protocol                 = "tcp"
+  security_group_id        = aws_security_group.idp_login_redis.id
+  source_security_group_id = module.client_vpn.client_vpn_security_group_id
+}
+
 # Load balancer ===============================================================
 resource "aws_security_group" "idp_lb" {
   name        = "idp_lb"
