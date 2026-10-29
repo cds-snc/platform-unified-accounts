@@ -314,6 +314,7 @@ resource "aws_security_group_rule" "idp_login_redis_ingress_ecs" {
 }
 
 resource "aws_security_group_rule" "idp_login_redis_ingress_clientvpn" {
+  count                    = var.env == "staging" ? 1 : 0
   description              = "Ingress from client VPN to Redis"
   type                     = "ingress"
   from_port                = 6379
