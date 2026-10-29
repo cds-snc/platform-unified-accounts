@@ -314,7 +314,8 @@ resource "aws_security_group_rule" "idp_login_redis_ingress_ecs" {
 }
 
 resource "aws_security_group_rule" "idp_login_redis_ingress_clientvpn" {
-  count                    = var.env == "staging" ? 1 : 0
+  count = var.env == "staging" ? 1 : 0
+
   description              = "Ingress from client VPN to Redis"
   type                     = "ingress"
   from_port                = 6379
@@ -322,6 +323,18 @@ resource "aws_security_group_rule" "idp_login_redis_ingress_clientvpn" {
   protocol                 = "tcp"
   security_group_id        = aws_security_group.idp_login_redis.id
   source_security_group_id = module.client_vpn.client_vpn_security_group_id
+}
+
+resource "aws_security_group_rule" "idp_login_redis_ingress_lambda_pr_review" {
+  count = var.env == "staging" ? 1 : 0
+
+  description              = "Ingress from PR review Lambda to Redis"
+  type                     = "ingress"
+  from_port                = 6379
+  to_port                  = 6379
+  protocol                 = "tcp"
+  security_group_id        = aws_security_group.idp_login_redis.id
+  source_security_group_id = aws_security_group.lambda_pr_review[0].id
 }
 
 # Load balancer ===============================================================
@@ -448,6 +461,18 @@ resource "aws_security_group_rule" "lambda_pr_review_egress_internet" {
   protocol          = "tcp"
   security_group_id = aws_security_group.lambda_pr_review[0].id
   cidr_blocks       = ["0.0.0.0/0"]
+}
+
+resource "aws_security_group_rule" "lambda_pr_review_egress_redis" {
+  count = var.env == "staging" ? 1 : 0
+
+  description              = "Egress lambda PR review env to Redis"
+  type                     = "egress"
+  from_port                = 6379
+  to_port                  = 6379
+  protocol                 = "tcp"
+  security_group_id        = aws_security_group.lambda_pr_review[0].id
+  source_security_group_id = aws_security_group.idp_login_redis.id
 }
 
 
