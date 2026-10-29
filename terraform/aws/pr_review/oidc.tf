@@ -136,6 +136,19 @@ data "aws_iam_policy_document" "pr_review_deploy" {
   statement {
     effect = "Allow"
     actions = [
+      "ecr:BatchCheckLayerAvailability",
+      "ecr:BatchGetImage",
+      "ecr:BatchImportUpstreamImage",
+      "ecr:GetDownloadUrlForLayer"
+    ]
+    resources = [
+      "arn:aws:ecr:${var.region}:${var.account_id}:repository/ecr-public/awsguru/aws-lambda-adapter"
+    ]
+  }
+
+  statement {
+    effect = "Allow"
+    actions = [
       "ecr:GetAuthorizationToken"
     ]
     resources = ["*"]
