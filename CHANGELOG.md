@@ -1,5 +1,38 @@
 # Changelog
 
+## [1.6.0](https://github.com/cds-snc/platform-unified-accounts/compare/v1.5.0...v1.6.0) (2026-10-30)
+
+
+### Features
+
+* add docker pull OIDC role ([#413](https://github.com/cds-snc/platform-unified-accounts/issues/413)) ([3a20897](https://github.com/cds-snc/platform-unified-accounts/commit/3a20897fe538f95b95133f1c5276c1ec7920804e))
+* add ECR pull through cache for public ECR ([#411](https://github.com/cds-snc/platform-unified-accounts/issues/411)) ([12ec116](https://github.com/cds-snc/platform-unified-accounts/commit/12ec11646912e5f7321808f3e927b423d0e770f3))
+* add redis instance ([#403](https://github.com/cds-snc/platform-unified-accounts/issues/403)) ([a5d62fc](https://github.com/cds-snc/platform-unified-accounts/commit/a5d62fce5d8e678857260defe41b20ce18b7a5b7))
+
+
+### Bug Fixes
+
+* add missing id-token permission ([#414](https://github.com/cds-snc/platform-unified-accounts/issues/414)) ([d7cc728](https://github.com/cds-snc/platform-unified-accounts/commit/d7cc728dabfa96d5efb99f7a3b2a03af844536b3))
+* adjust docker-pull OIDC role permission ([#415](https://github.com/cds-snc/platform-unified-accounts/issues/415)) ([1133364](https://github.com/cds-snc/platform-unified-accounts/commit/113336493c61645457ad60e5a8f904bf2a3305f4))
+* **deps:** update all patch dependencies ([#395](https://github.com/cds-snc/platform-unified-accounts/issues/395)) ([def9750](https://github.com/cds-snc/platform-unified-accounts/commit/def97509b3037dbeb47570bf8a8b4061b0cf34c8))
+* leave space in Slack message for SRE Bot ([#394](https://github.com/cds-snc/platform-unified-accounts/issues/394)) ([5662881](https://github.com/cds-snc/platform-unified-accounts/commit/5662881dd9b7a89eca1c32d9f38a04e7ddfb7ce9))
+* PR review deploy IAM permissions ([#412](https://github.com/cds-snc/platform-unified-accounts/issues/412)) ([5c74cd1](https://github.com/cds-snc/platform-unified-accounts/commit/5c74cd11c12a8ef33ccc218f5816be12e6d09b0a))
+* prevent PR review env from creating log group ([#399](https://github.com/cds-snc/platform-unified-accounts/issues/399)) ([099027a](https://github.com/cds-snc/platform-unified-accounts/commit/099027a2d812dcccee089f2278fa1bab802ab633))
+* revert OIDC sentinel auth ([#410](https://github.com/cds-snc/platform-unified-accounts/issues/410)) ([e5eed37](https://github.com/cds-snc/platform-unified-accounts/commit/e5eed374234f1a4084764391e357ca502ab4a119))
+* Sentinel stream name for DNS proxy action ([#405](https://github.com/cds-snc/platform-unified-accounts/issues/405)) ([7b68637](https://github.com/cds-snc/platform-unified-accounts/commit/7b686377b0c2cf45e9f2ac55d5b348d8059982c0))
+* switch to Athena managed query results ([#400](https://github.com/cds-snc/platform-unified-accounts/issues/400)) ([25426b6](https://github.com/cds-snc/platform-unified-accounts/commit/25426b6e8313f58db7a63651a6e12b79cc7f7fbb))
+
+
+### Miscellaneous Chores
+
+* **deps:** lock file maintenance ([#397](https://github.com/cds-snc/platform-unified-accounts/issues/397)) ([5769416](https://github.com/cds-snc/platform-unified-accounts/commit/5769416067cdf8bd353260799d9bc11e2a55b093))
+* **deps:** update all non-major github action dependencies ([#396](https://github.com/cds-snc/platform-unified-accounts/issues/396)) ([c9e0aa9](https://github.com/cds-snc/platform-unified-accounts/commit/c9e0aa92a80a5aafedeacce8fa03c8e5327370d9))
+* **deps:** update module github.com/go-jose/go-jose/v4 to v4.1.6 [security] ([#401](https://github.com/cds-snc/platform-unified-accounts/issues/401)) ([48683d9](https://github.com/cds-snc/platform-unified-accounts/commit/48683d96c72e110e13c3ece5f295afcf6267995d))
+* **deps:** update module golang.org/x/net to v0.62.0 [security] ([#402](https://github.com/cds-snc/platform-unified-accounts/issues/402)) ([3eecba7](https://github.com/cds-snc/platform-unified-accounts/commit/3eecba727650212f6feba996ef94da67b9cf64fb))
+* revert to Zitadel `start` command ([#392](https://github.com/cds-snc/platform-unified-accounts/issues/392)) ([7c853fb](https://github.com/cds-snc/platform-unified-accounts/commit/7c853fbb7501c7f2b5fa16e4fbe014c6ba849746))
+* tighten WAF rate limits for password reset and lockout ([#398](https://github.com/cds-snc/platform-unified-accounts/issues/398)) ([1f96a11](https://github.com/cds-snc/platform-unified-accounts/commit/1f96a11dd9a2a5b01ed429e6aa4c03a64e1ee5ca))
+* vpn to elasticache ([#406](https://github.com/cds-snc/platform-unified-accounts/issues/406)) ([6794d87](https://github.com/cds-snc/platform-unified-accounts/commit/6794d87aec705c17179aed31768b29a643d4f4cf))
+
 ## [1.5.0](https://github.com/cds-snc/platform-unified-accounts/compare/v1.4.5...v1.5.0) (2026-10-22)
 
 
