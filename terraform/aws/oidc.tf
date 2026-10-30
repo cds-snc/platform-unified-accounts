@@ -5,7 +5,7 @@ locals {
 }
 
 module "github_deploy_workflow_roles" {
-  source = "github.com/cds-snc/terraform-modules//gh_oidc_role?ref=v12.1.2"
+  source = "github.com/cds-snc/terraform-modules//gh_oidc_role?ref=v13.2.0"
 
   roles = [
     {

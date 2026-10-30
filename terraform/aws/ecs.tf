@@ -163,7 +163,7 @@ resource "aws_service_discovery_http_namespace" "idp_ecs" {
 
 
 module "idp_ecs" {
-  source = "github.com/cds-snc/terraform-modules//ecs?ref=v12.1.2"
+  source = "github.com/cds-snc/terraform-modules//ecs?ref=v13.2.0"
 
   cluster_name     = "idp"
   service_name     = "idp"
@@ -254,7 +254,7 @@ module "idp_ecs" {
 }
 
 module "login_ecs" {
-  source = "github.com/cds-snc/terraform-modules//ecs?ref=v12.1.2"
+  source = "github.com/cds-snc/terraform-modules//ecs?ref=v13.2.0"
 
   create_cluster   = false
   cluster_name     = "idp"

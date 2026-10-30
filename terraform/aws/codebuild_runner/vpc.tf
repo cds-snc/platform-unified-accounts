@@ -3,7 +3,7 @@
 # This is being done to limit the exposure of the IdP and its private resources 
 #
 module "codebuild_vpc" {
-  source = "github.com/cds-snc/terraform-modules//vpc?ref=v12.1.2"
+  source = "github.com/cds-snc/terraform-modules//vpc?ref=v13.2.0"
   name   = "codebuild-${var.env}"
   cidr   = "10.1.0.0/22"
 
