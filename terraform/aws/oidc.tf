@@ -1,6 +1,7 @@
 locals {
   docker_push   = "platform-unified-accounts-docker-push"
   docker_deploy = "platform-unified-accounts-docker-deploy"
+  docker_pull   = "platform-unified-accounts-docker-pull"
 }
 
 module "github_deploy_workflow_roles" {
@@ -17,6 +18,16 @@ module "github_deploy_workflow_roles" {
       repo_name = "platform-unified-accounts"
       claim     = "ref:refs/heads/main"
     },
+    {
+      name = local.docker_pull
+      claims = [{
+        repo_name = "platform-unified-accounts"
+        claim     = "ref:refs/heads/main"
+        }, {
+        repo_name = "platform-unified-accounts-user-portal"
+        claim     = "ref:refs/heads/main"
+      }]
+    }
   ]
 
   billing_tag_value = var.billing_tag_value
@@ -141,5 +152,42 @@ data "aws_iam_policy_document" "docker_deploy" {
     resources = [
       "arn:aws:ssm:${var.region}:${var.account_id}:parameter/ecs/idp/*",
     ]
+  }
+}
+
+resource "aws_iam_role_policy_attachment" "docker_pull" {
+  role       = local.docker_pull
+  policy_arn = aws_iam_policy.docker_pull.arn
+
+  depends_on = [module.github_deploy_workflow_roles]
+}
+
+resource "aws_iam_policy" "docker_pull" {
+  name   = local.docker_pull
+  path   = "/"
+  policy = data.aws_iam_policy_document.docker_pull.json
+  tags   = local.core_tags
+}
+
+data "aws_iam_policy_document" "docker_pull" {
+  statement {
+    effect = "Allow"
+    actions = [
+      "ecr:BatchCheckLayerAvailability",
+      "ecr:BatchGetImage",
+      "ecr:BatchImportUpstreamImage",
+      "ecr:GetDownloadUrlForLayer"
+    ]
+    resources = [
+      "arn:aws:ecr:${var.region}:${var.account_id}:repository/ecr-public/awsguru/aws-lambda-adapter"
+    ]
+  }
+
+  statement {
+    effect = "Allow"
+    actions = [
+      "ecr:GetAuthorizationToken",
+    ]
+    resources = ["*"]
   }
 }
