@@ -179,7 +179,7 @@ data "aws_iam_policy_document" "docker_pull" {
       "ecr:GetDownloadUrlForLayer"
     ]
     resources = [
-      "arn:aws:ecr:${var.region}:${var.account_id}:repository/ecr-public/awsguru/aws-lambda-adapter"
+      "arn:aws:ecr:${var.region}:${var.account_id}:repository/*"
     ]
   }
 
