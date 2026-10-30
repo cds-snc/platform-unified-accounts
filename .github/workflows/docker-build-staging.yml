@@ -106,6 +106,7 @@ jobs:
   docker-sbom:
     permissions:
       contents: write
+      id-token: write
     needs: docker-push
     uses: ./.github/workflows/docker-sbom.yml
     with:
