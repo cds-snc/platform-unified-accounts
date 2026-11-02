@@ -11,6 +11,8 @@ locals {
   ]
   database_audit_event_skip_filters = [
     "create unlogged table if not exists",
+    "CREATE OR REPLACE TRIGGER",
+    "DROP TRIGGER",
   ]
   database_audit_event_filter_pattern = "[(w=\"*${join("*\" || w=\"*", local.database_audit_event_filters)}*\") && w!=\"*${join("*\" && w!=\"*", local.database_audit_event_skip_filters)}*\"]"
   database_audit_event_log_group_name = "/aws/rds/cluster/${module.idp_database.rds_cluster_id}/postgresql"
