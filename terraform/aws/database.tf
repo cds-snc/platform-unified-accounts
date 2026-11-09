@@ -7,7 +7,7 @@ module "idp_database" {
 
   database_name           = var.idp_database
   engine                  = "aurora-postgresql"
-  engine_version          = "17.7"
+  engine_version          = "17.9"
   instances               = var.idp_database_instance_count
   instance_class          = "db.serverless"
   serverless_min_capacity = var.idp_database_min_acu
