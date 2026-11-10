@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.6.1](https://github.com/cds-snc/platform-unified-accounts/compare/v1.6.0...v1.6.1) (2026-11-09)
+
+
+### Bug Fixes
+
+* **deps:** update all minor dependencies ([#423](https://github.com/cds-snc/platform-unified-accounts/issues/423)) ([d6cfad3](https://github.com/cds-snc/platform-unified-accounts/commit/d6cfad3cfd454c99e36b8b03a5e6aa6c44e0aa14))
+* **deps:** update all patch dependencies ([#422](https://github.com/cds-snc/platform-unified-accounts/issues/422)) ([d615cba](https://github.com/cds-snc/platform-unified-accounts/commit/d615cbacfe850e309b8de690c21e8257058eda76))
+
+
+### Miscellaneous Chores
+
+* **deps:** lock file maintenance ([#424](https://github.com/cds-snc/platform-unified-accounts/issues/424)) ([bd7da3e](https://github.com/cds-snc/platform-unified-accounts/commit/bd7da3e9844cfb90c9ec7c9bbd4bea0aed4fe8a4))
+* **deps:** update all non-major github action dependencies ([#421](https://github.com/cds-snc/platform-unified-accounts/issues/421)) ([2aec879](https://github.com/cds-snc/platform-unified-accounts/commit/2aec879fb383aedc548279ab5b951463a16ff0d9))
+
 ## [1.6.0](https://github.com/cds-snc/platform-unified-accounts/compare/v1.5.0...v1.6.0) (2026-11-03)
 
 
