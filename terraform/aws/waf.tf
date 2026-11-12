@@ -9,53 +9,239 @@ locals {
     "EC2MetaDataSSRF_QUERYARGUMENTS" # Rule is blocking IdP OIDC login
   ]
 
-  # WAF has a max of 10 rate limit rules per web ACL. Since each entry creates 2 rate
-  # limit rules, we are limited to 5 entries in this list.
-  rate_limit_rules = [
-    {
-      name     = "AllRequestLimit"
-      priority = 50
-      limit    = 1000
-    },
-    {
-      name         = "AllRequestLimitMutating"
-      priority     = 52
-      limit        = 500
-      method_regex = "^(delete|patch|post|put)$"
-    },
-    {
-      name     = "PasswordResetRateLimit"
-      priority = 54
-      limit    = 10
-      uri_path = "/password/reset"
-    },
-    {
-      name     = "RegisterVerifyRateLimit"
-      priority = 56
-      limit    = 100
-      uri_path = "/register/verify"
-    },
-    {
-      name     = "ContactUsRateLimit"
-      priority = 60
-      limit    = 10
-      uri_path = "/contact-us"
-    },
-  ]
+  # Each rule group can have at most 2 rate limit entries. 
+  # Each entry creates an IP and JA4 rate limit rule.
+  rate_limit_rule_groups = {
+    "AllRequestRateLimit" = {
+      capacity_acu = 100
+      priority     = 50
+      rules = [
+        {
+          name  = "AllRequestLimit"
+          limit = 1000
+        },
+        {
+          name         = "AllRequestLimitMutating"
+          limit        = 500
+          method_regex = "^(delete|patch|post|put)$"
+        }
+      ]
+    }
+    "AuthRateLimit" = {
+      capacity_acu = 100
+      priority     = 55
+      rules = [
+        {
+          name     = "LoginRateLimit"
+          limit    = 200
+          uri_path = "/"
+        },
+        {
+          name     = "TOTPRateLimit"
+          limit    = 200
+          uri_path = "/otp/time-based"
+        }
+      ]
+    }
+    "PasswordRateLimit" = {
+      capacity_acu = 100
+      priority     = 60
+      rules = [
+        {
+          name     = "PasswordResetRateLimit"
+          limit    = 10
+          uri_path = "/password/reset"
+        },
+        {
+          name     = "RegisterPasswordRateLimit"
+          limit    = 100
+          uri_path = "/register/password"
+        }
+      ]
+    }
+    "ContactUsRateLimit" = {
+      capacity_acu = 100
+      priority     = 65
+      rules = [
+        {
+          name     = "ContactUsRateLimit"
+          limit    = 10
+          uri_path = "/contact-us"
+        }
+      ]
+    }
+  }
+}
 
-  rate_limit_rules_internal = [
-    {
-      name     = "AllRequestLimit"
-      priority = 50
-      limit    = 4000
-    },
-    {
-      name         = "AllRequestLimitMutating"
-      priority     = 52
-      limit        = 2000
-      method_regex = "^(delete|patch|post|put)$"
-    },
-  ]
+resource "aws_wafv2_rule_group" "rate_limit" {
+  for_each = local.rate_limit_rule_groups
+
+  name  = each.key
+  scope = "REGIONAL"
+
+  capacity = each.value.capacity_acu
+
+  dynamic "rule" {
+    for_each = each.value.rules
+    content {
+      name     = "${rule.value.name}IP"
+      priority = rule.key + 1
+
+      action {
+        block {}
+      }
+
+      statement {
+        rate_based_statement {
+          limit              = rule.value.limit
+          aggregate_key_type = "IP"
+
+          dynamic "scope_down_statement" {
+            for_each = try(rule.value.method_regex, null) != null ? [rule.value.method_regex] : []
+            content {
+              regex_match_statement {
+                field_to_match {
+                  method {}
+                }
+                regex_string = scope_down_statement.value
+                text_transformation {
+                  priority = 1
+                  type     = "LOWERCASE"
+                }
+              }
+            }
+          }
+
+          dynamic "scope_down_statement" {
+            for_each = try(rule.value.uri_path, null) != null ? [rule.value] : []
+            content {
+              and_statement {
+                statement {
+                  byte_match_statement {
+                    field_to_match {
+                      method {}
+                    }
+                    positional_constraint = "EXACTLY"
+                    search_string         = "post"
+                    text_transformation {
+                      priority = 1
+                      type     = "LOWERCASE"
+                    }
+                  }
+                }
+                statement {
+                  byte_match_statement {
+                    field_to_match {
+                      uri_path {}
+                    }
+                    positional_constraint = "EXACTLY"
+                    search_string         = scope_down_statement.value.uri_path
+                    text_transformation {
+                      priority = 1
+                      type     = "LOWERCASE"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+
+      visibility_config {
+        cloudwatch_metrics_enabled = true
+        metric_name                = "${rule.value.name}IP"
+        sampled_requests_enabled   = true
+      }
+    }
+  }
+
+  dynamic "rule" {
+    for_each = each.value.rules
+    content {
+      name     = "${rule.value.name}JA4"
+      priority = rule.key + 2
+
+      action {
+        block {}
+      }
+
+      statement {
+        rate_based_statement {
+          limit              = rule.value.limit
+          aggregate_key_type = "CUSTOM_KEYS"
+
+          custom_key {
+            ja4_fingerprint {
+              fallback_behavior = "NO_MATCH"
+            }
+          }
+
+          dynamic "scope_down_statement" {
+            for_each = try(rule.value.method_regex, null) != null ? [rule.value.method_regex] : []
+            content {
+              regex_match_statement {
+                field_to_match {
+                  method {}
+                }
+                regex_string = scope_down_statement.value
+                text_transformation {
+                  priority = 1
+                  type     = "LOWERCASE"
+                }
+              }
+            }
+          }
+
+          dynamic "scope_down_statement" {
+            for_each = try(rule.value.uri_path, null) != null ? [rule.value] : []
+            content {
+              and_statement {
+                statement {
+                  byte_match_statement {
+                    field_to_match {
+                      method {}
+                    }
+                    positional_constraint = "EXACTLY"
+                    search_string         = "post"
+                    text_transformation {
+                      priority = 1
+                      type     = "LOWERCASE"
+                    }
+                  }
+                }
+                statement {
+                  byte_match_statement {
+                    field_to_match {
+                      uri_path {}
+                    }
+                    positional_constraint = "EXACTLY"
+                    search_string         = scope_down_statement.value.uri_path
+                    text_transformation {
+                      priority = 1
+                      type     = "LOWERCASE"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+
+      visibility_config {
+        cloudwatch_metrics_enabled = true
+        metric_name                = "${rule.value.name}JA4"
+        sampled_requests_enabled   = true
+      }
+    }
+  }
+
+  visibility_config {
+    cloudwatch_metrics_enabled = true
+    metric_name                = each.key
+    sampled_requests_enabled   = true
+  }
 }
 
 resource "aws_wafv2_web_acl" "idp" {
@@ -194,157 +380,27 @@ resource "aws_wafv2_web_acl" "idp" {
     }
   }
 
+  # Add rate limit rule groups
   dynamic "rule" {
-    for_each = local.rate_limit_rules
-    content {
-      name     = "${rule.value.name}IP"
-      priority = rule.value.priority
+    for_each = local.rate_limit_rule_groups
 
-      action {
-        block {}
+    content {
+      name     = each.key
+      priority = each.value.priority
+
+      override_action {
+        none {}
       }
 
       statement {
-        rate_based_statement {
-          limit              = rule.value.limit
-          aggregate_key_type = "IP"
-
-          dynamic "scope_down_statement" {
-            for_each = try(rule.value.method_regex, null) != null ? [rule.value.method_regex] : []
-            content {
-              regex_match_statement {
-                field_to_match {
-                  method {}
-                }
-                regex_string = scope_down_statement.value
-                text_transformation {
-                  priority = 1
-                  type     = "LOWERCASE"
-                }
-              }
-            }
-          }
-
-          dynamic "scope_down_statement" {
-            for_each = try(rule.value.uri_path, null) != null ? [rule.value] : []
-            content {
-              and_statement {
-                statement {
-                  byte_match_statement {
-                    field_to_match {
-                      method {}
-                    }
-                    positional_constraint = "EXACTLY"
-                    search_string         = "post"
-                    text_transformation {
-                      priority = 1
-                      type     = "LOWERCASE"
-                    }
-                  }
-                }
-                statement {
-                  byte_match_statement {
-                    field_to_match {
-                      uri_path {}
-                    }
-                    positional_constraint = "EXACTLY"
-                    search_string         = scope_down_statement.value.uri_path
-                    text_transformation {
-                      priority = 1
-                      type     = "LOWERCASE"
-                    }
-                  }
-                }
-              }
-            }
-          }
+        rule_group_reference_statement {
+          arn = aws_wafv2_rule_group.rate_limit[each.key].arn
         }
       }
 
       visibility_config {
         cloudwatch_metrics_enabled = true
-        metric_name                = "${rule.value.name}IP"
-        sampled_requests_enabled   = true
-      }
-    }
-  }
-
-  dynamic "rule" {
-    for_each = local.rate_limit_rules
-    content {
-      name     = "${rule.value.name}JA4"
-      priority = rule.value.priority + 1
-
-      action {
-        block {}
-      }
-
-      statement {
-        rate_based_statement {
-          limit              = rule.value.limit
-          aggregate_key_type = "CUSTOM_KEYS"
-
-          custom_key {
-            ja4_fingerprint {
-              fallback_behavior = "NO_MATCH"
-            }
-          }
-
-          dynamic "scope_down_statement" {
-            for_each = try(rule.value.method_regex, null) != null ? [rule.value.method_regex] : []
-            content {
-              regex_match_statement {
-                field_to_match {
-                  method {}
-                }
-                regex_string = scope_down_statement.value
-                text_transformation {
-                  priority = 1
-                  type     = "LOWERCASE"
-                }
-              }
-            }
-          }
-
-          dynamic "scope_down_statement" {
-            for_each = try(rule.value.uri_path, null) != null ? [rule.value] : []
-            content {
-              and_statement {
-                statement {
-                  byte_match_statement {
-                    field_to_match {
-                      method {}
-                    }
-                    positional_constraint = "EXACTLY"
-                    search_string         = "post"
-                    text_transformation {
-                      priority = 1
-                      type     = "LOWERCASE"
-                    }
-                  }
-                }
-                statement {
-                  byte_match_statement {
-                    field_to_match {
-                      uri_path {}
-                    }
-                    positional_constraint = "EXACTLY"
-                    search_string         = scope_down_statement.value.uri_path
-                    text_transformation {
-                      priority = 1
-                      type     = "LOWERCASE"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-
-      visibility_config {
-        cloudwatch_metrics_enabled = true
-        metric_name                = "${rule.value.name}JA4"
+        metric_name                = each.key
         sampled_requests_enabled   = true
       }
     }
@@ -352,7 +408,7 @@ resource "aws_wafv2_web_acl" "idp" {
 
   rule {
     name     = "ContactUsPostBlockOversizedBody"
-    priority = 63
+    priority = 80
 
     action {
       block {}
@@ -705,162 +761,6 @@ resource "aws_wafv2_web_acl" "idp_internal" {
       cloudwatch_metrics_enabled = true
       metric_name                = "AWSManagedRulesAmazonIpReputationList"
       sampled_requests_enabled   = true
-    }
-  }
-
-  dynamic "rule" {
-    for_each = local.rate_limit_rules_internal
-    content {
-      name     = "${rule.value.name}IP"
-      priority = rule.value.priority
-
-      action {
-        block {}
-      }
-
-      statement {
-        rate_based_statement {
-          limit              = rule.value.limit
-          aggregate_key_type = "IP"
-
-          dynamic "scope_down_statement" {
-            for_each = try(rule.value.method_regex, null) != null ? [rule.value.method_regex] : []
-            content {
-              regex_match_statement {
-                field_to_match {
-                  method {}
-                }
-                regex_string = scope_down_statement.value
-                text_transformation {
-                  priority = 1
-                  type     = "LOWERCASE"
-                }
-              }
-            }
-          }
-
-          dynamic "scope_down_statement" {
-            for_each = try(rule.value.uri_path, null) != null ? [rule.value] : []
-            content {
-              and_statement {
-                statement {
-                  byte_match_statement {
-                    field_to_match {
-                      method {}
-                    }
-                    positional_constraint = "EXACTLY"
-                    search_string         = "post"
-                    text_transformation {
-                      priority = 1
-                      type     = "LOWERCASE"
-                    }
-                  }
-                }
-                statement {
-                  byte_match_statement {
-                    field_to_match {
-                      uri_path {}
-                    }
-                    positional_constraint = "EXACTLY"
-                    search_string         = scope_down_statement.value.uri_path
-                    text_transformation {
-                      priority = 1
-                      type     = "LOWERCASE"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-
-      visibility_config {
-        cloudwatch_metrics_enabled = true
-        metric_name                = "${rule.value.name}IP"
-        sampled_requests_enabled   = true
-      }
-    }
-  }
-
-  dynamic "rule" {
-    for_each = local.rate_limit_rules_internal
-    content {
-      name     = "${rule.value.name}JA4"
-      priority = rule.value.priority + 1
-
-      action {
-        block {}
-      }
-
-      statement {
-        rate_based_statement {
-          limit              = rule.value.limit
-          aggregate_key_type = "CUSTOM_KEYS"
-
-          custom_key {
-            ja4_fingerprint {
-              fallback_behavior = "NO_MATCH"
-            }
-          }
-
-          dynamic "scope_down_statement" {
-            for_each = try(rule.value.method_regex, null) != null ? [rule.value.method_regex] : []
-            content {
-              regex_match_statement {
-                field_to_match {
-                  method {}
-                }
-                regex_string = scope_down_statement.value
-                text_transformation {
-                  priority = 1
-                  type     = "LOWERCASE"
-                }
-              }
-            }
-          }
-
-          dynamic "scope_down_statement" {
-            for_each = try(rule.value.uri_path, null) != null ? [rule.value] : []
-            content {
-              and_statement {
-                statement {
-                  byte_match_statement {
-                    field_to_match {
-                      method {}
-                    }
-                    positional_constraint = "EXACTLY"
-                    search_string         = "post"
-                    text_transformation {
-                      priority = 1
-                      type     = "LOWERCASE"
-                    }
-                  }
-                }
-                statement {
-                  byte_match_statement {
-                    field_to_match {
-                      uri_path {}
-                    }
-                    positional_constraint = "EXACTLY"
-                    search_string         = scope_down_statement.value.uri_path
-                    text_transformation {
-                      priority = 1
-                      type     = "LOWERCASE"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-
-      visibility_config {
-        cloudwatch_metrics_enabled = true
-        metric_name                = "${rule.value.name}JA4"
-        sampled_requests_enabled   = true
-      }
     }
   }
 
