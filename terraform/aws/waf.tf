@@ -25,28 +25,24 @@ locals {
       name     = "PasswordResetRateLimit"
       priority = 54
       limit    = 10
-      method   = "post"
       uri_path = "/password/reset"
     },
     {
       name     = "RegisterVerifyRateLimit"
       priority = 56
       limit    = 100
-      method   = "post"
       uri_path = "/register/verify"
     },
     {
       name     = "TOTPVerifyRateLimit"
       priority = 58
       limit    = 100
-      method   = "post"
       uri_path = "/otp/time-based"
     },
     {
       name     = "ContactUsRateLimit"
       priority = 60
       limit    = 10
-      method   = "post"
       uri_path = "/contact-us"
     },
   ]
@@ -59,7 +55,7 @@ locals {
     },
     {
       name         = "AllRequestLimitMutating"
-      priority     = 60
+      priority     = 52
       limit        = 2000
       method_regex = "^(delete|patch|post|put)$"
     },
@@ -243,7 +239,7 @@ resource "aws_wafv2_web_acl" "idp" {
                       method {}
                     }
                     positional_constraint = "EXACTLY"
-                    search_string         = scope_down_statement.value.method
+                    search_string         = "post"
                     text_transformation {
                       priority = 1
                       type     = "LOWERCASE"
@@ -324,7 +320,7 @@ resource "aws_wafv2_web_acl" "idp" {
                       method {}
                     }
                     positional_constraint = "EXACTLY"
-                    search_string         = scope_down_statement.value.method
+                    search_string         = "post"
                     text_transformation {
                       priority = 1
                       type     = "LOWERCASE"
@@ -336,7 +332,7 @@ resource "aws_wafv2_web_acl" "idp" {
                     field_to_match {
                       uri_path {}
                     }
-                    positional_constraint = scope_down_statement.value.positional_constraint
+                    positional_constraint = "EXACTLY"
                     search_string         = scope_down_statement.value.uri_path
                     text_transformation {
                       priority = 1
@@ -757,7 +753,7 @@ resource "aws_wafv2_web_acl" "idp_internal" {
                       method {}
                     }
                     positional_constraint = "EXACTLY"
-                    search_string         = scope_down_statement.value.method
+                    search_string         = "post"
                     text_transformation {
                       priority = 1
                       type     = "LOWERCASE"
@@ -769,7 +765,7 @@ resource "aws_wafv2_web_acl" "idp_internal" {
                     field_to_match {
                       uri_path {}
                     }
-                    positional_constraint = scope_down_statement.value.positional_constraint
+                    positional_constraint = "EXACTLY"
                     search_string         = scope_down_statement.value.uri_path
                     text_transformation {
                       priority = 1
@@ -838,7 +834,7 @@ resource "aws_wafv2_web_acl" "idp_internal" {
                       method {}
                     }
                     positional_constraint = "EXACTLY"
-                    search_string         = scope_down_statement.value.method
+                    search_string         = "post"
                     text_transformation {
                       priority = 1
                       type     = "LOWERCASE"
