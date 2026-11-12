@@ -26,7 +26,8 @@ locals {
     "already been committed",
     "AuthRequest.NotExisting",
     "context canceled",
-    "no credentials for user"
+    "no credentials for user",
+    "SMTPConfig.NotFound"
   ]
   idp_error_metric_pattern = "[(w=\"*${join("*\" || w=\"*", local.idp_error_filters)}*\") && w!=\"*${join("*\" && w!=\"*", local.idp_error_skip_filters)}*\"]"
 
