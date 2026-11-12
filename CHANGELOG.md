@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.2](https://github.com/cds-snc/platform-unified-accounts/compare/v1.6.1...v1.6.2) (2026-11-12)
+
+
+### Bug Fixes
+
+* disable SES IAM user and alarms ([#426](https://github.com/cds-snc/platform-unified-accounts/issues/426)) ([dd623c6](https://github.com/cds-snc/platform-unified-accounts/commit/dd623c681faa473cffcd3af3fdfa20c4897cb0c8))
+
 ## [1.6.1](https://github.com/cds-snc/platform-unified-accounts/compare/v1.6.0...v1.6.1) (2026-11-09)
 
 
