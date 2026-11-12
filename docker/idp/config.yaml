@@ -41,6 +41,9 @@ DefaultInstance:
     ForceMFA: true
     HidePasswordReset: false
     IgnoreUnknownUsernames: true
+  LockoutPolicy:
+    MaxPasswordAttempts: 5
+    MaxOTPAttempts: 5
   OIDCSettings:
     AccessTokenLifetime: '0.5h'
     IdTokenLifetime: '0.5h'
