@@ -8,12 +8,62 @@ locals {
     "EC2MetaDataSSRF_BODY",          # Rule is blocking IdP OIDC app creation
     "EC2MetaDataSSRF_QUERYARGUMENTS" # Rule is blocking IdP OIDC login
   ]
-  rate_limit_all               = 1000
-  rate_limit_mutating          = 500
-  rate_limit_internal_all      = 4000
-  rate_limit_internal_mutating = 2000
-  rate_limit_contact_us        = 10
-  rate_limit_password_reset    = 10
+
+  rate_limit_rules = [
+    {
+      name     = "AllRequestLimit"
+      priority = 50
+      limit    = 1000
+    },
+    {
+      name         = "AllRequestLimitMutating"
+      priority     = 52
+      limit        = 500
+      method_regex = "^(delete|patch|post|put)$"
+    },
+    {
+      name     = "PasswordResetRateLimit"
+      priority = 54
+      limit    = 10
+      method   = "post"
+      uri_path = "/password/reset"
+    },
+    {
+      name     = "RegisterVerifyRateLimit"
+      priority = 56
+      limit    = 100
+      method   = "post"
+      uri_path = "/register/verify"
+    },
+    {
+      name     = "TOTPVerifyRateLimit"
+      priority = 58
+      limit    = 100
+      method   = "post"
+      uri_path = "/otp/time-based"
+    },
+    {
+      name     = "ContactUsRateLimit"
+      priority = 60
+      limit    = 10
+      method   = "post"
+      uri_path = "/contact-us"
+    },
+  ]
+
+  rate_limit_rules_internal = [
+    {
+      name     = "AllRequestLimit"
+      priority = 50
+      limit    = 4000
+    },
+    {
+      name         = "AllRequestLimitMutating"
+      priority     = 60
+      limit        = 2000
+      method_regex = "^(delete|patch|post|put)$"
+    },
+  ]
 }
 
 resource "aws_wafv2_web_acl" "idp" {
@@ -152,54 +202,159 @@ resource "aws_wafv2_web_acl" "idp" {
     }
   }
 
-  rule {
-    name     = "AllRequestLimitIP"
-    priority = 50
+  dynamic "rule" {
+    for_each = local.rate_limit_rules
+    content {
+      name     = "${rule.value.name}IP"
+      priority = rule.value.priority
 
-    action {
-      block {}
-    }
-
-    statement {
-      rate_based_statement {
-        limit              = local.rate_limit_all
-        aggregate_key_type = "IP"
-
+      action {
+        block {}
       }
-    }
 
-    visibility_config {
-      cloudwatch_metrics_enabled = true
-      metric_name                = "AllRequestLimit"
-      sampled_requests_enabled   = true
-    }
-  }
+      statement {
+        rate_based_statement {
+          limit              = rule.value.limit
+          aggregate_key_type = "IP"
 
-  rule {
-    name     = "AllRequestLimitJA4"
-    priority = 60
+          dynamic "scope_down_statement" {
+            for_each = try(rule.value.method_regex, null) != null ? [rule.value.method_regex] : []
+            content {
+              regex_match_statement {
+                field_to_match {
+                  method {}
+                }
+                regex_string = scope_down_statement.value
+                text_transformation {
+                  priority = 1
+                  type     = "LOWERCASE"
+                }
+              }
+            }
+          }
 
-    action {
-      challenge {}
-    }
-
-    statement {
-      rate_based_statement {
-        limit              = local.rate_limit_all
-        aggregate_key_type = "CUSTOM_KEYS"
-
-        custom_key {
-          ja4_fingerprint {
-            fallback_behavior = "NO_MATCH"
+          dynamic "scope_down_statement" {
+            for_each = try(rule.value.uri_path, null) != null ? [rule.value] : []
+            content {
+              and_statement {
+                statement {
+                  byte_match_statement {
+                    field_to_match {
+                      method {}
+                    }
+                    positional_constraint = "EXACTLY"
+                    search_string         = scope_down_statement.value.method
+                    text_transformation {
+                      priority = 1
+                      type     = "LOWERCASE"
+                    }
+                  }
+                }
+                statement {
+                  byte_match_statement {
+                    field_to_match {
+                      uri_path {}
+                    }
+                    positional_constraint = "EXACTLY"
+                    search_string         = scope_down_statement.value.uri_path
+                    text_transformation {
+                      priority = 1
+                      type     = "LOWERCASE"
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
-    }
 
-    visibility_config {
-      cloudwatch_metrics_enabled = true
-      metric_name                = "AllRequestLimitJA4"
-      sampled_requests_enabled   = true
+      visibility_config {
+        cloudwatch_metrics_enabled = true
+        metric_name                = "${rule.value.name}IP"
+        sampled_requests_enabled   = true
+      }
+    }
+  }
+
+  dynamic "rule" {
+    for_each = local.rate_limit_rules
+    content {
+      name     = "${rule.value.name}JA4"
+      priority = rule.value.priority + 1
+
+      action {
+        challenge {}
+      }
+
+      statement {
+        rate_based_statement {
+          limit              = rule.value.limit
+          aggregate_key_type = "CUSTOM_KEYS"
+
+          custom_key {
+            ja4_fingerprint {
+              fallback_behavior = "NO_MATCH"
+            }
+          }
+
+          dynamic "scope_down_statement" {
+            for_each = try(rule.value.method_regex, null) != null ? [rule.value.method_regex] : []
+            content {
+              regex_match_statement {
+                field_to_match {
+                  method {}
+                }
+                regex_string = scope_down_statement.value
+                text_transformation {
+                  priority = 1
+                  type     = "LOWERCASE"
+                }
+              }
+            }
+          }
+
+          dynamic "scope_down_statement" {
+            for_each = try(rule.value.uri_path, null) != null ? [rule.value] : []
+            content {
+              and_statement {
+                statement {
+                  byte_match_statement {
+                    field_to_match {
+                      method {}
+                    }
+                    positional_constraint = "EXACTLY"
+                    search_string         = scope_down_statement.value.method
+                    text_transformation {
+                      priority = 1
+                      type     = "LOWERCASE"
+                    }
+                  }
+                }
+                statement {
+                  byte_match_statement {
+                    field_to_match {
+                      uri_path {}
+                    }
+                    positional_constraint = scope_down_statement.value.positional_constraint
+                    search_string         = scope_down_statement.value.uri_path
+                    text_transformation {
+                      priority = 1
+                      type     = "LOWERCASE"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+
+      visibility_config {
+        cloudwatch_metrics_enabled = true
+        metric_name                = "${rule.value.name}JA4"
+        sampled_requests_enabled   = true
+      }
     }
   }
 
@@ -259,358 +414,6 @@ resource "aws_wafv2_web_acl" "idp" {
     visibility_config {
       cloudwatch_metrics_enabled = true
       metric_name                = "ContactUsPostBlockOversizedBody"
-      sampled_requests_enabled   = true
-    }
-  }
-
-  rule {
-    name     = "ContactUsPostRateLimitIP"
-    priority = 65
-
-    action {
-      block {}
-    }
-
-    statement {
-      rate_based_statement {
-        limit              = local.rate_limit_contact_us
-        aggregate_key_type = "IP"
-
-        scope_down_statement {
-          and_statement {
-            statement {
-              byte_match_statement {
-                field_to_match {
-                  method {}
-                }
-                positional_constraint = "EXACTLY"
-                search_string         = "post"
-                text_transformation {
-                  priority = 1
-                  type     = "LOWERCASE"
-                }
-              }
-            }
-            statement {
-              byte_match_statement {
-                field_to_match {
-                  uri_path {}
-                }
-                positional_constraint = "CONTAINS"
-                search_string         = "/contact-us"
-                text_transformation {
-                  priority = 1
-                  type     = "LOWERCASE"
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-
-    visibility_config {
-      cloudwatch_metrics_enabled = true
-      metric_name                = "ContactUsPostRateLimitIP"
-      sampled_requests_enabled   = true
-    }
-  }
-
-  rule {
-    name     = "ContactUsPostChallenge"
-    priority = 67
-
-    action {
-      count {}
-    }
-
-    statement {
-      rate_based_statement {
-        limit              = 10
-        aggregate_key_type = "IP"
-
-        scope_down_statement {
-          and_statement {
-            statement {
-              byte_match_statement {
-                field_to_match {
-                  method {}
-                }
-                positional_constraint = "EXACTLY"
-                search_string         = "post"
-                text_transformation {
-                  priority = 1
-                  type     = "LOWERCASE"
-                }
-              }
-            }
-            statement {
-              byte_match_statement {
-                field_to_match {
-                  uri_path {}
-                }
-                positional_constraint = "CONTAINS"
-                search_string         = "/contact-us"
-                text_transformation {
-                  priority = 1
-                  type     = "LOWERCASE"
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-
-    visibility_config {
-      cloudwatch_metrics_enabled = true
-      metric_name                = "ContactUsPostChallenge"
-      sampled_requests_enabled   = true
-    }
-  }
-
-  rule {
-    name     = "ContactUsPostRateLimitJA4"
-    priority = 69
-
-    action {
-      challenge {}
-    }
-
-    statement {
-      rate_based_statement {
-        limit              = local.rate_limit_contact_us
-        aggregate_key_type = "CUSTOM_KEYS"
-
-        custom_key {
-          ja4_fingerprint {
-            fallback_behavior = "NO_MATCH"
-          }
-        }
-
-        scope_down_statement {
-          and_statement {
-            statement {
-              byte_match_statement {
-                field_to_match {
-                  method {}
-                }
-                positional_constraint = "EXACTLY"
-                search_string         = "post"
-                text_transformation {
-                  priority = 1
-                  type     = "LOWERCASE"
-                }
-              }
-            }
-            statement {
-              byte_match_statement {
-                field_to_match {
-                  uri_path {}
-                }
-                positional_constraint = "CONTAINS"
-                search_string         = "/contact-us"
-                text_transformation {
-                  priority = 1
-                  type     = "LOWERCASE"
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-
-    visibility_config {
-      cloudwatch_metrics_enabled = true
-      metric_name                = "ContactUsPostRateLimitJA4"
-      sampled_requests_enabled   = true
-    }
-  }
-
-  rule {
-    name     = "MutatingRequestLimitIP"
-    priority = 70
-
-    action {
-      block {}
-    }
-
-    statement {
-      rate_based_statement {
-        limit              = local.rate_limit_mutating
-        aggregate_key_type = "IP"
-        scope_down_statement {
-          regex_match_statement {
-            field_to_match {
-              method {}
-            }
-            regex_string = "^(delete|patch|post|put)$"
-            text_transformation {
-              priority = 1
-              type     = "LOWERCASE"
-            }
-          }
-        }
-      }
-    }
-
-    visibility_config {
-      cloudwatch_metrics_enabled = true
-      metric_name                = "MutatingRequestLimitIP"
-      sampled_requests_enabled   = true
-    }
-  }
-
-  rule {
-    name     = "PasswordResetPostRateLimitIP"
-    priority = 71
-
-    action {
-      block {}
-    }
-
-    statement {
-      rate_based_statement {
-        limit              = local.rate_limit_password_reset
-        aggregate_key_type = "IP"
-
-        scope_down_statement {
-          and_statement {
-            statement {
-              byte_match_statement {
-                field_to_match {
-                  method {}
-                }
-                positional_constraint = "EXACTLY"
-                search_string         = "post"
-                text_transformation {
-                  priority = 1
-                  type     = "LOWERCASE"
-                }
-              }
-            }
-            statement {
-              byte_match_statement {
-                field_to_match {
-                  uri_path {}
-                }
-                positional_constraint = "EXACTLY"
-                search_string         = "/password/reset"
-                text_transformation {
-                  priority = 1
-                  type     = "LOWERCASE"
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-
-    visibility_config {
-      cloudwatch_metrics_enabled = true
-      metric_name                = "PasswordResetPostRateLimitIP"
-      sampled_requests_enabled   = true
-    }
-  }
-
-  rule {
-    name     = "PasswordResetPostRateLimitJA4"
-    priority = 73
-
-    action {
-      challenge {}
-    }
-
-    statement {
-      rate_based_statement {
-        limit              = local.rate_limit_password_reset
-        aggregate_key_type = "CUSTOM_KEYS"
-
-        custom_key {
-          ja4_fingerprint {
-            fallback_behavior = "NO_MATCH"
-          }
-        }
-
-        scope_down_statement {
-          and_statement {
-            statement {
-              byte_match_statement {
-                field_to_match {
-                  method {}
-                }
-                positional_constraint = "EXACTLY"
-                search_string         = "post"
-                text_transformation {
-                  priority = 1
-                  type     = "LOWERCASE"
-                }
-              }
-            }
-            statement {
-              byte_match_statement {
-                field_to_match {
-                  uri_path {}
-                }
-                positional_constraint = "EXACTLY"
-                search_string         = "/password/reset"
-                text_transformation {
-                  priority = 1
-                  type     = "LOWERCASE"
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-
-    visibility_config {
-      cloudwatch_metrics_enabled = true
-      metric_name                = "PasswordResetPostRateLimitJA4"
-      sampled_requests_enabled   = true
-    }
-  }
-
-  rule {
-    name     = "MutatingRequestLimitJA4"
-    priority = 80
-
-    action {
-      challenge {}
-    }
-
-    statement {
-      rate_based_statement {
-        limit              = local.rate_limit_mutating
-        aggregate_key_type = "CUSTOM_KEYS"
-
-        custom_key {
-          ja4_fingerprint {
-            fallback_behavior = "NO_MATCH"
-          }
-        }
-
-        scope_down_statement {
-          regex_match_statement {
-            field_to_match {
-              method {}
-            }
-            regex_string = "^(delete|patch|post|put)$"
-            text_transformation {
-              priority = 1
-              type     = "LOWERCASE"
-            }
-          }
-        }
-      }
-    }
-
-    visibility_config {
-      cloudwatch_metrics_enabled = true
-      metric_name                = "MutatingRequestLimitJA4"
       sampled_requests_enabled   = true
     }
   }
@@ -913,129 +716,159 @@ resource "aws_wafv2_web_acl" "idp_internal" {
     }
   }
 
-  rule {
-    name     = "AllRequestLimitIP"
-    priority = 50
+  dynamic "rule" {
+    for_each = local.rate_limit_rules_internal
+    content {
+      name     = "${rule.value.name}IP"
+      priority = rule.value.priority
 
-    action {
-      block {}
-    }
-
-    statement {
-      rate_based_statement {
-        limit              = local.rate_limit_internal_all
-        aggregate_key_type = "IP"
-
+      action {
+        block {}
       }
-    }
 
-    visibility_config {
-      cloudwatch_metrics_enabled = true
-      metric_name                = "AllRequestLimit"
-      sampled_requests_enabled   = true
+      statement {
+        rate_based_statement {
+          limit              = rule.value.limit
+          aggregate_key_type = "IP"
+
+          dynamic "scope_down_statement" {
+            for_each = try(rule.value.method_regex, null) != null ? [rule.value.method_regex] : []
+            content {
+              regex_match_statement {
+                field_to_match {
+                  method {}
+                }
+                regex_string = scope_down_statement.value
+                text_transformation {
+                  priority = 1
+                  type     = "LOWERCASE"
+                }
+              }
+            }
+          }
+
+          dynamic "scope_down_statement" {
+            for_each = try(rule.value.uri_path, null) != null ? [rule.value] : []
+            content {
+              and_statement {
+                statement {
+                  byte_match_statement {
+                    field_to_match {
+                      method {}
+                    }
+                    positional_constraint = "EXACTLY"
+                    search_string         = scope_down_statement.value.method
+                    text_transformation {
+                      priority = 1
+                      type     = "LOWERCASE"
+                    }
+                  }
+                }
+                statement {
+                  byte_match_statement {
+                    field_to_match {
+                      uri_path {}
+                    }
+                    positional_constraint = scope_down_statement.value.positional_constraint
+                    search_string         = scope_down_statement.value.uri_path
+                    text_transformation {
+                      priority = 1
+                      type     = "LOWERCASE"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+
+      visibility_config {
+        cloudwatch_metrics_enabled = true
+        metric_name                = "${rule.value.name}IP"
+        sampled_requests_enabled   = true
+      }
     }
   }
 
-  rule {
-    name     = "AllRequestLimitJA4"
-    priority = 60
+  dynamic "rule" {
+    for_each = local.rate_limit_rules_internal
+    content {
+      name     = "${rule.value.name}JA4"
+      priority = rule.value.priority + 1
 
-    action {
-      challenge {}
-    }
-
-    statement {
-      rate_based_statement {
-        limit              = local.rate_limit_all
-        aggregate_key_type = "CUSTOM_KEYS"
-
-        custom_key {
-          ja4_fingerprint {
-            fallback_behavior = "NO_MATCH"
-          }
-        }
+      action {
+        challenge {}
       }
-    }
 
-    visibility_config {
-      cloudwatch_metrics_enabled = true
-      metric_name                = "AllRequestLimitJA4"
-      sampled_requests_enabled   = true
-    }
-  }
+      statement {
+        rate_based_statement {
+          limit              = rule.value.limit
+          aggregate_key_type = "CUSTOM_KEYS"
 
-  rule {
-    name     = "MutatingRequestLimitIP"
-    priority = 70
-
-    action {
-      block {}
-    }
-
-    statement {
-      rate_based_statement {
-        limit              = local.rate_limit_internal_mutating
-        aggregate_key_type = "IP"
-        scope_down_statement {
-          regex_match_statement {
-            field_to_match {
-              method {}
-            }
-            regex_string = "^(delete|patch|post|put)$"
-            text_transformation {
-              priority = 1
-              type     = "LOWERCASE"
+          custom_key {
+            ja4_fingerprint {
+              fallback_behavior = "NO_MATCH"
             }
           }
-        }
-      }
-    }
 
-    visibility_config {
-      cloudwatch_metrics_enabled = true
-      metric_name                = "MutatingRequestLimitIP"
-      sampled_requests_enabled   = true
-    }
-  }
-
-  rule {
-    name     = "MutatingRequestLimitJA4"
-    priority = 80
-
-    action {
-      challenge {}
-    }
-
-    statement {
-      rate_based_statement {
-        limit              = local.rate_limit_internal_mutating
-        aggregate_key_type = "CUSTOM_KEYS"
-
-        custom_key {
-          ja4_fingerprint {
-            fallback_behavior = "NO_MATCH"
-          }
-        }
-
-        scope_down_statement {
-          regex_match_statement {
-            field_to_match {
-              method {}
+          dynamic "scope_down_statement" {
+            for_each = try(rule.value.method_regex, null) != null ? [rule.value.method_regex] : []
+            content {
+              regex_match_statement {
+                field_to_match {
+                  method {}
+                }
+                regex_string = scope_down_statement.value
+                text_transformation {
+                  priority = 1
+                  type     = "LOWERCASE"
+                }
+              }
             }
-            regex_string = "^(delete|patch|post|put)$"
-            text_transformation {
-              priority = 1
-              type     = "LOWERCASE"
+          }
+
+          dynamic "scope_down_statement" {
+            for_each = try(rule.value.uri_path, null) != null ? [rule.value] : []
+            content {
+              and_statement {
+                statement {
+                  byte_match_statement {
+                    field_to_match {
+                      method {}
+                    }
+                    positional_constraint = "EXACTLY"
+                    search_string         = scope_down_statement.value.method
+                    text_transformation {
+                      priority = 1
+                      type     = "LOWERCASE"
+                    }
+                  }
+                }
+                statement {
+                  byte_match_statement {
+                    field_to_match {
+                      uri_path {}
+                    }
+                    positional_constraint = "EXACTLY"
+                    search_string         = scope_down_statement.value.uri_path
+                    text_transformation {
+                      priority = 1
+                      type     = "LOWERCASE"
+                    }
+                  }
+                }
+              }
             }
           }
         }
       }
-    }
 
-    visibility_config {
-      cloudwatch_metrics_enabled = true
-      metric_name                = "MutatingRequestLimitJA4"
-      sampled_requests_enabled   = true
+      visibility_config {
+        cloudwatch_metrics_enabled = true
+        metric_name                = "${rule.value.name}JA4"
+        sampled_requests_enabled   = true
+      }
     }
   }
 
