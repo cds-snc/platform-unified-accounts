@@ -280,7 +280,7 @@ resource "aws_wafv2_web_acl" "idp" {
       priority = rule.value.priority + 1
 
       action {
-        challenge {}
+        block {}
       }
 
       statement {
@@ -794,7 +794,7 @@ resource "aws_wafv2_web_acl" "idp_internal" {
       priority = rule.value.priority + 1
 
       action {
-        challenge {}
+        block {}
       }
 
       statement {
