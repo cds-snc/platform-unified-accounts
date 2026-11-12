@@ -9,6 +9,8 @@ locals {
     "EC2MetaDataSSRF_QUERYARGUMENTS" # Rule is blocking IdP OIDC login
   ]
 
+  # WAF has a max of 10 rate limit rules per web ACL. Since each entry creates 2 rate
+  # limit rules, we are limited to 5 entries in this list.
   rate_limit_rules = [
     {
       name     = "AllRequestLimit"
@@ -32,12 +34,6 @@ locals {
       priority = 56
       limit    = 100
       uri_path = "/register/verify"
-    },
-    {
-      name     = "TOTPVerifyRateLimit"
-      priority = 58
-      limit    = 100
-      uri_path = "/otp/time-based"
     },
     {
       name     = "ContactUsRateLimit"
@@ -1072,6 +1068,12 @@ resource "aws_wafv2_web_acl_logging_configuration" "idp_internal_waf_logs" {
   redacted_fields {
     single_header {
       name = "authorization"
+    }
+  }
+
+  redacted_fields {
+    single_header {
+      name = "cookie"
     }
   }
 }
