@@ -43,8 +43,8 @@ locals {
     {
       name         = "EmailRequests"
       limit        = 10
-      capacity_acu = 216 # 2 rules x (2 base + 30 IP/JA4 key + 40 uri_path key + 12 POST match + 2 paths x 12)
-      paths        = ["/contact-us", "/password/reset"]
+      capacity_acu = 240 # 2 rules x (2 base + 30 IP/JA4 key + 40 uri_path key + 12 POST match + 3 paths x 12)
+      paths        = ["/contact-us", "/password/reset", "/password/reset/sent"]
     },
   ]
 
