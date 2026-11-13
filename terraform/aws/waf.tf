@@ -14,7 +14,6 @@ locals {
   rate_limit_rule_groups = {
     "AllRequestRateLimit" = {
       capacity_acu = 100
-      priority     = 50
       rules = [
         {
           name  = "AllRequestLimit"
@@ -29,7 +28,6 @@ locals {
     }
     "AuthRateLimit" = {
       capacity_acu = 100
-      priority     = 55
       rules = [
         {
           name     = "LoginRateLimit"
@@ -45,7 +43,6 @@ locals {
     }
     "PasswordRateLimit" = {
       capacity_acu = 100
-      priority     = 60
       rules = [
         {
           name     = "PasswordResetRateLimit"
@@ -61,7 +58,6 @@ locals {
     }
     "ContactUsRateLimit" = {
       capacity_acu = 100
-      priority     = 65
       rules = [
         {
           name     = "ContactUsRateLimit"
@@ -85,7 +81,7 @@ resource "aws_wafv2_rule_group" "rate_limit" {
     for_each = each.value.rules
     content {
       name     = "${rule.value.name}IP"
-      priority = rule.key + 1
+      priority = rule.key * 2 + 1
 
       action {
         block {}
@@ -160,7 +156,7 @@ resource "aws_wafv2_rule_group" "rate_limit" {
     for_each = each.value.rules
     content {
       name     = "${rule.value.name}JA4"
-      priority = rule.key + 2
+      priority = rule.key * 2 + 2
 
       action {
         block {}
@@ -382,11 +378,11 @@ resource "aws_wafv2_web_acl" "idp" {
 
   # Add rate limit rule groups
   dynamic "rule" {
-    for_each = local.rate_limit_rule_groups
+    for_each = values(aws_wafv2_rule_group.rate_limit)
 
     content {
-      name     = each.key
-      priority = each.value.priority
+      name     = rule.value.name
+      priority = 50 + rule.key
 
       override_action {
         none {}
@@ -394,13 +390,13 @@ resource "aws_wafv2_web_acl" "idp" {
 
       statement {
         rule_group_reference_statement {
-          arn = aws_wafv2_rule_group.rate_limit[each.key].arn
+          arn = rule.value.arn
         }
       }
 
       visibility_config {
         cloudwatch_metrics_enabled = true
-        metric_name                = each.key
+        metric_name                = rule.value.name
         sampled_requests_enabled   = true
       }
     }
