@@ -52,12 +52,18 @@ data "aws_iam_policy_document" "idp_event_exporter_s3" {
       identifiers = ["*"]
     }
     actions = [
-      "s3:DeleteObject"
+      "s3:DeleteObject",
+      "s3:DeleteObjectVersion"
     ]
     resources = [
       "${module.idp_event_exporter_s3.s3_bucket_arn}/*"
     ]
   }
+}
+
+resource "aws_s3_bucket_policy" "idp_event_exporter_s3" {
+  bucket = module.idp_event_exporter_s3.s3_bucket_id
+  policy = data.aws_iam_policy_document.idp_event_exporter_s3.json
 }
 
 /*
