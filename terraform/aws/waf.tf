@@ -9,151 +9,147 @@ locals {
     "EC2MetaDataSSRF_QUERYARGUMENTS" # Rule is blocking IdP OIDC login
   ]
 
-  # Each rule group can have at most 2 rate limit entries. 
-  # Each entry creates an IP and JA4 rate limit rule.
-  rate_limit_rule_groups = {
-    "AllRequestRateLimit" = {
-      internal     = false
-      capacity_acu = 100
-      rules = [
-        {
-          name  = "AllRequestLimit"
-          limit = 1000
-        },
-        {
-          name         = "AllRequestLimitMutating"
-          limit        = 500
-          method_regex = "^(delete|patch|post|put)$"
-        }
-      ]
-    }
-    "AllRequestInternalRateLimit" = {
+  rate_limit_rules = [
+    {
+      name         = "AllRequests"
+      limit        = 1000
+      capacity_acu = 34
+    },
+    {
+      name         = "AllRequestsMutating"
+      limit        = 500
+      capacity_acu = 60
+      method_regex = "^(delete|patch|post|put)$"
+    },
+    {
+      name         = "AllRequestsInternal"
+      limit        = 4000
+      capacity_acu = 34
       internal     = true
-      capacity_acu = 100
-      rules = [
-        {
-          name  = "AllRequestLimit"
-          limit = 4000
-        },
-        {
-          name         = "AllRequestLimitMutating"
-          limit        = 2000
-          method_regex = "^(delete|patch|post|put)$"
-        }
-      ]
-    }
-    "AuthRateLimit" = {
-      internal     = false
-      capacity_acu = 170
-      rules = [
-        {
-          name     = "LoginRateLimit"
-          limit    = 200
-          uri_path = "/"
-        },
-        {
-          name     = "TOTPRateLimit"
-          limit    = 200
-          uri_path = "/otp/time-based"
-        }
-      ]
-    }
-    "PasswordRateLimit" = {
-      internal     = false
-      capacity_acu = 170
-      rules = [
-        {
-          name     = "PasswordResetRateLimit"
-          limit    = 10
-          uri_path = "/password/reset"
-        },
-        {
-          name     = "RegisterPasswordRateLimit"
-          limit    = 100
-          uri_path = "/register/password"
-        }
-      ]
-    }
-    "ContactUsRateLimit" = {
-      internal     = false
-      capacity_acu = 85
-      rules = [
-        {
-          name     = "ContactUsRateLimit"
-          limit    = 10
-          uri_path = "/contact-us"
-        }
-      ]
-    }
+    },
+    {
+      name         = "AllRequestsInternalMutating"
+      limit        = 2000
+      capacity_acu = 60
+      internal     = true
+      method_regex = "^(delete|patch|post|put)$"
+    },
+    {
+      name         = "AccountRequests"
+      limit        = 200
+      capacity_acu = 90
+      paths        = ["/", "/otp/time-based", "/register/password"]
+    },
+    {
+      name         = "EmailRequests"
+      limit        = 10
+      capacity_acu = 80
+      paths        = ["/contact-us", "/password/reset"]
+    },
+  ]
+
+  rate_limits = {
+    for index, rule in local.rate_limit_rules : rule.name => merge(
+      {
+        method_regex = null
+        paths        = null
+        internal     = false
+      },
+      rule,
+      { index = index }
+    )
   }
 }
 
 resource "aws_wafv2_rule_group" "rate_limit" {
-  for_each = local.rate_limit_rule_groups
+  for_each = local.rate_limits
 
   name  = each.key
   scope = "REGIONAL"
 
   capacity = each.value.capacity_acu
 
-  dynamic "rule" {
-    for_each = each.value.rules
-    content {
-      name     = "${rule.value.name}IP"
-      priority = rule.key * 2 + 1
+  rule {
+    name     = "${each.key}IP"
+    priority = 1
 
-      action {
-        block {}
-      }
+    action {
+      block {}
+    }
 
-      statement {
-        rate_based_statement {
-          limit              = rule.value.limit
-          aggregate_key_type = "IP"
+    statement {
+      rate_based_statement {
+        limit              = each.value.limit
+        aggregate_key_type = each.value.paths != null ? "CUSTOM_KEYS" : "IP"
 
-          dynamic "scope_down_statement" {
-            for_each = try(rule.value.method_regex, null) != null ? [rule.value.method_regex] : []
-            content {
-              regex_match_statement {
-                field_to_match {
-                  method {}
-                }
-                regex_string = scope_down_statement.value
-                text_transformation {
-                  priority = 1
-                  type     = "LOWERCASE"
-                }
+        dynamic "custom_key" {
+          for_each = each.value.paths != null ? [true] : []
+          content {
+            ip {}
+          }
+        }
+
+        dynamic "custom_key" {
+          for_each = each.value.paths != null ? [true] : []
+          content {
+            uri_path {
+              text_transformation {
+                priority = 0
+                type     = "LOWERCASE"
               }
             }
           }
+        }
 
-          dynamic "scope_down_statement" {
-            for_each = try(rule.value.uri_path, null) != null ? [rule.value] : []
-            content {
-              and_statement {
-                statement {
-                  byte_match_statement {
-                    field_to_match {
-                      method {}
-                    }
-                    positional_constraint = "EXACTLY"
-                    search_string         = "post"
-                    text_transformation {
-                      priority = 1
-                      type     = "LOWERCASE"
-                    }
+        dynamic "scope_down_statement" {
+          for_each = each.value.method_regex != null ? [each.value.method_regex] : []
+          content {
+            regex_match_statement {
+              field_to_match {
+                method {}
+              }
+              regex_string = scope_down_statement.value
+              text_transformation {
+                priority = 1
+                type     = "LOWERCASE"
+              }
+            }
+          }
+        }
+
+        dynamic "scope_down_statement" {
+          for_each = each.value.paths != null ? [each.value.paths] : []
+          content {
+            and_statement {
+              statement {
+                byte_match_statement {
+                  field_to_match {
+                    method {}
+                  }
+                  positional_constraint = "EXACTLY"
+                  search_string         = "post"
+                  text_transformation {
+                    priority = 1
+                    type     = "LOWERCASE"
                   }
                 }
-                statement {
-                  byte_match_statement {
-                    field_to_match {
-                      uri_path {}
-                    }
-                    positional_constraint = "EXACTLY"
-                    search_string         = scope_down_statement.value.uri_path
-                    text_transformation {
-                      priority = 1
-                      type     = "LOWERCASE"
+              }
+              statement {
+                or_statement {
+                  dynamic "statement" {
+                    for_each = scope_down_statement.value
+                    content {
+                      byte_match_statement {
+                        field_to_match {
+                          uri_path {}
+                        }
+                        positional_constraint = "EXACTLY"
+                        search_string         = statement.value
+                        text_transformation {
+                          priority = 1
+                          type     = "LOWERCASE"
+                        }
+                      }
                     }
                   }
                 }
@@ -162,79 +158,95 @@ resource "aws_wafv2_rule_group" "rate_limit" {
           }
         }
       }
+    }
 
-      visibility_config {
-        cloudwatch_metrics_enabled = true
-        metric_name                = "${rule.value.name}IP"
-        sampled_requests_enabled   = true
-      }
+    visibility_config {
+      cloudwatch_metrics_enabled = true
+      metric_name                = "${each.key}IP"
+      sampled_requests_enabled   = true
     }
   }
 
-  dynamic "rule" {
-    for_each = each.value.rules
-    content {
-      name     = "${rule.value.name}JA4"
-      priority = rule.key * 2 + 2
+  rule {
+    name     = "${rule.value.name}JA4"
+    priority = 2
 
-      action {
-        block {}
-      }
+    action {
+      block {}
+    }
 
-      statement {
-        rate_based_statement {
-          limit              = rule.value.limit
-          aggregate_key_type = "CUSTOM_KEYS"
+    statement {
+      rate_based_statement {
+        limit              = rule.value.limit
+        aggregate_key_type = "CUSTOM_KEYS"
 
-          custom_key {
-            ja4_fingerprint {
-              fallback_behavior = "NO_MATCH"
-            }
+        custom_key {
+          ja4_fingerprint {
+            fallback_behavior = "NO_MATCH"
           }
+        }
 
-          dynamic "scope_down_statement" {
-            for_each = try(rule.value.method_regex, null) != null ? [rule.value.method_regex] : []
-            content {
-              regex_match_statement {
-                field_to_match {
-                  method {}
-                }
-                regex_string = scope_down_statement.value
-                text_transformation {
-                  priority = 1
-                  type     = "LOWERCASE"
-                }
+        dynamic "custom_key" {
+          for_each = each.value.paths != null ? [true] : []
+          content {
+            uri_path {
+              text_transformation {
+                priority = 0
+                type     = "LOWERCASE"
               }
             }
           }
+        }
 
-          dynamic "scope_down_statement" {
-            for_each = try(rule.value.uri_path, null) != null ? [rule.value] : []
-            content {
-              and_statement {
-                statement {
-                  byte_match_statement {
-                    field_to_match {
-                      method {}
-                    }
-                    positional_constraint = "EXACTLY"
-                    search_string         = "post"
-                    text_transformation {
-                      priority = 1
-                      type     = "LOWERCASE"
-                    }
+        dynamic "scope_down_statement" {
+          for_each = each.value.method_regex != null ? [each.value.method_regex] : []
+          content {
+            regex_match_statement {
+              field_to_match {
+                method {}
+              }
+              regex_string = scope_down_statement.value
+              text_transformation {
+                priority = 1
+                type     = "LOWERCASE"
+              }
+            }
+          }
+        }
+
+        dynamic "scope_down_statement" {
+          for_each = each.value.paths != null ? each.value.paths : []
+          content {
+            and_statement {
+              statement {
+                byte_match_statement {
+                  field_to_match {
+                    method {}
+                  }
+                  positional_constraint = "EXACTLY"
+                  search_string         = "post"
+                  text_transformation {
+                    priority = 1
+                    type     = "LOWERCASE"
                   }
                 }
-                statement {
-                  byte_match_statement {
-                    field_to_match {
-                      uri_path {}
-                    }
-                    positional_constraint = "EXACTLY"
-                    search_string         = scope_down_statement.value.uri_path
-                    text_transformation {
-                      priority = 1
-                      type     = "LOWERCASE"
+              }
+              statement {
+                or_statement {
+                  dynamic "statement" {
+                    for_each = scope_down_statement.value
+                    content {
+                      byte_match_statement {
+                        field_to_match {
+                          uri_path {}
+                        }
+                        positional_constraint = "EXACTLY"
+                        search_string         = statement.value
+                        text_transformation {
+                          priority = 1
+                          type     = "LOWERCASE"
+                        }
+                      }
                     }
                   }
                 }
@@ -243,13 +255,14 @@ resource "aws_wafv2_rule_group" "rate_limit" {
           }
         }
       }
-
-      visibility_config {
-        cloudwatch_metrics_enabled = true
-        metric_name                = "${rule.value.name}JA4"
-        sampled_requests_enabled   = true
-      }
     }
+
+    visibility_config {
+      cloudwatch_metrics_enabled = true
+      metric_name                = "${each.key}JA4"
+      sampled_requests_enabled   = true
+    }
+
   }
 
   visibility_config {
@@ -397,14 +410,14 @@ resource "aws_wafv2_web_acl" "idp" {
 
   # Add non-internal rate limit rule groups
   dynamic "rule" {
-    for_each = [
-      for name, group in aws_wafv2_rule_group.rate_limit : group
-      if !local.rate_limit_rule_groups[name].internal
-    ]
+    for_each = {
+      for name, rate_limit in local.rate_limits : name => rate_limit
+      if !rate_limit.internal
+    }
 
     content {
-      name     = rule.value.name
-      priority = 50 + rule.key
+      name     = rule.key
+      priority = 50 + rule.value.index
 
       override_action {
         none {}
@@ -412,13 +425,13 @@ resource "aws_wafv2_web_acl" "idp" {
 
       statement {
         rule_group_reference_statement {
-          arn = rule.value.arn
+          arn = aws_wafv2_rule_group.rate_limit[rule.key].arn
         }
       }
 
       visibility_config {
         cloudwatch_metrics_enabled = true
-        metric_name                = rule.value.name
+        metric_name                = rule.key
         sampled_requests_enabled   = true
       }
     }
@@ -784,14 +797,14 @@ resource "aws_wafv2_web_acl" "idp_internal" {
 
   # Add internal rate limit rule groups
   dynamic "rule" {
-    for_each = [
-      for name, group in aws_wafv2_rule_group.rate_limit : group
-      if local.rate_limit_rule_groups[name].internal
-    ]
+    for_each = {
+      for name, rate_limit in local.rate_limits : name => rate_limit
+      if rate_limit.internal
+    }
 
     content {
-      name     = rule.value.name
-      priority = 50 + rule.key
+      name     = rule.key
+      priority = 50 + rule.value.index
 
       override_action {
         none {}
@@ -799,13 +812,13 @@ resource "aws_wafv2_web_acl" "idp_internal" {
 
       statement {
         rule_group_reference_statement {
-          arn = rule.value.arn
+          arn = aws_wafv2_rule_group.rate_limit[rule.key].arn
         }
       }
 
       visibility_config {
         cloudwatch_metrics_enabled = true
-        metric_name                = rule.value.name
+        metric_name                = rule.key
         sampled_requests_enabled   = true
       }
     }
