@@ -13,37 +13,37 @@ locals {
     {
       name         = "AllRequests"
       limit        = 1000
-      capacity_acu = 34
+      capacity_acu = 34 # 2 rules x 2 base + 30 JA4 key
     },
     {
       name         = "AllRequestsMutating"
       limit        = 500
-      capacity_acu = 60
+      capacity_acu = 60 # 2 rules x (2 base + 13 method regex) + 30 JA4 key
       method_regex = "^(delete|patch|post|put)$"
     },
     {
       name         = "AllRequestsInternal"
       limit        = 4000
-      capacity_acu = 34
+      capacity_acu = 34 # 2 rules x 2 base + 30 JA4 key
       internal     = true
     },
     {
       name         = "AllRequestsInternalMutating"
       limit        = 2000
-      capacity_acu = 60
+      capacity_acu = 60 # 2 rules x (2 base + 13 method regex) + 30 JA4 key
       internal     = true
       method_regex = "^(delete|patch|post|put)$"
     },
     {
       name         = "AccountRequests"
       limit        = 200
-      capacity_acu = 90
-      paths        = ["/", "/otp/time-based", "/register/password"]
+      capacity_acu = 264 # 2 rules x (2 base + 30 IP/JA4 key + 40 uri_path key + 12 POST match + 4 paths x 12)
+      paths        = ["/", "/otp/time-based", "/register/password", "/register/verify"]
     },
     {
       name         = "EmailRequests"
       limit        = 10
-      capacity_acu = 80
+      capacity_acu = 216 # 2 rules x (2 base + 30 IP/JA4 key + 40 uri_path key + 12 POST match + 2 paths x 12)
       paths        = ["/contact-us", "/password/reset"]
     },
   ]
@@ -168,7 +168,7 @@ resource "aws_wafv2_rule_group" "rate_limit" {
   }
 
   rule {
-    name     = "${rule.value.name}JA4"
+    name     = "${each.key}JA4"
     priority = 2
 
     action {
@@ -177,7 +177,7 @@ resource "aws_wafv2_rule_group" "rate_limit" {
 
     statement {
       rate_based_statement {
-        limit              = rule.value.limit
+        limit              = each.value.limit
         aggregate_key_type = "CUSTOM_KEYS"
 
         custom_key {
@@ -215,7 +215,7 @@ resource "aws_wafv2_rule_group" "rate_limit" {
         }
 
         dynamic "scope_down_statement" {
-          for_each = each.value.paths != null ? each.value.paths : []
+          for_each = each.value.paths != null ? [each.value.paths] : []
           content {
             and_statement {
               statement {
