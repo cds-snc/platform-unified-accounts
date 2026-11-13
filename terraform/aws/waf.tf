@@ -64,10 +64,14 @@ locals {
 resource "aws_wafv2_rule_group" "rate_limit" {
   for_each = local.rate_limits
 
-  name  = each.key
-  scope = "REGIONAL"
+  name_prefix = "${each.key}-"
+  scope       = "REGIONAL"
 
   capacity = each.value.capacity_acu
+
+  lifecycle {
+    create_before_destroy = true
+  }
 
   rule {
     name     = "${each.key}IP"
