@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.6.3](https://github.com/cds-snc/platform-unified-accounts/compare/v1.6.2...v1.6.3) (2026-11-13)
+
+
+### Bug Fixes
+
+* add email re-send path to email WAF rule ([#432](https://github.com/cds-snc/platform-unified-accounts/issues/432)) ([476fbaa](https://github.com/cds-snc/platform-unified-accounts/commit/476fbaae72a5a10decf6349d0b5e9b55e5a948d0))
+* adjust how WAF rate limits are configured ([#428](https://github.com/cds-snc/platform-unified-accounts/issues/428)) ([815b69b](https://github.com/cds-snc/platform-unified-accounts/commit/815b69bbebd5438231876c545ceb0b46c7ecb7bc))
+* reduce down to 10 rate limit rules ([#430](https://github.com/cds-snc/platform-unified-accounts/issues/430)) ([7c4a153](https://github.com/cds-snc/platform-unified-accounts/commit/7c4a153d1d7fed342fc55dc9ab26120d4d1a6b7d))
+* use WAF rule groups for rate limits ([#431](https://github.com/cds-snc/platform-unified-accounts/issues/431)) ([28164a8](https://github.com/cds-snc/platform-unified-accounts/commit/28164a8c66e5db5640d971d6432758ff23ef5fa1))
+
 ## [1.6.2](https://github.com/cds-snc/platform-unified-accounts/compare/v1.6.1...v1.6.2) (2026-11-12)
 
 
