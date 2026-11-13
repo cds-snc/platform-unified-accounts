@@ -13,6 +13,7 @@ locals {
   # Each entry creates an IP and JA4 rate limit rule.
   rate_limit_rule_groups = {
     "AllRequestRateLimit" = {
+      internal     = false
       capacity_acu = 100
       rules = [
         {
@@ -26,8 +27,24 @@ locals {
         }
       ]
     }
-    "AuthRateLimit" = {
+    "AllRequestInternalRateLimit" = {
+      internal     = true
       capacity_acu = 100
+      rules = [
+        {
+          name  = "AllRequestLimit"
+          limit = 4000
+        },
+        {
+          name         = "AllRequestLimitMutating"
+          limit        = 2000
+          method_regex = "^(delete|patch|post|put)$"
+        }
+      ]
+    }
+    "AuthRateLimit" = {
+      internal     = false
+      capacity_acu = 170
       rules = [
         {
           name     = "LoginRateLimit"
@@ -42,7 +59,8 @@ locals {
       ]
     }
     "PasswordRateLimit" = {
-      capacity_acu = 100
+      internal     = false
+      capacity_acu = 170
       rules = [
         {
           name     = "PasswordResetRateLimit"
@@ -57,7 +75,8 @@ locals {
       ]
     }
     "ContactUsRateLimit" = {
-      capacity_acu = 100
+      internal     = false
+      capacity_acu = 85
       rules = [
         {
           name     = "ContactUsRateLimit"
@@ -376,9 +395,12 @@ resource "aws_wafv2_web_acl" "idp" {
     }
   }
 
-  # Add rate limit rule groups
+  # Add non-internal rate limit rule groups
   dynamic "rule" {
-    for_each = values(aws_wafv2_rule_group.rate_limit)
+    for_each = [
+      for name, group in aws_wafv2_rule_group.rate_limit : group
+      if !local.rate_limit_rule_groups[name].internal
+    ]
 
     content {
       name     = rule.value.name
@@ -757,6 +779,35 @@ resource "aws_wafv2_web_acl" "idp_internal" {
       cloudwatch_metrics_enabled = true
       metric_name                = "AWSManagedRulesAmazonIpReputationList"
       sampled_requests_enabled   = true
+    }
+  }
+
+  # Add internal rate limit rule groups
+  dynamic "rule" {
+    for_each = [
+      for name, group in aws_wafv2_rule_group.rate_limit : group
+      if local.rate_limit_rule_groups[name].internal
+    ]
+
+    content {
+      name     = rule.value.name
+      priority = 50 + rule.key
+
+      override_action {
+        none {}
+      }
+
+      statement {
+        rule_group_reference_statement {
+          arn = rule.value.arn
+        }
+      }
+
+      visibility_config {
+        cloudwatch_metrics_enabled = true
+        metric_name                = rule.value.name
+        sampled_requests_enabled   = true
+      }
     }
   }
 
