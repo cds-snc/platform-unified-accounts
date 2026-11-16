@@ -6,7 +6,7 @@ require (
 	github.com/aws/aws-lambda-go v1.55.1
 	github.com/aws/aws-sdk-go-v2 v1.47.8
 	github.com/aws/aws-sdk-go-v2/config v1.33.16
-	github.com/aws/aws-sdk-go-v2/service/ssm v1.81.2
+	github.com/aws/aws-sdk-go-v2/service/ssm v1.82.0
 	github.com/zitadel/oidc/v3 v3.51.17
 	github.com/zitadel/zitadel-go/v3 v3.30.0
 	google.golang.org/grpc v1.85.0
