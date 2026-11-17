@@ -208,13 +208,15 @@ resource "aws_security_group_rule" "idp_ecs_egress_smtp_tls" {
 }
 
 resource "aws_security_group_rule" "idp_ecs_egress_efs" {
+  count = var.enable_efs ? 1 : 0
+
   description              = "Egress from idp ECS task to EFS"
   type                     = "egress"
   to_port                  = 2049
   from_port                = 2049
   protocol                 = "tcp"
   security_group_id        = aws_security_group.idp_ecs.id
-  source_security_group_id = aws_security_group.idp_efs.id
+  source_security_group_id = aws_security_group.idp_efs[0].id
 }
 
 resource "aws_security_group_rule" "idp_ecs_ingress_lb" {
@@ -266,13 +268,15 @@ resource "aws_security_group_rule" "idp_login_ecs_egress_internet" {
 }
 
 resource "aws_security_group_rule" "idp_login_ecs_egress_efs" {
+  count = var.enable_efs ? 1 : 0
+
   description              = "Egress from idp login ECS task to EFS"
   type                     = "egress"
   to_port                  = 2049
   from_port                = 2049
   protocol                 = "tcp"
   security_group_id        = aws_security_group.idp_login_ecs.id
-  source_security_group_id = aws_security_group.idp_efs.id
+  source_security_group_id = aws_security_group.idp_efs[0].id
 }
 
 resource "aws_security_group_rule" "idp_login_ecs_egress_idp_ecs" {
@@ -415,6 +419,8 @@ resource "aws_security_group_rule" "idp_ecs_egress_db" {
 
 # EFS =======================================================================
 resource "aws_security_group" "idp_efs" {
+  count = var.enable_efs ? 1 : 0
+
   name        = "idp_efs"
   description = "Allow access to EFS from idp ECS tasks"
   vpc_id      = module.idp_vpc.vpc_id
@@ -422,22 +428,26 @@ resource "aws_security_group" "idp_efs" {
 }
 
 resource "aws_security_group_rule" "idp_efs_ingress_ecs" {
+  count = var.enable_efs ? 1 : 0
+
   description              = "Allow NFS traffic from idp ECS tasks"
   type                     = "ingress"
   from_port                = 2049
   to_port                  = 2049
   protocol                 = "tcp"
-  security_group_id        = aws_security_group.idp_efs.id
+  security_group_id        = aws_security_group.idp_efs[0].id
   source_security_group_id = aws_security_group.idp_ecs.id
 }
 
 resource "aws_security_group_rule" "idp_login_efs_ingress_ecs" {
+  count = var.enable_efs ? 1 : 0
+
   description              = "Allow NFS traffic from idp login ECS tasks"
   type                     = "ingress"
   from_port                = 2049
   to_port                  = 2049
   protocol                 = "tcp"
-  security_group_id        = aws_security_group.idp_efs.id
+  security_group_id        = aws_security_group.idp_efs[0].id
   source_security_group_id = aws_security_group.idp_login_ecs.id
 }
 

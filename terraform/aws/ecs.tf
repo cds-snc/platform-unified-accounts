@@ -147,6 +147,24 @@ locals {
       "valueFrom" = aws_ssm_parameter.idp_password_reset_secret.arn
     }
   ]
+
+  idp_efs_mount_points = var.enable_efs ? [{
+    sourceVolume  = "idp-data"
+    containerPath = "/idp"
+    readOnly      = false
+  }] : []
+  idp_efs_task_volume = var.enable_efs ? [{
+    name = "idp-data"
+    efs_volume_configuration = {
+      file_system_id          = aws_efs_file_system.idp[0].id
+      transit_encryption      = "ENABLED"
+      transit_encryption_port = 2049
+      authorization_config = {
+        access_point_id = aws_efs_access_point.idp[0].id
+        iam             = "ENABLED"
+      }
+    }
+  }] : []
 }
 
 resource "aws_service_discovery_private_dns_namespace" "idp_ecs" {
@@ -203,30 +221,12 @@ module "idp_ecs" {
     data.aws_iam_policy_document.ecs_task_ssm_parameters.json,
   ]
 
-  task_role_policy_documents = [
-    data.aws_iam_policy_document.efs_write.json
-  ]
+  task_role_policy_documents = data.aws_iam_policy_document.efs_write[*].json
 
   enable_execute_command = false
 
-  container_mount_points = [{
-    sourceVolume  = "idp-data"
-    containerPath = "/idp"
-    readOnly      = false
-  }]
-
-  task_volume = [{
-    name = "idp-data"
-    efs_volume_configuration = {
-      file_system_id          = aws_efs_file_system.idp.id
-      transit_encryption      = "ENABLED"
-      transit_encryption_port = 2049
-      authorization_config = {
-        access_point_id = aws_efs_access_point.idp.id
-        iam             = "ENABLED"
-      }
-    }
-  }]
+  container_mount_points = local.idp_efs_mount_points
+  task_volume            = local.idp_efs_task_volume
 
   lb_target_group_arns = [
     for protocol_version in local.protocol_versions : {
@@ -294,30 +294,12 @@ module "login_ecs" {
     data.aws_iam_policy_document.login_ecs_redis.json,
   ]
 
-  task_role_policy_documents = [
-    data.aws_iam_policy_document.efs_write.json,
-  ]
+  task_role_policy_documents = data.aws_iam_policy_document.efs_write[*].json
 
   enable_execute_command = false
 
-  container_mount_points = [{
-    sourceVolume  = "idp-data"
-    containerPath = "/idp"
-    readOnly      = false
-  }]
-
-  task_volume = [{
-    name = "idp-data"
-    efs_volume_configuration = {
-      file_system_id          = aws_efs_file_system.idp.id
-      transit_encryption      = "ENABLED"
-      transit_encryption_port = 2049
-      authorization_config = {
-        access_point_id = aws_efs_access_point.idp.id
-        iam             = "ENABLED"
-      }
-    }
-  }]
+  container_mount_points = local.idp_efs_mount_points
+  task_volume            = local.idp_efs_task_volume
 
   lb_target_group_arn = aws_lb_target_group.idp_login.arn
   subnet_ids          = module.idp_vpc.private_subnet_ids
@@ -389,6 +371,8 @@ data "aws_iam_policy_document" "login_ecs_redis" {
 }
 
 data "aws_iam_policy_document" "efs_write" {
+  count = var.enable_efs ? 1 : 0
+
   statement {
     effect = "Allow"
     actions = [
@@ -397,7 +381,7 @@ data "aws_iam_policy_document" "efs_write" {
       "elasticfilesystem:DescribeMountTargets",
     ]
     resources = [
-      aws_efs_file_system.idp.arn
+      aws_efs_file_system.idp[0].arn
     ]
   }
 }
