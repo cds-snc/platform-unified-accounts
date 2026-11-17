@@ -1,5 +1,32 @@
 # Changelog
 
+## [1.7.0](https://github.com/cds-snc/platform-unified-accounts/compare/v1.6.2...v1.7.0) (2026-11-17)
+
+
+### Features
+
+* add ability to disable EFS ([#441](https://github.com/cds-snc/platform-unified-accounts/issues/441)) ([3a94a27](https://github.com/cds-snc/platform-unified-accounts/commit/3a94a270c92ffd450c18a93603b0bf86a2f25ec6))
+* add Route53 health check and alarm ([#438](https://github.com/cds-snc/platform-unified-accounts/issues/438)) ([368bc67](https://github.com/cds-snc/platform-unified-accounts/commit/368bc67170180d99f61886ee8bb96b2aeb53aeb3))
+
+
+### Bug Fixes
+
+* add email re-send path to email WAF rule ([#432](https://github.com/cds-snc/platform-unified-accounts/issues/432)) ([476fbaa](https://github.com/cds-snc/platform-unified-accounts/commit/476fbaae72a5a10decf6349d0b5e9b55e5a948d0))
+* adjust how WAF rate limits are configured ([#428](https://github.com/cds-snc/platform-unified-accounts/issues/428)) ([815b69b](https://github.com/cds-snc/platform-unified-accounts/commit/815b69bbebd5438231876c545ceb0b46c7ecb7bc))
+* **deps:** update all patch dependencies ([#436](https://github.com/cds-snc/platform-unified-accounts/issues/436)) ([5ac2cbe](https://github.com/cds-snc/platform-unified-accounts/commit/5ac2cbe92e271669d70af1f8abd30bce4d6c9630))
+* **deps:** update module github.com/aws/aws-sdk-go-v2/service/ssm to v1.82.0 ([#437](https://github.com/cds-snc/platform-unified-accounts/issues/437)) ([778008f](https://github.com/cds-snc/platform-unified-accounts/commit/778008fa48ad0b951b171a347216dd3d77d0aa6d))
+* reduce down to 10 rate limit rules ([#430](https://github.com/cds-snc/platform-unified-accounts/issues/430)) ([7c4a153](https://github.com/cds-snc/platform-unified-accounts/commit/7c4a153d1d7fed342fc55dc9ab26120d4d1a6b7d))
+* update health check regions and WAF IP list ([#440](https://github.com/cds-snc/platform-unified-accounts/issues/440)) ([30c8c51](https://github.com/cds-snc/platform-unified-accounts/commit/30c8c515d987b1aa2d4d7ce318fb80a9ac9ca1f3))
+* upgrade to FIPS compliant TLS policies ([#439](https://github.com/cds-snc/platform-unified-accounts/issues/439)) ([c6b4a16](https://github.com/cds-snc/platform-unified-accounts/commit/c6b4a1606087e04522d1759e751c54520ed39efa))
+* use WAF rule groups for rate limits ([#431](https://github.com/cds-snc/platform-unified-accounts/issues/431)) ([28164a8](https://github.com/cds-snc/platform-unified-accounts/commit/28164a8c66e5db5640d971d6432758ff23ef5fa1))
+
+
+### Miscellaneous Chores
+
+* **deps:** update all non-major github action dependencies ([#435](https://github.com/cds-snc/platform-unified-accounts/issues/435)) ([ccf1359](https://github.com/cds-snc/platform-unified-accounts/commit/ccf135900f73ac61cb7c260dad1e904ca0084d9f))
+* **deps:** update golang:1.27.3-alpine docker digest to fa3d596 ([#434](https://github.com/cds-snc/platform-unified-accounts/issues/434)) ([5cb49cb](https://github.com/cds-snc/platform-unified-accounts/commit/5cb49cbce223ba5631da0024322fd81f2119e702))
+* **deps:** update module go.opentelemetry.io/otel/trace to v1.47.0 [security] ([#433](https://github.com/cds-snc/platform-unified-accounts/issues/433)) ([3f6cc4f](https://github.com/cds-snc/platform-unified-accounts/commit/3f6cc4f739342b2d1d736c1eb6b8634912ec09b0))
+
 ## [1.6.2](https://github.com/cds-snc/platform-unified-accounts/compare/v1.6.1...v1.6.2) (2026-11-12)
 
 
