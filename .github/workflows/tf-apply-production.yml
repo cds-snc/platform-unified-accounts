@@ -3,6 +3,7 @@ name: Terraform Apply Production
 concurrency:
   group: update-production
   cancel-in-progress: false
+  queue: max
 
 on:
   push:

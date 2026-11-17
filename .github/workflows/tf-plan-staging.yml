@@ -3,6 +3,7 @@ name: Terraform Plan Staging
 concurrency:
   group: update-staging
   cancel-in-progress: false
+  queue: max
 
 on:
   pull_request:

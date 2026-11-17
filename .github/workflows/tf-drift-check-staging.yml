@@ -3,6 +3,7 @@ name: Terraform Drift Check Staging
 concurrency:
   group: update-staging
   cancel-in-progress: false
+  queue: max
 
 on:
   workflow_dispatch:

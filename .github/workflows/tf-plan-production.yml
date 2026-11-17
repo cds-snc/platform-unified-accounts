@@ -3,6 +3,7 @@ name: Terraform Plan Production
 concurrency:
   group: update-production
   cancel-in-progress: false
+  queue: max
 
 on:
   pull_request:
