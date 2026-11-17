@@ -1129,7 +1129,7 @@ data "aws_iam_policy_document" "idp_waf_logs" {
 # Used to allow Route53 health checks through the WAF geo restriction
 data "aws_ip_ranges" "route53_health_checks" {
   services = ["route53_healthchecks"]
-  regions  = local.route53_health_check_regions
+  regions  = concat(local.route53_health_check_regions, ["GLOBAL"])
 }
 
 resource "aws_wafv2_ip_set" "route53_health_checks" {
