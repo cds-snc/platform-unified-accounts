@@ -43,6 +43,18 @@ variable "domain" {
   type        = string
 }
 
+variable "enable_efs" {
+  description = "Whether to create the IdP EFS file system and mount it in the IdP and login ECS tasks. Only needed on first startup in an environment."
+  type        = bool
+  default     = true
+}
+
+variable "enable_ses" {
+  description = "Flag to indicate if Simple Email Service (SES) resources are created."
+  type        = bool
+  default     = false
+}
+
 variable "enable_waf_geo_restriction" {
   description = "Whether to enable WAF geo restriction rule."
   type        = bool
@@ -315,12 +327,6 @@ variable "idp_task_memory" {
 variable "idp_task_min_capacity" {
   description = "The minimum autoscaling capacity for IdP ECS tasks."
   type        = number
-}
-
-variable "is_ses" {
-  description = "Flag to indicate if Simple Email Service (SES) resources are created."
-  type        = bool
-  default     = false
 }
 
 variable "security_txt_content" {

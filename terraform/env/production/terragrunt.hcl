@@ -37,7 +37,8 @@ inputs = {
   idp_task_min_capacity        = 1
   idp_task_max_capacity        = 4
 
-  is_ses = false
+  enable_efs = false
+  enable_ses = false
 }
 
 include {

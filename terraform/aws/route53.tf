@@ -33,7 +33,7 @@ resource "aws_route53_record" "idp_internal_A" {
 
 # SES verification
 resource "aws_route53_record" "idp_verification_TXT" {
-  count   = var.is_ses ? 1 : 0
+  count   = var.enable_ses ? 1 : 0
   zone_id = aws_route53_zone.idp.zone_id
   name    = "_amazonses.${aws_ses_domain_identity.idp[0].id}"
   type    = "TXT"
@@ -43,7 +43,7 @@ resource "aws_route53_record" "idp_verification_TXT" {
 
 # Email sending
 resource "aws_route53_record" "idp_spf_TXT" {
-  count   = var.is_ses ? 1 : 0
+  count   = var.enable_ses ? 1 : 0
   zone_id = aws_route53_zone.idp.zone_id
   name    = var.domain
   type    = "TXT"
@@ -54,7 +54,7 @@ resource "aws_route53_record" "idp_spf_TXT" {
 }
 
 resource "aws_route53_record" "idp_dkim_CNAME" {
-  count   = var.is_ses ? 3 : 0
+  count   = var.enable_ses ? 3 : 0
   zone_id = aws_route53_zone.idp.zone_id
   name    = "${element(aws_ses_domain_dkim.idp[0].dkim_tokens, count.index)}._domainkey.${var.domain}"
   type    = "CNAME"
@@ -65,7 +65,7 @@ resource "aws_route53_record" "idp_dkim_CNAME" {
 }
 
 resource "aws_route53_record" "idp_dmarc_TXT" {
-  count   = var.is_ses ? 1 : 0
+  count   = var.enable_ses ? 1 : 0
   zone_id = aws_route53_zone.idp.zone_id
   name    = "_dmarc.${var.domain}"
   type    = "TXT"
