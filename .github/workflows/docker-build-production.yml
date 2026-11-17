@@ -1,7 +1,7 @@
 name: Docker build and push Production
 
 concurrency:
-  group: docker-build-production
+  group: update-production
   cancel-in-progress: false
 
 on:

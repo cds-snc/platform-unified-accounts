@@ -1,7 +1,7 @@
 name: Terraform Apply Production
 
 concurrency:
-  group: terraform-production
+  group: update-production
   cancel-in-progress: false
 
 on:

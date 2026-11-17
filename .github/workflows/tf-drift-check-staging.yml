@@ -1,7 +1,7 @@
 name: Terraform Drift Check Staging
 
 concurrency:
-  group: terraform-staging
+  group: update-staging
   cancel-in-progress: false
 
 on:
