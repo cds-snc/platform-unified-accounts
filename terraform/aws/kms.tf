@@ -9,6 +9,16 @@ resource "aws_kms_key" "cloudwatch_alerts" {
   tags = local.core_tags
 }
 
+resource "aws_kms_key" "cloudwatch_alerts_us_east_1" {
+  provider = aws.us-east-1
+
+  description         = "SNS topic for CloudWatch alarm alerts"
+  enable_key_rotation = true
+  policy              = data.aws_iam_policy_document.kms_cloudwatch.json
+
+  tags = local.core_tags
+}
+
 data "aws_iam_policy_document" "kms_cloudwatch" {
   statement {
     sid       = "Enable IAM User Permissions"

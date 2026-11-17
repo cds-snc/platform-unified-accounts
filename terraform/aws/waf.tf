@@ -374,10 +374,23 @@ resource "aws_wafv2_web_acl" "idp" {
     }
 
     statement {
-      not_statement {
+      and_statement {
         statement {
-          geo_match_statement {
-            country_codes = ["CA"]
+          not_statement {
+            statement {
+              geo_match_statement {
+                country_codes = ["CA"]
+              }
+            }
+          }
+        }
+        statement {
+          not_statement {
+            statement {
+              ip_set_reference_statement {
+                arn = aws_wafv2_ip_set.route53_health_checks.arn
+              }
+            }
           }
         }
       }
@@ -1111,4 +1124,19 @@ data "aws_iam_policy_document" "idp_waf_logs" {
       "arn:aws:iam::*:role/aws-service-role/wafv2.amazonaws.com/AWSServiceRoleForWAFV2Logging"
     ]
   }
+}
+
+# Used to allow Route53 health checks through the WAF geo restriction
+data "aws_ip_ranges" "route53_health_checks" {
+  services = ["route53_healthchecks"]
+  regions  = local.route53_health_check_regions
+}
+
+resource "aws_wafv2_ip_set" "route53_health_checks" {
+  name               = "route53-health-checks"
+  scope              = "REGIONAL"
+  ip_address_version = "IPV4"
+  addresses          = data.aws_ip_ranges.route53_health_checks.cidr_blocks
+
+  tags = local.core_tags
 }
