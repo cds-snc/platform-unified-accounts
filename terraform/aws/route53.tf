@@ -138,3 +138,20 @@ resource "aws_route53_record" "idp_private_A" {
     evaluate_target_health = true
   }
 }
+
+#
+# Health check for the public IdP endpoint
+#
+resource "aws_route53_health_check" "idp" {
+  fqdn              = var.domain
+  port              = 443
+  type              = "HTTPS"
+  resource_path     = "/healthy"
+  failure_threshold = 3
+  request_interval  = 30
+  regions           = local.route53_health_check_regions
+
+  tags = merge(local.common_tags, {
+    Name = "idp-${var.env}"
+  })
+}

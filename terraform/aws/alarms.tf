@@ -511,3 +511,27 @@ resource "aws_cloudwatch_metric_alarm" "idp_cleanup_users_dlq_messages" {
 
   tags = local.core_tags
 }
+
+resource "aws_cloudwatch_metric_alarm" "idp_route53_health_check" {
+  provider = aws.us-east-1
+
+  alarm_name          = "idp-route53-health-check"
+  alarm_description   = "`${var.domain}` is failing its Route53 health check and may be down."
+  comparison_operator = "LessThanThreshold"
+  evaluation_periods  = "2"
+  metric_name         = "HealthCheckStatus"
+  namespace           = "AWS/Route53"
+  period              = "60"
+  statistic           = "Minimum"
+  threshold           = "1"
+  treat_missing_data  = "breaching"
+
+  alarm_actions = [aws_sns_topic.cloudwatch_alert_warning_us_east_1.arn]
+  ok_actions    = [aws_sns_topic.cloudwatch_alert_ok_us_east_1.arn]
+
+  dimensions = {
+    HealthCheckId = aws_route53_health_check.idp.id
+  }
+
+  tags = local.core_tags
+}

@@ -13,6 +13,22 @@ resource "aws_sns_topic" "cloudwatch_alert_ok" {
   tags              = local.core_tags
 }
 
+resource "aws_sns_topic" "cloudwatch_alert_warning_us_east_1" {
+  provider = aws.us-east-1
+
+  name              = "cloudwatch-alert-warning"
+  kms_master_key_id = aws_kms_key.cloudwatch_alerts_us_east_1.arn
+  tags              = local.core_tags
+}
+
+resource "aws_sns_topic" "cloudwatch_alert_ok_us_east_1" {
+  provider = aws.us-east-1
+
+  name              = "cloudwatch-alert-ok"
+  kms_master_key_id = aws_kms_key.cloudwatch_alerts_us_east_1.arn
+  tags              = local.core_tags
+}
+
 #
 # SNS topic subscriptions
 #
@@ -24,6 +40,22 @@ resource "aws_sns_topic_subscription" "cloudwatch_alert_warning" {
 
 resource "aws_sns_topic_subscription" "cloudwatch_alert_ok" {
   topic_arn = aws_sns_topic.cloudwatch_alert_ok.arn
+  protocol  = "https"
+  endpoint  = var.cloudwatch_slack_webhook_url
+}
+
+resource "aws_sns_topic_subscription" "cloudwatch_alert_warning_us_east_1" {
+  provider = aws.us-east-1
+
+  topic_arn = aws_sns_topic.cloudwatch_alert_warning_us_east_1.arn
+  protocol  = "https"
+  endpoint  = var.cloudwatch_slack_webhook_url
+}
+
+resource "aws_sns_topic_subscription" "cloudwatch_alert_ok_us_east_1" {
+  provider = aws.us-east-1
+
+  topic_arn = aws_sns_topic.cloudwatch_alert_ok_us_east_1.arn
   protocol  = "https"
   endpoint  = var.cloudwatch_slack_webhook_url
 }
