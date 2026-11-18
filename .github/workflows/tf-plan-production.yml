@@ -1,8 +1,9 @@
 name: Terraform Plan Production
 
 concurrency:
-  group: terraform-production
+  group: update-production
   cancel-in-progress: false
+  queue: max
 
 on:
   pull_request:

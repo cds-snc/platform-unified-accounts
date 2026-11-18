@@ -1,8 +1,9 @@
 name: Docker build and push Staging
 
 concurrency:
-  group: docker-build-staging
+  group: update-staging
   cancel-in-progress: false
+  queue: max
 
 
 on:

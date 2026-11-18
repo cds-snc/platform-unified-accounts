@@ -1,8 +1,9 @@
 name: Terraform Apply Staging
 
 concurrency:
-  group: terraform-staging
+  group: update-staging
   cancel-in-progress: false
+  queue: max
 
 on:
   push:
