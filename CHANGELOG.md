@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.7.1](https://github.com/cds-snc/platform-unified-accounts/compare/v1.7.0...v1.7.1) (2026-11-18)
+
+
+### Bug Fixes
+
+* require ElastiCache transit encryption ([#444](https://github.com/cds-snc/platform-unified-accounts/issues/444)) ([46021a3](https://github.com/cds-snc/platform-unified-accounts/commit/46021a37a0de0efc4ce3046dc679f4099ae9bdae))
+* share concurrency groups for all environment workflows ([#442](https://github.com/cds-snc/platform-unified-accounts/issues/442)) ([b697cb6](https://github.com/cds-snc/platform-unified-accounts/commit/b697cb601d1182eeb70b12b96285bc0c3f94cf1b))
+
 ## [1.7.0](https://github.com/cds-snc/platform-unified-accounts/compare/v1.6.2...v1.7.0) (2026-11-17)
 
 
