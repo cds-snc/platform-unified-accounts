@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.7.2](https://github.com/cds-snc/platform-unified-accounts/compare/v1.7.1...v1.7.2) (2026-11-19)
+
+
+### Bug Fixes
+
+* create distinct IAM policies for idp and portal ([#446](https://github.com/cds-snc/platform-unified-accounts/issues/446)) ([9e5a256](https://github.com/cds-snc/platform-unified-accounts/commit/9e5a2565b90b0611a0bfd5814ed9940144dcde3d))
+
 ## [1.7.1](https://github.com/cds-snc/platform-unified-accounts/compare/v1.7.0...v1.7.1) (2026-11-18)
 
 
