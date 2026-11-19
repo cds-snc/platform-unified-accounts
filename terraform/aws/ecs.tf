@@ -218,7 +218,7 @@ module "idp_ecs" {
   }
 
   task_exec_role_policy_documents = [
-    data.aws_iam_policy_document.ecs_task_ssm_parameters.json,
+    data.aws_iam_policy_document.idp_ecs_task_ssm_parameters.json,
   ]
 
   task_role_policy_documents = data.aws_iam_policy_document.efs_write[*].json
@@ -290,8 +290,7 @@ module "login_ecs" {
   }
 
   task_exec_role_policy_documents = [
-    data.aws_iam_policy_document.ecs_task_ssm_parameters.json,
-    data.aws_iam_policy_document.login_ecs_redis.json,
+    data.aws_iam_policy_document.login_ecs_task_ssm_parameters.json,
   ]
 
   task_role_policy_documents = data.aws_iam_policy_document.efs_write[*].json
@@ -323,7 +322,7 @@ module "login_ecs" {
 #
 # IAM policies
 #
-data "aws_iam_policy_document" "ecs_task_ssm_parameters" {
+data "aws_iam_policy_document" "idp_ecs_task_ssm_parameters" {
   statement {
     sid    = "GetSSMParameters"
     effect = "Allow"
@@ -340,6 +339,21 @@ data "aws_iam_policy_document" "ecs_task_ssm_parameters" {
       aws_ssm_parameter.idp_database_password.arn,
       aws_ssm_parameter.idp_database_admin_username.arn,
       aws_ssm_parameter.idp_database_admin_password.arn,
+      aws_ssm_parameter.idp_loginclient_machine_username.arn,
+      aws_ssm_parameter.idp_secret_key.arn,
+    ]
+  }
+}
+
+data "aws_iam_policy_document" "login_ecs_task_ssm_parameters" {
+  statement {
+    sid    = "GetSSMParameters"
+    effect = "Allow"
+    actions = [
+      "ssm:GetParameter",
+      "ssm:GetParameters",
+    ]
+    resources = [
       aws_ssm_parameter.idp_hcaptcha_secret.arn,
       aws_ssm_parameter.idp_hcaptcha_site_key.arn,
       aws_ssm_parameter.idp_freshdesk_api_url.arn,
@@ -347,26 +361,14 @@ data "aws_iam_policy_document" "ecs_task_ssm_parameters" {
       aws_ssm_parameter.idp_freshdesk_product_id.arn,
       aws_ssm_parameter.idp_freshdesk_group_id.arn,
       aws_ssm_parameter.idp_freshdesk_tags.arn,
-      aws_ssm_parameter.idp_loginclient_machine_username.arn,
+      aws_ssm_parameter.idp_login_redis_url.arn,
       aws_ssm_parameter.idp_loginclient_pat.arn,
-      aws_ssm_parameter.idp_secret_key.arn,
       aws_ssm_parameter.idp_zitadel_org.arn,
       aws_ssm_parameter.idp_notify_api_key.arn,
       aws_ssm_parameter.idp_notify_template_id.arn,
       aws_ssm_parameter.idp_password_reset_secret.arn,
       aws_ssm_parameter.idp_session_cookie_secret.arn,
     ]
-  }
-}
-
-data "aws_iam_policy_document" "login_ecs_redis" {
-  statement {
-    effect = "Allow"
-    actions = [
-      "ssm:GetParameter",
-      "ssm:GetParameters",
-    ]
-    resources = [aws_ssm_parameter.idp_login_redis_url.arn]
   }
 }
 
