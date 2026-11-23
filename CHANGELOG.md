@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.7.2](https://github.com/cds-snc/platform-unified-accounts/compare/v1.7.1...v1.7.2) (2026-11-23)
+
+
+### Bug Fixes
+
+* create distinct IAM policies for idp and portal ([#446](https://github.com/cds-snc/platform-unified-accounts/issues/446)) ([9e5a256](https://github.com/cds-snc/platform-unified-accounts/commit/9e5a2565b90b0611a0bfd5814ed9940144dcde3d))
+* **deps:** update all minor dependencies ([#450](https://github.com/cds-snc/platform-unified-accounts/issues/450)) ([4b843b0](https://github.com/cds-snc/platform-unified-accounts/commit/4b843b0e1f9649744afb58e9dcd8b16cbe5e1109))
+* **deps:** update all patch dependencies ([#449](https://github.com/cds-snc/platform-unified-accounts/issues/449)) ([50499ff](https://github.com/cds-snc/platform-unified-accounts/commit/50499ff2376f761d885e6ceb3d5f2aa9c9693bf3))
+
+
+### Miscellaneous Chores
+
+* **deps:** lock file maintenance ([#451](https://github.com/cds-snc/platform-unified-accounts/issues/451)) ([8cf13ed](https://github.com/cds-snc/platform-unified-accounts/commit/8cf13edecc261bcacdf1a001c0bef775dd4d7751))
+* **deps:** update dependency go to v1.27.4 ([#448](https://github.com/cds-snc/platform-unified-accounts/issues/448)) ([796cb6b](https://github.com/cds-snc/platform-unified-accounts/commit/796cb6b64dc245bc0f170d802354222d4c8c87de))
+* **deps:** update terraform github.com/cds-snc/terraform-modules to v14 ([#445](https://github.com/cds-snc/platform-unified-accounts/issues/445)) ([c6b4c48](https://github.com/cds-snc/platform-unified-accounts/commit/c6b4c48e94e40e2852f635d2fc9ee4bdd20dfff1))
+
 ## [1.7.1](https://github.com/cds-snc/platform-unified-accounts/compare/v1.7.0...v1.7.1) (2026-11-18)
 
 
