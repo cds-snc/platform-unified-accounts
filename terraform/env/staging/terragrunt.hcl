@@ -28,6 +28,12 @@ inputs = {
     "user.pat.removed"                 = 5
   }
 
+  idp_login_app_hosts = [
+    "auth.cdssandbox.xyz",
+    "idp.auth.cdssandbox.xyz",
+    "forms-staging.cdssandbox.xyz",
+  ]
+
   idp_login_task_cpu           = 1024
   idp_login_task_memory        = 2048
   idp_login_task_desired_count = 1

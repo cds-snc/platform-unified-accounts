@@ -267,6 +267,11 @@ variable "idp_password_reset_secret" {
   sensitive   = true
 }
 
+variable "idp_login_app_hosts" {
+  description = "The list of allowed hosts for the IdP login app. These are the only hosts that may use the app to authenticate users."
+  type        = list(string)
+}
+
 variable "idp_login_task_cpu" {
   description = "The CPU units for the idp login ECS task."
   type        = number

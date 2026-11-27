@@ -26,6 +26,12 @@ inputs = {
     "user.pat.removed"                 = 5
   }
 
+  idp_login_app_hosts = [
+    "session.canada.ca",
+    "idp.session.canada.ca",
+    "forms-formulaires.alpha.canada.ca",
+  ]
+
   idp_login_task_cpu           = 1024
   idp_login_task_memory        = 2048
   idp_login_task_desired_count = 1

@@ -77,6 +77,10 @@ locals {
       "value" = "http://idp:8080"
     },
     {
+      "name"  = "APP_HOSTS",
+      "value" = join(",", var.idp_login_app_hosts)
+    },
+    {
       "name"  = "CUSTOM_REQUEST_HEADERS",
       "value" = "Host:${var.domain}"
     },
