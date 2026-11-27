@@ -77,6 +77,10 @@ locals {
       "value" = "http://idp:8080"
     },
     {
+      "name"  = "APP_HOST",
+      "value" = var.domain
+    },
+    {
       "name"  = "CUSTOM_REQUEST_HEADERS",
       "value" = "Host:${var.domain}"
     },
