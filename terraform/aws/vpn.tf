@@ -3,7 +3,7 @@
 # access to Zitadel console and API through the internal ALB.
 #
 module "client_vpn" {
-  source = "github.com/cds-snc/terraform-modules//client_vpn?ref=v14.0.0"
+  source = "github.com/cds-snc/terraform-modules//client_vpn?ref=v14.0.1"
 
   endpoint_name         = "private-subnets"
   access_group_id       = var.client_vpn_access_group_id

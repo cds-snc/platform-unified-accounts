@@ -91,7 +91,7 @@ locals {
 }
 
 module "resolver_dns" {
-  source            = "github.com/cds-snc/terraform-modules//resolver_dns?ref=v14.0.0"
+  source            = "github.com/cds-snc/terraform-modules//resolver_dns?ref=v14.0.1"
   vpc_id            = module.idp_vpc.vpc_id
   firewall_enabled  = true
   allowed_domains   = concat(local.allowed_all_domains, local.allowed_env_domains[var.env])
