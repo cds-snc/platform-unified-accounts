@@ -2,7 +2,7 @@
 # Stream CloudWatch logs to S3 for long-term storage
 #
 module "cloudwatch_log_storage" {
-  source = "github.com/cds-snc/terraform-modules//cloudwatch_log_storage?ref=v14.0.0"
+  source = "github.com/cds-snc/terraform-modules//cloudwatch_log_storage?ref=v14.0.1"
 
   product_name          = "${var.product_name}-${var.env}"
   athena_workgroup_name = module.athena_access_logs.athena_workgroup_name
